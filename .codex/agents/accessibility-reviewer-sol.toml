@@ -1,6 +1,6 @@
-name = "accessibility_reviewer_sol"
+name = "accessibility_reviewer"
 description = "Read-only accessibility specialist for screen-reader-first camera workflows."
-model = "gpt-5.7-sol"
+model = "gpt-5.4"
 model_reasoning_effort = "high"
 sandbox_mode = "read-only"
 
