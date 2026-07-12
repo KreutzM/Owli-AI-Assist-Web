@@ -28,8 +28,9 @@ The web client owns browser camera integration, client-side image preparation, a
 ## Work model
 
 - Use a tracking issue for a multi-PR track and one child issue per implementation slice.
-- Plan and review normally use `gpt-5.7-sol` through the OpenAI web interface and GitHub connector.
-- Routine implementation defaults to `gpt-5.6-luna`; use `gpt-5.6-terra` for architecture-heavy, camera, streaming, concurrency, or security-sensitive work.
+- Plan and review normally use `gpt-5.6-sol` through the OpenAI web interface and GitHub connector; this is not written into repository-local Codex model settings.
+- Local Codex runs and checked-in sub-agents currently use `gpt-5.4`, matching Assist and Backend. Use high reasoning for architecture-heavy, camera, streaming, concurrency, or security-sensitive work.
+- A coordinated model-family migration across all repositories will be handled separately.
 - Work on thematic branches, keep PRs small, and do not merge without explicit maintainer/orchestrator instruction.
 - Persist Builder and Reviewer handoffs in the PR conversation.
 
