@@ -1,6 +1,6 @@
-name = "privacy_reviewer_sol"
+name = "privacy_reviewer"
 description = "Read-only privacy and browser-security reviewer."
-model = "gpt-5.7-sol"
+model = "gpt-5.4"
 model_reasoning_effort = "high"
 sandbox_mode = "read-only"
 
