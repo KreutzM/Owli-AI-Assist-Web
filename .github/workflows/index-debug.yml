@@ -1,0 +1,30 @@
+name: Index debug
+
+on:
+  push:
+    branches:
+      - chore/align-codex-model-config
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Generate index from runner checkout
+        run: node tools/generate-repo-index.mjs
+      - name: Upload generated index
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-agent-index
+          path: |
+            .ai/file-tree.md
+            .ai/repo-index.json
+          retention-days: 1
