@@ -1,6 +1,7 @@
 name: Index debug
 
 on:
+  pull_request:
   push:
     branches:
       - chore/align-codex-model-config
