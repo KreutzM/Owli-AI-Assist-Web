@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Private security report
+    url: https://owli-ai.com/support/
+    about: Do not publish user media, tokens, or vulnerability details in an issue.

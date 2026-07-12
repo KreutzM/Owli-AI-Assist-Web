@@ -1,0 +1,40 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+
+model = "gpt-5.6-luna"
+model_reasoning_effort = "medium"
+review_model = "gpt-5.7-sol"
+plan_mode_reasoning_effort = "high"
+personality = "pragmatic"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+sandbox_workspace_write.network_access = true
+project_doc_max_bytes = 65536
+
+[agents]
+max_threads = 5
+max_depth = 1
+job_max_runtime_seconds = 1800
+
+[agents.planner]
+description = "Read-only PWA and cross-repository planner using the high-reasoning planning model."
+config_file = "agents/planner-sol.toml"
+
+[agents.builder]
+description = "Focused routine React/TypeScript PWA builder."
+config_file = "agents/web-builder-luna.toml"
+
+[agents.architect]
+description = "Architecture-heavy builder for camera, streaming, security, and complex refactors."
+config_file = "agents/web-builder-terra.toml"
+
+[agents.reviewer]
+description = "Read-only senior web/PWA reviewer."
+config_file = "agents/web-reviewer-sol.toml"
+
+[agents.accessibility_reviewer]
+description = "Read-only accessibility reviewer for VoiceOver, TalkBack, keyboard, semantics, and live regions."
+config_file = "agents/accessibility-reviewer-sol.toml"
+
+[agents.privacy_reviewer]
+description = "Read-only privacy and browser-security reviewer."
+config_file = "agents/privacy-reviewer-sol.toml"

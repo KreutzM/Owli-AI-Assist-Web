@@ -1,0 +1,35 @@
+name: Bug report
+about: Reproducible browser/PWA problem using synthetic data
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not attach real scene images, tokens, provider responses, or personal information.
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Observed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Synthetic reproduction steps
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser, OS, device, and PWA/browser mode
+    validations:
+      required: true
+  - type: textarea
+    id: accessibility
+    attributes:
+      label: Screen reader or accessibility settings

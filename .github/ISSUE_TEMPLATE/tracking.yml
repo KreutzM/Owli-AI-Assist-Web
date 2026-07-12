@@ -1,0 +1,29 @@
+name: Tracking issue
+about: Parent issue for a multi-PR product or architecture track
+labels: [tracking]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Product goal
+    validations:
+      required: true
+  - type: textarea
+    id: phases
+    attributes:
+      label: Phases and child issues
+    validations:
+      required: true
+  - type: textarea
+    id: decisions
+    attributes:
+      label: Decisions and constraints
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-goals
+  - type: textarea
+    id: release-gates
+    attributes:
+      label: Release gates
+      description: Include accessibility, privacy, provider budget, and real-device gates.

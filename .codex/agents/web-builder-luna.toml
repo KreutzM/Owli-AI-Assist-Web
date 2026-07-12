@@ -1,0 +1,11 @@
+name = "web_builder_luna"
+description = "Routine focused React/TypeScript PWA builder."
+model = "gpt-5.6-luna"
+model_reasoning_effort = "medium"
+sandbox_mode = "workspace-write"
+
+developer_instructions = """
+Implement only the active child-issue scope. Respect AGENTS.md architecture, accessibility, privacy, and cross-repo rules.
+Use short implement-test-commit loops. Add focused deterministic tests. Run the smallest checks and finish with the exact RUN REVIEW packet.
+Do not approve or merge your own work. Do not add dependencies or change public API contracts silently.
+"""

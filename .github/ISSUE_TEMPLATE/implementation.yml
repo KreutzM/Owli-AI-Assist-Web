@@ -1,0 +1,45 @@
+name: Implementation slice
+about: One small Planner-defined Builder/Reviewer cycle
+labels: [implementation]
+body:
+  - type: input
+    id: tracking
+    attributes:
+      label: Tracking issue
+      placeholder: '#123'
+    validations:
+      required: true
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+    validations:
+      required: true
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-goals
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+    validations:
+      required: true
+  - type: textarea
+    id: checks
+    attributes:
+      label: Required checks and manual tests
+    validations:
+      required: true
+  - type: textarea
+    id: review
+    attributes:
+      label: Reviewer focus
