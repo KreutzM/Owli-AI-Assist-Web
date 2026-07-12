@@ -14,48 +14,43 @@
     },
     {
       "path": ".codex/agents/accessibility-reviewer-sol.toml",
-      "bytes": 617,
+      "bytes": 609,
       "area": ".codex"
     },
     {
       "path": ".codex/agents/planner-sol.toml",
-      "bytes": 688,
+      "bytes": 684,
       "area": ".codex"
     },
     {
       "path": ".codex/agents/privacy-reviewer-sol.toml",
-      "bytes": 599,
+      "bytes": 591,
       "area": ".codex"
     },
     {
       "path": ".codex/agents/web-builder-luna.toml",
-      "bytes": 580,
+      "bytes": 570,
       "area": ".codex"
     },
     {
       "path": ".codex/agents/web-builder-terra.toml",
-      "bytes": 628,
+      "bytes": 618,
       "area": ".codex"
     },
     {
       "path": ".codex/agents/web-reviewer-sol.toml",
-      "bytes": 697,
+      "bytes": 689,
       "area": ".codex"
     },
     {
       "path": ".codex/config.toml",
-      "bytes": 1329,
+      "bytes": 1776,
       "area": ".codex"
     },
     {
       "path": ".editorconfig",
       "bytes": 188,
       "area": ".editorconfig"
-    },
-    {
-      "path": ".env.example",
-      "bytes": 234,
-      "area": ".env.example"
     },
     {
       "path": ".gitattributes",
@@ -119,12 +114,12 @@
     },
     {
       "path": "AGENTS.md",
-      "bytes": 6324,
+      "bytes": 6601,
       "area": "AGENTS.md"
     },
     {
       "path": "CHATGPT.md",
-      "bytes": 2215,
+      "bytes": 2415,
       "area": "CHATGPT.md"
     },
     {
@@ -154,7 +149,7 @@
     },
     {
       "path": "docs/AGENT-HANDOFF-WORKFLOW.md",
-      "bytes": 1487,
+      "bytes": 1727,
       "area": "docs"
     },
     {
@@ -189,12 +184,12 @@
     },
     {
       "path": "docs/MODEL-ROLE-POLICY.md",
-      "bytes": 887,
+      "bytes": 1421,
       "area": "docs"
     },
     {
       "path": "docs/MVP-IMPLEMENTATION-PLAN.md",
-      "bytes": 8793,
+      "bytes": 8866,
       "area": "docs"
     },
     {
