@@ -1,6 +1,6 @@
 name = "pwa_planner"
 description = "Read-only planner for small cross-stack PWA implementation slices."
-model = "gpt-5.7-sol"
+model = "gpt-5.4"
 model_reasoning_effort = "high"
 sandbox_mode = "read-only"
 

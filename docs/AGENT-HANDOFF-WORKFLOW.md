@@ -8,15 +8,15 @@ GitHub is the durable handoff layer.
 
 ## Planner
 
-Plans without editing code. Uses `gpt-5.7-sol` by default. Defines narrow scope, non-goals, acceptance criteria, affected repositories, required checks, and manual accessibility gates.
+Plans without editing code. In the OpenAI web interface this normally uses `gpt-5.6-sol`; the local Codex planner sub-agent uses `gpt-5.4`. Defines narrow scope, non-goals, acceptance criteria, affected repositories, required checks, and manual accessibility gates.
 
 ## Builder
 
-Uses `gpt-5.6-luna` or `gpt-5.6-terra`. Reads issues and repository instructions, creates a thematic branch, implements only the child scope, runs checks, opens the PR, and posts a top-level `## Builder Handoff / Run Review` comment.
+Uses the repository-local `gpt-5.4` Codex configuration, with high reasoning for architecture-heavy work. Reads issues and repository instructions, creates a thematic branch, implements only the child scope, runs checks, opens the PR, and posts a top-level `## Builder Handoff / Run Review` comment.
 
 ## Reviewer
 
-Uses `gpt-5.7-sol`. Reads the complete durable context, checks diff and CI against acceptance criteria, and records `APPROVE`, `REQUEST_CHANGES`, or `COMMENT`. The Reviewer does not merge by default.
+In the OpenAI web interface this normally uses `gpt-5.6-sol`; the local Codex reviewer sub-agent uses `gpt-5.4`. Reads the complete durable context, checks diff and CI against acceptance criteria, and records `APPROVE`, `REQUEST_CHANGES`, or `COMMENT`. The Reviewer does not merge by default.
 
 ## PR description
 

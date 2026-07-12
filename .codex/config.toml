@@ -1,8 +1,10 @@
 #:schema https://developers.openai.com/codex/config-schema.json
 
-model = "gpt-5.6-luna"
+# Keep repository-local Codex models aligned with Assist and Backend until the
+# workspace performs a coordinated model-family migration.
+model = "gpt-5.4"
 model_reasoning_effort = "medium"
-review_model = "gpt-5.7-sol"
+review_model = "gpt-5.4"
 plan_mode_reasoning_effort = "high"
 personality = "pragmatic"
 approval_policy = "on-request"
@@ -11,12 +13,12 @@ sandbox_workspace_write.network_access = true
 project_doc_max_bytes = 65536
 
 [agents]
-max_threads = 5
+max_threads = 4
 max_depth = 1
 job_max_runtime_seconds = 1800
 
 [agents.planner]
-description = "Read-only PWA and cross-repository planner using the high-reasoning planning model."
+description = "Read-only PWA and cross-repository planner."
 config_file = "agents/planner-sol.toml"
 
 [agents.builder]
@@ -24,7 +26,7 @@ description = "Focused routine React/TypeScript PWA builder."
 config_file = "agents/web-builder-luna.toml"
 
 [agents.architect]
-description = "Architecture-heavy builder for camera, streaming, security, and complex refactors."
+description = "Architecture-focused builder for camera, streaming, security, and complex refactors."
 config_file = "agents/web-builder-terra.toml"
 
 [agents.reviewer]
@@ -38,3 +40,19 @@ config_file = "agents/accessibility-reviewer-sol.toml"
 [agents.privacy_reviewer]
 description = "Read-only privacy and browser-security reviewer."
 config_file = "agents/privacy-reviewer-sol.toml"
+
+[profiles.quick]
+model = "gpt-5.4-mini"
+model_reasoning_effort = "low"
+
+[profiles.web]
+model = "gpt-5.4"
+model_reasoning_effort = "medium"
+plan_mode_reasoning_effort = "high"
+
+[profiles.complex]
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+sandbox_workspace_write.network_access = true

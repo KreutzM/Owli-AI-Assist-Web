@@ -1,6 +1,6 @@
-name = "web_builder_luna"
+name = "web_builder"
 description = "Routine focused React/TypeScript PWA builder."
-model = "gpt-5.6-luna"
+model = "gpt-5.4"
 model_reasoning_effort = "medium"
 sandbox_mode = "workspace-write"
 

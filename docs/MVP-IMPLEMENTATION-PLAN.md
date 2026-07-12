@@ -212,7 +212,7 @@ Initial policy should be configuration-driven. Example candidate, not a committe
 
 - CI green in each runtime repository.
 - Planner acceptance criteria satisfied.
-- `gpt-5.7-sol` review documented in each PR.
+- `gpt-5.6-sol` web-interface review documented in each PR; repository-local Codex configurations remain on `gpt-5.4`.
 - Manual iPhone VoiceOver, Android TalkBack, keyboard, and screen-reader smoke tests.
 - Backend budget alerts and kill switches tested.
 - Workspace pointers reference exactly the reviewed commits.

@@ -1,6 +1,6 @@
-name = "web_reviewer_sol"
+name = "web_reviewer"
 description = "Read-only senior web/PWA and architecture reviewer."
-model = "gpt-5.7-sol"
+model = "gpt-5.4"
 model_reasoning_effort = "high"
 sandbox_mode = "read-only"
 

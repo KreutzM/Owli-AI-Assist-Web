@@ -9,11 +9,11 @@
 
 ## Model and role defaults
 
-- Planner: `gpt-5.7-sol`, read-only, high reasoning.
-- Reviewer: `gpt-5.7-sol`, read-only, high reasoning.
-- Builder default: `gpt-5.6-luna`, medium reasoning.
-- Builder for architecture, browser-media, streaming, security, or difficult refactors: `gpt-5.6-terra`, high reasoning.
-- Do not silently substitute a different model when the named model is unavailable; record the substitution in the handoff.
+- Planning and review in the OpenAI web interface normally use `gpt-5.6-sol` with the GitHub connector. This is an orchestration choice, not a repository-local Codex setting.
+- Repository-local Codex defaults and all checked-in sub-agents use `gpt-5.4`, matching the current Assist and Backend repositories.
+- The optional quick profile uses `gpt-5.4-mini` for narrow low-risk tasks.
+- Use medium reasoning by default and high reasoning for architecture, browser-media, streaming, security, concurrency, or difficult refactors.
+- Do not migrate this repository alone to the newer model family. Model-family changes must be coordinated across the workspace and runtime repositories.
 
 ## Work style
 
