@@ -10,7 +10,9 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node tools/generate-cloudflare-headers.mjs mock",
+    "build:staging": "VITE_OWLI_API_MODE=remote VITE_OWLI_API_BASE_URL=https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev/ tsc -b && vite build && node tools/generate-cloudflare-headers.mjs staging",
+    "build:production": "VITE_OWLI_API_MODE=mock tsc -b && vite build && node tools/generate-cloudflare-headers.mjs production",
     "preview": "vite preview --host 127.0.0.1",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint . --max-warnings 0",
