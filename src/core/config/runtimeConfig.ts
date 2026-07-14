@@ -35,7 +35,9 @@ const localeSchema = z.string().regex(/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/);
 export function readRuntimeConfig(env: ImportMetaEnv = import.meta.env): RuntimeConfig {
   const mode = env.VITE_OWLI_API_MODE ?? 'mock';
   const appVersion = appVersionSchema.safeParse(env.VITE_OWLI_APP_VERSION ?? '0.1.0');
-  if (!appVersion.success) return { mode: 'invalid_configuration', reason: 'APP_VERSION_INVALID' };
+  if (!appVersion.success) {
+    return { mode: 'invalid_configuration', reason: 'APP_VERSION_INVALID' };
+  }
 
   const versionCodeRaw = env.VITE_OWLI_VERSION_CODE ?? '1';
   if (!/^[1-9]\d*$/.test(versionCodeRaw)) {
@@ -47,7 +49,9 @@ export function readRuntimeConfig(env: ImportMetaEnv = import.meta.env): Runtime
   }
 
   const locale = localeSchema.safeParse(env.VITE_OWLI_DEFAULT_LOCALE ?? 'de-DE');
-  if (!locale.success) return { mode: 'invalid_configuration', reason: 'LOCALE_INVALID' };
+  if (!locale.success) {
+    return { mode: 'invalid_configuration', reason: 'LOCALE_INVALID' };
+  }
 
   if (mode === 'mock') {
     return {
@@ -63,7 +67,9 @@ export function readRuntimeConfig(env: ImportMetaEnv = import.meta.env): Runtime
   }
 
   const rawBaseUrl = env.VITE_OWLI_API_BASE_URL;
-  if (!rawBaseUrl) return { mode: 'invalid_configuration', reason: 'REMOTE_BASE_URL_MISSING' };
+  if (!rawBaseUrl) {
+    return { mode: 'invalid_configuration', reason: 'REMOTE_BASE_URL_MISSING' };
+  }
 
   let normalized: string;
   try {
@@ -89,7 +95,9 @@ export function readRuntimeConfig(env: ImportMetaEnv = import.meta.env): Runtime
       : normalized === PRODUCTION_API_ROOT
         ? 'production'
         : undefined;
-  if (!target) return { mode: 'invalid_configuration', reason: 'REMOTE_BASE_URL_NOT_APPROVED' };
+  if (!target) {
+    return { mode: 'invalid_configuration', reason: 'REMOTE_BASE_URL_NOT_APPROVED' };
+  }
 
   return {
     mode: 'remote',
