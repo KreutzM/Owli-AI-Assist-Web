@@ -6,7 +6,9 @@ export class RemoteSessionManager {
   #session?: WebBootstrapResponseV2;
   #inFlight?: Promise<WebBootstrapResponseV2>;
 
-  constructor(private readonly bootstrap: (signal?: AbortSignal) => Promise<WebBootstrapResponseV2>) {}
+  constructor(
+    private readonly bootstrap: (signal?: AbortSignal) => Promise<WebBootstrapResponseV2>,
+  ) {}
 
   get metadata(): { status: 'empty' | 'ready'; expiresAt?: number } {
     const session = this.#getValid();

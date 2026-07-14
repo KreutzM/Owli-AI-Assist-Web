@@ -21,7 +21,10 @@ export type RemoteClientErrorCode =
   | 'REQUEST_ABORTED';
 
 export class RemoteClientError extends Error {
-  constructor(readonly code: RemoteClientErrorCode, readonly retryAt?: number) {
+  constructor(
+    readonly code: RemoteClientErrorCode,
+    readonly retryAt?: number,
+  ) {
     super(code);
     this.name = 'RemoteClientError';
   }
@@ -62,7 +65,8 @@ export class RemoteCatalogClient {
     const parsed = remotePublicConfigSchema.safeParse(await response.json().catch(() => undefined));
     if (!parsed.success) throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
     const expected = this.config.target === 'staging' ? 'staging' : 'prod';
-    if (parsed.data.environment !== expected) throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
+    if (parsed.data.environment !== expected)
+      throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
     return parsed.data;
   }
 
@@ -78,7 +82,9 @@ export class RemoteCatalogClient {
       }),
       ...(signal ? { signal } : {}),
     });
-    const parsed = webBootstrapResponseV2Schema.safeParse(await response.json().catch(() => undefined));
+    const parsed = webBootstrapResponseV2Schema.safeParse(
+      await response.json().catch(() => undefined),
+    );
     if (!parsed.success) throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
     const expected = this.config.target === 'staging' ? 'staging' : 'prod';
     if (parsed.data.bootstrapInfo.environment !== expected) {
@@ -120,7 +126,9 @@ export class RemoteCatalogClient {
     }
     if (!response.ok) throw new RemoteHttpError(response.status);
 
-    const parsed = remoteProfilesResponseSchema.safeParse(await response.json().catch(() => undefined));
+    const parsed = remoteProfilesResponseSchema.safeParse(
+      await response.json().catch(() => undefined),
+    );
     if (!parsed.success) throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
     const etag = response.headers.get('ETag');
     if (!etag) throw new RemoteClientError('PROFILE_CACHE_INVALID');
@@ -140,7 +148,8 @@ export class RemoteCatalogClient {
           Number.isFinite(retryAfter) ? Date.now() + retryAfter * 1000 : undefined,
         );
       }
-      if (response.status === 401 || response.status === 403) throw new RemoteHttpError(response.status);
+      if (response.status === 401 || response.status === 403)
+        throw new RemoteHttpError(response.status);
       if (response.status >= 500) throw new RemoteClientError('SERVICE_UNAVAILABLE');
       throw new RemoteClientError('BOOTSTRAP_REJECTED');
     } catch (error) {

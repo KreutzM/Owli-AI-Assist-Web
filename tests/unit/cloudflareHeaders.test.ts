@@ -30,6 +30,8 @@ describe('Cloudflare header artifacts', () => {
   });
 
   it('fails for unknown targets', async () => {
-    await expect(exec(process.execPath, ['tools/generate-cloudflare-headers.mjs', 'unknown'])).rejects.toBeTruthy();
+    await expect(
+      exec(process.execPath, ['tools/generate-cloudflare-headers.mjs', 'unknown']),
+    ).rejects.toBeTruthy();
   });
 });

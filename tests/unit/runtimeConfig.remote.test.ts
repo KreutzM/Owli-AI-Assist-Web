@@ -37,9 +37,8 @@ describe('remote runtime configuration', () => {
     'https://example.com/',
   ])('rejects unapproved or malformed roots', (baseUrl) => {
     expect(
-      readRuntimeConfig(
-        env({ VITE_OWLI_API_MODE: 'remote', VITE_OWLI_API_BASE_URL: baseUrl }),
-      ).mode,
+      readRuntimeConfig(env({ VITE_OWLI_API_MODE: 'remote', VITE_OWLI_API_BASE_URL: baseUrl }))
+        .mode,
     ).toBe('invalid_configuration');
   });
 });

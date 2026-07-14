@@ -22,7 +22,8 @@ const valid = {
 describe('Web bootstrap v2 contract', () => {
   it('requires sceneDescribe and followup boolean flags', () => {
     expect(
-      webBootstrapResponseV2Schema.safeParse({ ...valid, featureFlags: { followup: false } }).success,
+      webBootstrapResponseV2Schema.safeParse({ ...valid, featureFlags: { followup: false } })
+        .success,
     ).toBe(false);
     expect(
       webBootstrapResponseV2Schema.safeParse({ ...valid, featureFlags: { sceneDescribe: false } })

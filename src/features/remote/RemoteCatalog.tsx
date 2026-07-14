@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  RemoteClientError,
-  type RemoteCatalogClient,
-} from '@/core/api/remoteCatalogClient';
+import { RemoteClientError, type RemoteCatalogClient } from '@/core/api/remoteCatalogClient';
 import type { RemoteProfileCatalog } from '@/core/api/remoteCatalogContracts';
 
 type State =
@@ -36,7 +33,10 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
         if (refresh && currentCatalog.current) {
           setState({ status: 'refresh_failed', catalog: currentCatalog.current });
         } else if (error instanceof RemoteClientError && error.code === 'RATE_LIMITED') {
-          setState({ status: 'rate_limited', ...(error.retryAt ? { retryAt: error.retryAt } : {}) });
+          setState({
+            status: 'rate_limited',
+            ...(error.retryAt ? { retryAt: error.retryAt } : {}),
+          });
         } else {
           setState({ status: 'unavailable' });
         }
@@ -61,7 +61,10 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
         if (id !== attempt.current) return;
         if (error instanceof RemoteClientError && error.code === 'REQUEST_ABORTED') return;
         if (error instanceof RemoteClientError && error.code === 'RATE_LIMITED') {
-          setState({ status: 'rate_limited', ...(error.retryAt ? { retryAt: error.retryAt } : {}) });
+          setState({
+            status: 'rate_limited',
+            ...(error.retryAt ? { retryAt: error.retryAt } : {}),
+          });
         } else {
           setState({ status: 'unavailable' });
         }
@@ -112,8 +115,7 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
       {state.status === 'unavailable' && (
         <div>
           <p className="live-status" role="alert">
-            Die Online-Vorbereitung ist derzeit nicht verfügbar. Es wurden keine Inhalte
-            übertragen.
+            Die Online-Vorbereitung ist derzeit nicht verfügbar. Es wurden keine Inhalte übertragen.
           </p>
           <RetryButton onRetry={() => void run(false)} />
         </div>

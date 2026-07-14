@@ -41,7 +41,11 @@ export const webBootstrapResponseV2Schema = z
   })
   .superRefine((value, context) => {
     if (Date.parse(value.expiresAt) <= Date.now()) {
-      context.addIssue({ code: 'custom', path: ['expiresAt'], message: 'Expiry must be in the future' });
+      context.addIssue({
+        code: 'custom',
+        path: ['expiresAt'],
+        message: 'Expiry must be in the future',
+      });
     }
   });
 

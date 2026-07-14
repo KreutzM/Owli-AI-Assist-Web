@@ -58,8 +58,12 @@ test.describe('remote readiness', () => {
     );
 
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Backend-Bereitschaft und Profile' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Backend-Bereitschaft und Profile' }),
+    ).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Basic' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Kamera|Aufnahme|Rückfrage|Postcard/i })).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: /Kamera|Aufnahme|Rückfrage|Postcard/i }),
+    ).toHaveCount(0);
   });
 });

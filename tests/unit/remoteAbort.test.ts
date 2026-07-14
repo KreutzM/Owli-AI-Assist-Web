@@ -11,8 +11,16 @@ describe('remote session abort', () => {
         expiresAt: new Date(Date.now() + 120_000).toISOString(),
         featureFlags: { sceneDescribe: false, followup: false },
         bootstrapInfo: {
-          environment: 'staging', sessionTtlSeconds: 120, sessionSchemaVersion: 2, platform: 'web',
-          trust: { kind: 'browser_public_client', status: 'unattested_public_client', enforced: false, note: 'public' },
+          environment: 'staging',
+          sessionTtlSeconds: 120,
+          sessionSchemaVersion: 2,
+          platform: 'web',
+          trust: {
+            kind: 'browser_public_client',
+            status: 'unattested_public_client',
+            enforced: false,
+            note: 'public',
+          },
         },
       };
     });
