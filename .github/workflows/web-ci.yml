@@ -41,33 +41,35 @@ jobs:
       - name: Check formatting
         run: pnpm format:check
 
-      - name: Run lint
-        id: lint
-        continue-on-error: true
+      - name: Capture lint diagnostics
         run: |
-          set -o pipefail
-          pnpm lint 2>&1 | tee lint.log
+          set +e
+          pnpm lint > lint.log 2>&1
+          echo $? > lint.exit
+          exit 0
 
-      - name: Run typecheck
-        id: typecheck
-        continue-on-error: true
+      - name: Capture typecheck diagnostics
         run: |
-          set -o pipefail
-          pnpm typecheck 2>&1 | tee typecheck.log
+          set +e
+          pnpm typecheck > typecheck.log 2>&1
+          echo $? > typecheck.exit
+          exit 0
 
       - name: Upload validation diagnostics
-        if: steps.lint.outcome == 'failure' || steps.typecheck.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: validation-diagnostics
           path: |
             lint.log
+            lint.exit
             typecheck.log
+            typecheck.exit
           retention-days: 1
 
       - name: Enforce validation result
-        if: steps.lint.outcome == 'failure' || steps.typecheck.outcome == 'failure'
-        run: exit 1
+        run: |
+          test "$(cat lint.exit)" = "0"
+          test "$(cat typecheck.exit)" = "0"
 
       - name: Run architecture guardrails
         run: pnpm guardrails
