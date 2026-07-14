@@ -39,7 +39,27 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Check formatting
+        id: formatting
+        continue-on-error: true
         run: pnpm format:check
+
+      - name: Capture formatting patch
+        if: steps.formatting.outcome == 'failure'
+        run: |
+          pnpm format
+          git diff --binary > prettier.patch
+
+      - name: Upload formatting patch
+        if: steps.formatting.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: prettier-patch
+          path: prettier.patch
+          retention-days: 1
+
+      - name: Enforce formatting result
+        if: steps.formatting.outcome == 'failure'
+        run: exit 1
 
       - name: Run lint
         run: pnpm lint
