@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: web-ci-${{ github.ref }}
@@ -22,8 +22,6 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -40,53 +38,39 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Apply repository formatter
-        run: pnpm format
-
-      - name: Commit formatter output
-        id: formatter
-        run: |
-          if git diff --quiet; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "style: apply repository formatter"
-          git push origin HEAD:${{ github.head_ref || github.ref_name }}
-          echo "changed=true" >> "$GITHUB_OUTPUT"
-
-      - name: Stop superseded run
-        if: steps.formatter.outputs.changed == 'true'
-        run: exit 0
-
       - name: Check formatting
-        if: steps.formatter.outputs.changed != 'true'
         run: pnpm format:check
 
       - name: Run lint
-        if: steps.formatter.outputs.changed != 'true'
-        run: pnpm lint
+        id: lint
+        continue-on-error: true
+        run: pnpm lint 2>&1 | tee lint.log
+
+      - name: Upload lint diagnostics
+        if: steps.lint.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-diagnostics
+          path: lint.log
+          retention-days: 1
+
+      - name: Enforce lint result
+        if: steps.lint.outcome == 'failure'
+        run: exit 1
 
       - name: Run typecheck
-        if: steps.formatter.outputs.changed != 'true'
         run: pnpm typecheck
 
       - name: Run architecture guardrails
-        if: steps.formatter.outputs.changed != 'true'
         run: pnpm guardrails
 
       - name: Run unit tests
-        if: steps.formatter.outputs.changed != 'true'
         run: pnpm test
 
       - name: Build production PWA
-        if: steps.formatter.outputs.changed != 'true'
         run: pnpm build
 
       - name: Verify agent index
-        if: steps.formatter.outputs.changed != 'true'
         run: pnpm ai:index:check
 
   browser:
