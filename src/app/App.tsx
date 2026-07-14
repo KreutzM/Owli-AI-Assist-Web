@@ -52,7 +52,11 @@ export function App() {
   );
 }
 
-function MockApplication({ runtime }: { runtime: Extract<ReturnType<typeof createAppRuntime>, { mode: 'mock' }> }) {
+function MockApplication({
+  runtime,
+}: {
+  runtime: Extract<ReturnType<typeof createAppRuntime>, { mode: 'mock' }>;
+}) {
   const camera = useMemo(() => new BrowserCamera(), []);
   const share = useMemo(() => new BrowserShare(), []);
   const speech = useMemo(() => new BrowserSpeech(), []);
