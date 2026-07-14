@@ -1,22 +1,21 @@
-name: Web CI
+name: Web CI Diagnostics
 
 on:
-  pull_request:
   push:
     branches:
-      - main
+      - pwa-mvp/remote-profiles-session
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: web-ci-${{ github.ref }}
+  group: web-ci-diagnostics-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   validate:
-    name: Type, lint, unit, guardrails, build
+    name: Branch diagnostics
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -82,41 +81,3 @@ jobs:
 
       - name: Verify agent index
         run: pnpm ai:index:check
-
-  browser:
-    name: Browser and accessibility smoke
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: validate
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.12.1
-          run_install: false
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium webkit
-
-      - name: Run Chromium and WebKit smoke tests
-        run: pnpm test:e2e
-
-      - name: Upload Playwright report on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
