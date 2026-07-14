@@ -6,7 +6,6 @@ import {
   type RemoteProfilesResponse,
   type RemotePublicConfig,
 } from '@/core/api/remoteCatalogContracts';
-import type { Extract } from 'type-fest';
 import type { RuntimeConfig } from '@/core/config/runtimeConfig';
 import { RemoteHttpError, RemoteSessionManager } from '@/core/session/remoteSessionManager';
 
@@ -43,8 +42,8 @@ export class RemoteCatalogClient {
 
   async initialize(signal?: AbortSignal): Promise<RemoteProfileCatalog> {
     const publicConfig = await this.#loadConfig(signal);
-    await this.#sessions.ensure(signal);
-    return this.#loadProfiles(publicConfig, signal);
+    const session = await this.#sessions.ensure(signal);
+    return this.#loadProfiles(publicConfig, signal, session.sessionToken);
   }
 
   async refresh(signal?: AbortSignal): Promise<RemoteProfileCatalog> {
@@ -56,7 +55,10 @@ export class RemoteCatalogClient {
   }
 
   async #loadConfig(signal?: AbortSignal): Promise<RemotePublicConfig> {
-    const response = await this.#fetch('/api/v1/config', { headers: { Accept: 'application/json' }, signal });
+    const response = await this.#fetch('/api/v1/config', {
+      headers: { Accept: 'application/json' },
+      ...(signal ? { signal } : {}),
+    });
     const parsed = remotePublicConfigSchema.safeParse(await response.json().catch(() => undefined));
     if (!parsed.success) throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
     const expected = this.config.target === 'staging' ? 'staging' : 'prod';
@@ -74,7 +76,7 @@ export class RemoteCatalogClient {
         platform: 'web',
         locale: this.config.defaultLocale,
       }),
-      signal,
+      ...(signal ? { signal } : {}),
     });
     const parsed = webBootstrapResponseV2Schema.safeParse(await response.json().catch(() => undefined));
     if (!parsed.success) throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
@@ -87,19 +89,25 @@ export class RemoteCatalogClient {
 
   async #loadProfiles(
     publicConfig: RemotePublicConfig,
-    signal?: AbortSignal,
-    token?: string,
+    signal: AbortSignal | undefined,
+    token: string,
     cacheless304Recovery = false,
   ): Promise<RemoteProfileCatalog> {
-    const headers: Record<string, string> = { Accept: 'application/json' };
-    if (token) headers.Authorization = `Bearer ${token}`;
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    };
     if (this.#cache && !cacheless304Recovery) headers['If-None-Match'] = this.#cache.etag;
 
-    const response = await this.#fetch('/api/v1/profiles', {
-      headers,
-      cache: 'no-store',
-      signal,
-    }, true);
+    const response = await this.#fetch(
+      '/api/v1/profiles',
+      {
+        headers,
+        cache: 'no-store',
+        ...(signal ? { signal } : {}),
+      },
+      true,
+    );
 
     if (response.status === 304) {
       if (this.#cache && !cacheless304Recovery) {
