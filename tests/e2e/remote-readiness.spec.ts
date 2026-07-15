@@ -47,7 +47,7 @@ test.describe('remote readiness', () => {
   });
 
   test('announces loading and then an empty catalog accessibly', async ({ page }) => {
-    let releaseConfig = () => undefined;
+    let releaseConfig: () => void = () => undefined;
     const configGate = new Promise<void>((resolve) => {
       releaseConfig = resolve;
     });
@@ -83,7 +83,7 @@ test.describe('remote readiness', () => {
   test('keeps the catalog visible, disables refresh while active, and reports refresh failure', async ({
     page,
   }) => {
-    let releaseRefresh = () => undefined;
+    let releaseRefresh: () => void = () => undefined;
     const refreshGate = new Promise<void>((resolve) => {
       releaseRefresh = resolve;
     });
