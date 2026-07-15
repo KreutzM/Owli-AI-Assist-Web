@@ -16,9 +16,9 @@ concurrency:
 
 jobs:
   validate:
-    name: Type, lint, unit, guardrails, build
+    name: Type, lint, unit, guardrails, builds
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -53,16 +53,25 @@ jobs:
       - name: Run unit tests
         run: pnpm test
 
-      - name: Build production PWA
+      - name: Build mock PWA
         run: pnpm build
+
+      - name: Verify occupied ports fail fast
+        run: pnpm test:ports
+
+      - name: Build staging PWA and headers
+        run: pnpm build:staging
+
+      - name: Build production PWA and headers
+        run: pnpm build:production
 
       - name: Verify agent index
         run: pnpm ai:index:check
 
   browser:
-    name: Browser and accessibility smoke
+    name: Browser and accessibility matrix
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     needs: validate
     steps:
       - name: Check out repository
@@ -86,7 +95,7 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium webkit
 
-      - name: Run Chromium and WebKit smoke tests
+      - name: Run Chromium and WebKit remote-state matrix
         run: pnpm test:e2e
 
       - name: Upload Playwright report on failure
