@@ -2,16 +2,8 @@
   "schemaVersion": 1,
   "generatedBy": "tools/generate-repo-index.mjs",
   "files": [
-    {
-      "path": ".ai/change-type-map.md",
-      "bytes": 1603,
-      "area": ".ai"
-    },
-    {
-      "path": ".ai/web-guide.md",
-      "bytes": 938,
-      "area": ".ai"
-    },
+    { "path": ".ai/change-type-map.md", "bytes": 1603, "area": ".ai" },
+    { "path": ".ai/web-guide.md", "bytes": 938, "area": ".ai" },
     {
       "path": ".codex/agents/accessibility-reviewer-sol.toml",
       "bytes": 609,
@@ -42,26 +34,10 @@
       "bytes": 689,
       "area": ".codex"
     },
-    {
-      "path": ".codex/config.toml",
-      "bytes": 1776,
-      "area": ".codex"
-    },
-    {
-      "path": ".editorconfig",
-      "bytes": 188,
-      "area": ".editorconfig"
-    },
-    {
-      "path": ".gitattributes",
-      "bytes": 112,
-      "area": ".gitattributes"
-    },
-    {
-      "path": ".github/CODEOWNERS",
-      "bytes": 11,
-      "area": ".github"
-    },
+    { "path": ".codex/config.toml", "bytes": 1776, "area": ".codex" },
+    { "path": ".editorconfig", "bytes": 188, "area": ".editorconfig" },
+    { "path": ".gitattributes", "bytes": 112, "area": ".gitattributes" },
+    { "path": ".github/CODEOWNERS", "bytes": 11, "area": ".github" },
     {
       "path": ".github/ISSUE_TEMPLATE/bug.yml",
       "bytes": 862,
@@ -82,141 +58,46 @@
       "bytes": 691,
       "area": ".github"
     },
-    {
-      "path": ".github/dependabot.yml",
-      "bytes": 416,
-      "area": ".github"
-    },
+    { "path": ".github/dependabot.yml", "bytes": 416, "area": ".github" },
     {
       "path": ".github/pull_request_template.md",
       "bytes": 396,
       "area": ".github"
     },
-    {
-      "path": ".gitignore",
-      "bytes": 152,
-      "area": ".gitignore"
-    },
-    {
-      "path": ".nvmrc",
-      "bytes": 3,
-      "area": ".nvmrc"
-    },
-    {
-      "path": ".prettierignore",
-      "bytes": 111,
-      "area": ".prettierignore"
-    },
-    {
-      "path": "AGENTS.md",
-      "bytes": 6601,
-      "area": "AGENTS.md"
-    },
-    {
-      "path": "CHATGPT.md",
-      "bytes": 2415,
-      "area": "CHATGPT.md"
-    },
-    {
-      "path": "CONTRIBUTING.md",
-      "bytes": 590,
-      "area": "CONTRIBUTING.md"
-    },
-    {
-      "path": "LICENSE",
-      "bytes": 185,
-      "area": "LICENSE"
-    },
-    {
-      "path": "README.md",
-      "bytes": 2263,
-      "area": "README.md"
-    },
-    {
-      "path": "SECURITY.md",
-      "bytes": 503,
-      "area": "SECURITY.md"
-    },
-    {
-      "path": "docs/ACCESSIBILITY.md",
-      "bytes": 1163,
-      "area": "docs"
-    },
-    {
-      "path": "docs/AGENT-HANDOFF-WORKFLOW.md",
-      "bytes": 1727,
-      "area": "docs"
-    },
-    {
-      "path": "docs/API-INTEGRATION.md",
-      "bytes": 1168,
-      "area": "docs"
-    },
-    {
-      "path": "docs/ARCHITECTURE-GUARDRAILS.md",
-      "bytes": 679,
-      "area": "docs"
-    },
-    {
-      "path": "docs/ARCHITECTURE.md",
-      "bytes": 1959,
-      "area": "docs"
-    },
-    {
-      "path": "docs/CLOUDFLARE-PAGES-SETUP.md",
-      "bytes": 1051,
-      "area": "docs"
-    },
-    {
-      "path": "docs/CROSS-REPO-WORKFLOW.md",
-      "bytes": 1752,
-      "area": "docs"
-    },
-    {
-      "path": "docs/GITHUB-CONNECTOR-SAFETY.md",
-      "bytes": 718,
-      "area": "docs"
-    },
-    {
-      "path": "docs/MODEL-ROLE-POLICY.md",
-      "bytes": 1421,
-      "area": "docs"
-    },
+    { "path": ".github/workflows/ci.yml", "bytes": 2354, "area": ".github" },
+    { "path": ".gitignore", "bytes": 152, "area": ".gitignore" },
+    { "path": ".nvmrc", "bytes": 3, "area": ".nvmrc" },
+    { "path": ".prettierignore", "bytes": 111, "area": ".prettierignore" },
+    { "path": "AGENTS.md", "bytes": 6601, "area": "AGENTS.md" },
+    { "path": "CHATGPT.md", "bytes": 2415, "area": "CHATGPT.md" },
+    { "path": "CONTRIBUTING.md", "bytes": 590, "area": "CONTRIBUTING.md" },
+    { "path": "LICENSE", "bytes": 185, "area": "LICENSE" },
+    { "path": "README.md", "bytes": 2263, "area": "README.md" },
+    { "path": "SECURITY.md", "bytes": 503, "area": "SECURITY.md" },
+    { "path": "docs/ACCESSIBILITY.md", "bytes": 1163, "area": "docs" },
+    { "path": "docs/AGENT-HANDOFF-WORKFLOW.md", "bytes": 1727, "area": "docs" },
+    { "path": "docs/API-INTEGRATION.md", "bytes": 1168, "area": "docs" },
+    { "path": "docs/ARCHITECTURE-GUARDRAILS.md", "bytes": 679, "area": "docs" },
+    { "path": "docs/ARCHITECTURE.md", "bytes": 1959, "area": "docs" },
+    { "path": "docs/CLOUDFLARE-PAGES-SETUP.md", "bytes": 1051, "area": "docs" },
+    { "path": "docs/CROSS-REPO-WORKFLOW.md", "bytes": 1752, "area": "docs" },
+    { "path": "docs/GITHUB-CONNECTOR-SAFETY.md", "bytes": 718, "area": "docs" },
+    { "path": "docs/MODEL-ROLE-POLICY.md", "bytes": 1421, "area": "docs" },
     {
       "path": "docs/MVP-IMPLEMENTATION-PLAN.md",
       "bytes": 8866,
       "area": "docs"
     },
-    {
-      "path": "docs/PRIVACY-SECURITY.md",
-      "bytes": 1246,
-      "area": "docs"
-    },
+    { "path": "docs/PRIVACY-SECURITY.md", "bytes": 1246, "area": "docs" },
     {
       "path": "docs/REMOTE-SLICE-2-CHECKLIST.md",
       "bytes": 258,
       "area": "docs"
     },
-    {
-      "path": "docs/REMOTE-SLICE-2.md",
-      "bytes": 879,
-      "area": "docs"
-    },
-    {
-      "path": "docs/REPO_MAP.md",
-      "bytes": 1482,
-      "area": "docs"
-    },
-    {
-      "path": "docs/TESTING.md",
-      "bytes": 1506,
-      "area": "docs"
-    },
-    {
-      "path": "docs/WORKSPACE-INTEGRATION.md",
-      "bytes": 925,
-      "area": "docs"
-    },
+    { "path": "docs/REMOTE-SLICE-2.md", "bytes": 879, "area": "docs" },
+    { "path": "docs/REPO_MAP.md", "bytes": 1482, "area": "docs" },
+    { "path": "docs/TESTING.md", "bytes": 1506, "area": "docs" },
+    { "path": "docs/WORKSPACE-INTEGRATION.md", "bytes": 925, "area": "docs" },
     {
       "path": "docs/decisions/0001-react-vite-pwa.md",
       "bytes": 433,
@@ -227,24 +108,12 @@
       "bytes": 415,
       "area": "docs"
     },
-    {
-      "path": "eslint.config.js",
-      "bytes": 1798,
-      "area": "eslint.config.js"
-    },
-    {
-      "path": "index.html",
-      "bytes": 744,
-      "area": "index.html"
-    },
-    {
-      "path": "package.json",
-      "bytes": 2364,
-      "area": "package.json"
-    },
+    { "path": "eslint.config.js", "bytes": 1798, "area": "eslint.config.js" },
+    { "path": "index.html", "bytes": 744, "area": "index.html" },
+    { "path": "package.json", "bytes": 2213, "area": "package.json" },
     {
       "path": "playwright.config.ts",
-      "bytes": 1487,
+      "bytes": 1981,
       "area": "playwright.config.ts"
     },
     {
@@ -252,139 +121,55 @@
       "bytes": 125,
       "area": "prettier.config.mjs"
     },
-    {
-      "path": "public/_headers",
-      "bytes": 651,
-      "area": "public"
-    },
-    {
-      "path": "public/_redirects",
-      "bytes": 19,
-      "area": "public"
-    },
+    { "path": "public/_headers", "bytes": 651, "area": "public" },
+    { "path": "public/_redirects", "bytes": 19, "area": "public" },
     {
       "path": "public/demo/postcard-demo.wav",
       "bytes": 57644,
       "area": "public"
     },
-    {
-      "path": "public/favicon.svg",
-      "bytes": 502,
-      "area": "public"
-    },
+    { "path": "public/favicon.svg", "bytes": 502, "area": "public" },
     {
       "path": "public/icons/apple-touch-icon.png",
       "bytes": 1653,
       "area": "public"
     },
-    {
-      "path": "public/icons/icon-192.png",
-      "bytes": 1745,
-      "area": "public"
-    },
-    {
-      "path": "public/icons/icon-512.png",
-      "bytes": 5122,
-      "area": "public"
-    },
+    { "path": "public/icons/icon-192.png", "bytes": 1745, "area": "public" },
+    { "path": "public/icons/icon-512.png", "bytes": 5122, "area": "public" },
     {
       "path": "public/icons/icon-maskable-512.png",
       "bytes": 5139,
       "area": "public"
     },
-    {
-      "path": "public/robots.txt",
-      "bytes": 26,
-      "area": "public"
-    },
-    {
-      "path": "scripts/setup-dev.ps1",
-      "bytes": 231,
-      "area": "scripts"
-    },
-    {
-      "path": "scripts/setup-dev.sh",
-      "bytes": 231,
-      "area": "scripts"
-    },
-    {
-      "path": "scripts/validate-local.ps1",
-      "bytes": 175,
-      "area": "scripts"
-    },
-    {
-      "path": "scripts/validate-local.sh",
-      "bytes": 175,
-      "area": "scripts"
-    },
-    {
-      "path": "src/app/App.test.tsx",
-      "bytes": 563,
-      "area": "src"
-    },
-    {
-      "path": "src/app/App.tsx",
-      "bytes": 3164,
-      "area": "src"
-    },
-    {
-      "path": "src/app/AppErrorBoundary.tsx",
-      "bytes": 947,
-      "area": "src"
-    },
-    {
-      "path": "src/app/app.css",
-      "bytes": 5247,
-      "area": "src"
-    },
-    {
-      "path": "src/app/runtime.ts",
-      "bytes": 1009,
-      "area": "src"
-    },
-    {
-      "path": "src/core/api/contracts.ts",
-      "bytes": 2108,
-      "area": "src"
-    },
-    {
-      "path": "src/core/api/mockOwliApi.ts",
-      "bytes": 3433,
-      "area": "src"
-    },
-    {
-      "path": "src/core/api/owliApi.ts",
-      "bytes": 580,
-      "area": "src"
-    },
+    { "path": "public/robots.txt", "bytes": 26, "area": "public" },
+    { "path": "scripts/setup-dev.ps1", "bytes": 231, "area": "scripts" },
+    { "path": "scripts/setup-dev.sh", "bytes": 231, "area": "scripts" },
+    { "path": "scripts/validate-local.ps1", "bytes": 175, "area": "scripts" },
+    { "path": "scripts/validate-local.sh", "bytes": 175, "area": "scripts" },
+    { "path": "src/app/App.test.tsx", "bytes": 563, "area": "src" },
+    { "path": "src/app/App.tsx", "bytes": 3164, "area": "src" },
+    { "path": "src/app/AppErrorBoundary.tsx", "bytes": 947, "area": "src" },
+    { "path": "src/app/app.css", "bytes": 5247, "area": "src" },
+    { "path": "src/app/runtime.ts", "bytes": 1009, "area": "src" },
+    { "path": "src/core/api/contracts.ts", "bytes": 2108, "area": "src" },
+    { "path": "src/core/api/mockOwliApi.ts", "bytes": 3433, "area": "src" },
+    { "path": "src/core/api/owliApi.ts", "bytes": 580, "area": "src" },
     {
       "path": "src/core/api/remoteCatalogClient.ts",
-      "bytes": 6785,
+      "bytes": 7520,
       "area": "src"
     },
     {
       "path": "src/core/api/remoteCatalogContracts.ts",
-      "bytes": 2576,
+      "bytes": 2695,
       "area": "src"
     },
-    {
-      "path": "src/core/api/remoteOwliApi.ts",
-      "bytes": 1988,
-      "area": "src"
-    },
-    {
-      "path": "src/core/api/sse.test.ts",
-      "bytes": 796,
-      "area": "src"
-    },
-    {
-      "path": "src/core/api/sse.ts",
-      "bytes": 1442,
-      "area": "src"
-    },
+    { "path": "src/core/api/remoteOwliApi.ts", "bytes": 1988, "area": "src" },
+    { "path": "src/core/api/sse.test.ts", "bytes": 796, "area": "src" },
+    { "path": "src/core/api/sse.ts", "bytes": 1442, "area": "src" },
     {
       "path": "src/core/config/runtimeConfig.ts",
-      "bytes": 3046,
+      "bytes": 3202,
       "area": "src"
     },
     {
@@ -399,7 +184,7 @@
     },
     {
       "path": "src/core/session/remoteSessionManager.ts",
-      "bytes": 2184,
+      "bytes": 2585,
       "area": "src"
     },
     {
@@ -407,16 +192,8 @@
       "bytes": 794,
       "area": "src"
     },
-    {
-      "path": "src/core/session/sessionStore.ts",
-      "bytes": 518,
-      "area": "src"
-    },
-    {
-      "path": "src/core/types.ts",
-      "bytes": 2216,
-      "area": "src"
-    },
+    { "path": "src/core/session/sessionStore.ts", "bytes": 518, "area": "src" },
+    { "path": "src/core/types.ts", "bytes": 2216, "area": "src" },
     {
       "path": "src/features/postcard/AudioPostcardPanel.test.tsx",
       "bytes": 1750,
@@ -427,14 +204,10 @@
       "bytes": 4603,
       "area": "src"
     },
-    {
-      "path": "src/features/remote/README.md",
-      "bytes": 252,
-      "area": "src"
-    },
+    { "path": "src/features/remote/README.md", "bytes": 252, "area": "src" },
     {
       "path": "src/features/remote/RemoteCatalog.tsx",
-      "bytes": 5608,
+      "bytes": 5951,
       "area": "src"
     },
     {
@@ -457,21 +230,13 @@
       "bytes": 4085,
       "area": "src"
     },
-    {
-      "path": "src/main.tsx",
-      "bytes": 485,
-      "area": "src"
-    },
+    { "path": "src/main.tsx", "bytes": 485, "area": "src" },
     {
       "path": "src/platform/camera/browserCamera.ts",
       "bytes": 2132,
       "area": "src"
     },
-    {
-      "path": "src/platform/camera/types.ts",
-      "bytes": 128,
-      "area": "src"
-    },
+    { "path": "src/platform/camera/types.ts", "bytes": 128, "area": "src" },
     {
       "path": "src/platform/share/browserShare.ts",
       "bytes": 404,
@@ -492,34 +257,27 @@
       "bytes": 394,
       "area": "src"
     },
-    {
-      "path": "src/test/setup.ts",
-      "bytes": 391,
-      "area": "src"
-    },
-    {
-      "path": "src/vite-env.d.ts",
-      "bytes": 401,
-      "area": "src"
-    },
+    { "path": "src/test/setup.ts", "bytes": 391, "area": "src" },
+    { "path": "src/vite-env.d.ts", "bytes": 401, "area": "src" },
     {
       "path": "tests/e2e/accessibility.spec.ts",
       "bytes": 527,
       "area": "tests"
     },
+    { "path": "tests/e2e/app.spec.ts", "bytes": 727, "area": "tests" },
     {
-      "path": "tests/e2e/app.spec.ts",
-      "bytes": 419,
+      "path": "tests/e2e/remote-readiness.spec.ts",
+      "bytes": 10956,
       "area": "tests"
     },
     {
-      "path": "tests/e2e/remote-readiness.spec.ts",
-      "bytes": 3066,
+      "path": "tests/unit/RemoteCatalog.test.tsx",
+      "bytes": 3841,
       "area": "tests"
     },
     {
       "path": "tests/unit/cloudflareHeaders.test.ts",
-      "bytes": 1434,
+      "bytes": 3256,
       "area": "tests"
     },
     {
@@ -529,27 +287,23 @@
     },
     {
       "path": "tests/unit/remoteArchitecture.test.ts",
-      "bytes": 798,
+      "bytes": 1205,
       "area": "tests"
     },
     {
       "path": "tests/unit/remoteCatalogContracts.test.ts",
-      "bytes": 1872,
+      "bytes": 2767,
       "area": "tests"
     },
     {
       "path": "tests/unit/remoteCatalogProjection.test.ts",
-      "bytes": 2797,
+      "bytes": 3327,
       "area": "tests"
     },
-    {
-      "path": "tests/unit/remoteEtag.test.ts",
-      "bytes": 2372,
-      "area": "tests"
-    },
+    { "path": "tests/unit/remoteEtag.test.ts", "bytes": 4393, "area": "tests" },
     {
       "path": "tests/unit/remoteNoLoop.test.ts",
-      "bytes": 1212,
+      "bytes": 3249,
       "area": "tests"
     },
     {
@@ -559,7 +313,7 @@
     },
     {
       "path": "tests/unit/remoteSessionManager.test.ts",
-      "bytes": 2097,
+      "bytes": 3411,
       "area": "tests"
     },
     {
@@ -569,43 +323,30 @@
     },
     {
       "path": "tests/unit/runtimeConfig.remote.test.ts",
-      "bytes": 1514,
+      "bytes": 1787,
       "area": "tests"
     },
+    { "path": "tools/build-web.mjs", "bytes": 2177, "area": "tools" },
+    { "path": "tools/check-architecture.mjs", "bytes": 2643, "area": "tools" },
     {
-      "path": "tools/check-architecture.mjs",
-      "bytes": 2643,
+      "path": "tools/check-vite-port-policy.mjs",
+      "bytes": 1791,
       "area": "tools"
     },
     {
       "path": "tools/generate-cloudflare-headers.mjs",
-      "bytes": 1268,
+      "bytes": 1555,
       "area": "tools"
     },
-    {
-      "path": "tsconfig.app.json",
-      "bytes": 808,
-      "area": "tsconfig.app.json"
-    },
-    {
-      "path": "tsconfig.json",
-      "bytes": 107,
-      "area": "tsconfig.json"
-    },
+    { "path": "tools/generate-repo-index.mjs", "bytes": 3003, "area": "tools" },
+    { "path": "tsconfig.app.json", "bytes": 808, "area": "tsconfig.app.json" },
+    { "path": "tsconfig.json", "bytes": 107, "area": "tsconfig.json" },
     {
       "path": "tsconfig.node.json",
       "bytes": 542,
       "area": "tsconfig.node.json"
     },
-    {
-      "path": "vite.config.ts",
-      "bytes": 1544,
-      "area": "vite.config.ts"
-    },
-    {
-      "path": "vitest.config.ts",
-      "bytes": 587,
-      "area": "vitest.config.ts"
-    }
+    { "path": "vite.config.ts", "bytes": 1544, "area": "vite.config.ts" },
+    { "path": "vitest.config.ts", "bytes": 620, "area": "vitest.config.ts" }
   ]
 }
