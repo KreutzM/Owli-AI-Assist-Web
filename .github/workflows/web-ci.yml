@@ -40,8 +40,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check formatting
-        run: pnpm format:check
+      - name: Capture formatting diagnostics
+        run: |
+          set +e
+          pnpm format:check > format.log 2>&1
+          echo $? > format.exit
+          pnpm format > format-apply.log 2>&1
+          git diff --binary > prettier.patch
+          exit 0
 
       - name: Capture lint diagnostics
         run: |
@@ -83,6 +89,10 @@ jobs:
         with:
           name: validation-diagnostics
           path: |
+            format.log
+            format.exit
+            format-apply.log
+            prettier.patch
             lint.log
             lint.exit
             typecheck.log
@@ -97,6 +107,7 @@ jobs:
 
       - name: Enforce validation results
         run: |
+          test "$(cat format.exit)" = "0"
           test "$(cat lint.exit)" = "0"
           test "$(cat typecheck.exit)" = "0"
           test "$(cat guardrails.exit)" = "0"
