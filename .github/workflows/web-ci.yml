@@ -84,37 +84,28 @@ jobs:
           echo $? > build.exit
           exit 0
 
-      - name: Generate repository index artifacts
-        run: pnpm ai:index
+      - name: Isolate diagnostics and generate repository index
+        run: |
+          mkdir -p artifacts/diagnostics
+          cp *.log *.exit prettier.patch artifacts/diagnostics/
+          rm -f *.log *.exit prettier.patch .ai/diagnostic-trigger.txt
+          pnpm ai:index
 
       - name: Upload validation diagnostics
         uses: actions/upload-artifact@v4
         with:
           name: validation-diagnostics
           path: |
-            format.log
-            format.exit
-            format-apply.log
-            prettier.patch
-            lint.log
-            lint.exit
-            typecheck.log
-            typecheck.exit
-            guardrails.log
-            guardrails.exit
-            unit.log
-            unit.exit
-            build.log
-            build.exit
+            artifacts/diagnostics/
             .ai/repo-index.json
             .ai/file-tree.md
           retention-days: 1
 
       - name: Enforce validation results
         run: |
-          test "$(cat format.exit)" = "0"
-          test "$(cat lint.exit)" = "0"
-          test "$(cat typecheck.exit)" = "0"
-          test "$(cat guardrails.exit)" = "0"
-          test "$(cat unit.exit)" = "0"
-          test "$(cat build.exit)" = "0"
+          test "$(cat artifacts/diagnostics/format.exit)" = "0"
+          test "$(cat artifacts/diagnostics/lint.exit)" = "0"
+          test "$(cat artifacts/diagnostics/typecheck.exit)" = "0"
+          test "$(cat artifacts/diagnostics/guardrails.exit)" = "0"
+          test "$(cat artifacts/diagnostics/unit.exit)" = "0"
+          test "$(cat artifacts/diagnostics/build.exit)" = "0"
