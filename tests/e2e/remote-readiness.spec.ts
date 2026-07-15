@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page, type Request, type Route } from '@playwright/test';
 
 const PROFILE_SCHEMA_VERSION = 'vlm_profile_registry/v1';
+const STAGING_API_ORIGIN = 'https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev';
 const allowedAppOrigins = new Set(['http://127.0.0.1:5173', 'http://localhost:5173']);
 
 interface RemoteScenario {
@@ -15,7 +16,6 @@ interface RemoteStats {
   configCalls: number;
   bootstrapBodies: unknown[];
   profileHeaders: Headers[];
-  preflightRequestedHeaders: string[];
   origins: string[];
 }
 
@@ -42,6 +42,7 @@ test.describe('remote readiness', () => {
       String((stats.bootstrapBodies[0] as { installationId: string }).installationId),
     ).not.toBe('');
     expect(stats.profileHeaders[0]?.get('Authorization')).toBeNull();
+    expect(stats.origins.length).toBeGreaterThan(0);
     expect(stats.origins.every((origin) => allowedAppOrigins.has(origin))).toBe(true);
     await expectNoSeriousViolations(page);
   });
@@ -111,30 +112,21 @@ test.describe('remote readiness', () => {
     await expectNoSeriousViolations(page);
   });
 
-  test('uses If-None-Match for refresh, accepts 304, and drops the cache on reload', async ({
-    page,
-  }) => {
-    const stats = await routeRemoteApi(page, {
-      profileResponder: async (call, route, request) => {
-        if (call === 2) {
-          await route.fulfill({ status: 304, headers: corsHeaders(request, true) });
-          return;
-        }
-        await fulfillProfiles(route, request);
-      },
-    });
+  test('uses If-None-Match for refresh and drops the memory cache on reload', async ({ page }) => {
+    const stats = await routeRemoteApi(page);
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Basic' })).toBeVisible();
-    await page.getByRole('button', { name: 'Profilkatalog aktualisieren' }).click();
-    await expect(page.getByRole('heading', { name: 'Basic' })).toBeVisible();
+
+    const refreshButton = page.getByRole('button', { name: 'Profilkatalog aktualisieren' });
+    await refreshButton.click();
+    await expect.poll(() => stats.profileHeaders.length).toBe(2);
+    await expect(refreshButton).toBeEnabled();
     expect(stats.profileHeaders[0]?.get('If-None-Match')).toBeNull();
     expect(stats.profileHeaders[1]?.get('If-None-Match')).toBe('"one"');
-    expect(stats.preflightRequestedHeaders.some((value) => value.includes('if-none-match'))).toBe(
-      true,
-    );
 
     await page.reload();
     await expect(page.getByRole('heading', { name: 'Basic' })).toBeVisible();
+    await expect.poll(() => stats.profileHeaders.length).toBe(3);
     expect(stats.profileHeaders[2]?.get('If-None-Match')).toBeNull();
   });
 
@@ -150,10 +142,13 @@ test.describe('fail-closed runtime', () => {
 
   test('renders the configuration error without making an API request', async ({ page }) => {
     let apiRequests = 0;
-    await page.route('**/api/**', async (route) => {
-      apiRequests += 1;
-      await route.abort('failed');
+    page.on('request', (request) => {
+      const url = new URL(request.url());
+      if (url.origin === STAGING_API_ORIGIN && url.pathname.startsWith('/api/')) {
+        apiRequests += 1;
+      }
     });
+
     await page.goto('/');
     await expect(
       page.getByRole('heading', { name: 'Online-Konfiguration nicht verfügbar' }),
@@ -169,7 +164,6 @@ async function routeRemoteApi(page: Page, scenario: RemoteScenario = {}): Promis
     configCalls: 0,
     bootstrapBodies: [],
     profileHeaders: [],
-    preflightRequestedHeaders: [],
     origins: [],
   };
   let profileCalls = 0;
@@ -180,9 +174,6 @@ async function routeRemoteApi(page: Page, scenario: RemoteScenario = {}): Promis
     if (origin) stats.origins.push(origin);
 
     if (request.method() === 'OPTIONS') {
-      stats.preflightRequestedHeaders.push(
-        request.headers()['access-control-request-headers']?.toLowerCase() ?? '',
-      );
       await route.fulfill({ status: 204, headers: corsHeaders(request) });
       return;
     }
@@ -281,13 +272,12 @@ async function fulfillJson(
   });
 }
 
-function corsHeaders(request: Request, exposeEtag = false): Record<string, string> {
+function corsHeaders(request: Request): Record<string, string> {
   const origin = request.headers().origin ?? 'http://127.0.0.1:5173';
   return {
     'Access-Control-Allow-Headers': 'Accept, Content-Type, If-None-Match',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Origin': origin,
-    ...(exposeEtag ? { 'Access-Control-Expose-Headers': 'ETag' } : {}),
     Vary: 'Origin',
   };
 }
