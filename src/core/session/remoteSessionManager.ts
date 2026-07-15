@@ -18,12 +18,13 @@ export class RemoteSessionManager {
   }
 
   async ensure(signal?: AbortSignal): Promise<WebBootstrapResponseV2> {
+    signal?.throwIfAborted();
     const current = this.#getValid();
     if (current) return current;
     if (this.#inFlight) return this.#inFlight;
 
-    const operation = this.bootstrap(signal).then((session) => {
-      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    const operation = this.#bootstrapWithUnauthorizedRetry(signal).then((session) => {
+      signal?.throwIfAborted();
       this.#session = session;
       return session;
     });
@@ -53,8 +54,20 @@ export class RemoteSessionManager {
     } catch (error) {
       if (!(error instanceof RemoteHttpError) || error.status !== 401) throw error;
       this.invalidate();
+      signal?.throwIfAborted();
       const second = await this.ensure(signal);
       return operation(second.sessionToken);
+    }
+  }
+
+  async #bootstrapWithUnauthorizedRetry(signal?: AbortSignal): Promise<WebBootstrapResponseV2> {
+    try {
+      return await this.bootstrap(signal);
+    } catch (error) {
+      if (!(error instanceof RemoteHttpError) || error.status !== 401) throw error;
+      this.invalidate();
+      signal?.throwIfAborted();
+      return this.bootstrap(signal);
     }
   }
 
