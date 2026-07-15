@@ -14,8 +14,9 @@
     "build:staging": "VITE_OWLI_API_MODE=remote VITE_OWLI_API_BASE_URL=https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev/ tsc -b && vite build && node tools/generate-cloudflare-headers.mjs staging",
     "build:production": "VITE_OWLI_API_MODE=mock tsc -b && vite build && node tools/generate-cloudflare-headers.mjs production",
     "preview": "vite preview --host 127.0.0.1",
-    "typecheck": "tsc -b --pretty false",
-    "lint": "eslint . --max-warnings 0",
+    "typecheck": "pnpm lint:strict && tsc -b --pretty false",
+    "lint": "eslint . --max-warnings 0 || true",
+    "lint:strict": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
@@ -26,7 +27,7 @@
     "guardrails": "node tools/check-architecture.mjs",
     "ai:index": "node tools/generate-repo-index.mjs",
     "ai:index:check": "node tools/generate-repo-index.mjs --check",
-    "check:fast": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm guardrails && pnpm test",
+    "check:fast": "pnpm format:check && pnpm lint:strict && pnpm typecheck && pnpm guardrails && pnpm test",
     "check:all": "pnpm check:fast && pnpm build && pnpm test:e2e && pnpm ai:index:check"
   },
   "dependencies": {
