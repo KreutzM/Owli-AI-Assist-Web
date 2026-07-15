@@ -16,6 +16,7 @@ const excludedDirs = new Set([
 const excludedFiles = new Set([
   '.ai/file-tree.md',
   '.ai/repo-index.json',
+  '.github/workflows/ci.yml',
   'pnpm-lock.yaml',
   'tools/generate-repo-index.mjs',
   'typecheck.log',
