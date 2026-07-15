@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export const PROFILE_REGISTRY_SCHEMA_VERSION = 'vlm_profile_registry/v1';
+
 export const remotePublicConfigSchema = z.object({
   environment: z.enum(['dev', 'staging', 'prod']),
   features: z.object({
@@ -39,6 +41,7 @@ export const webBootstrapResponseV2Schema = z
       })
       .strict(),
   })
+  .strict()
   .superRefine((value, context) => {
     if (Date.parse(value.expiresAt) <= Date.now()) {
       context.addIssue({
@@ -56,7 +59,7 @@ const backendTransportSchema = z.object({
 });
 
 export const remoteProfilesResponseSchema = z.object({
-  schemaVersion: z.string(),
+  schemaVersion: z.literal(PROFILE_REGISTRY_SCHEMA_VERSION),
   defaultProfileId: z.string(),
   profiles: z.array(
     z.object({
