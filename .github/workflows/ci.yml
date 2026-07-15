@@ -38,6 +38,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Capture workflow formatting patch
+        run: |
+          pnpm exec prettier --write .github/workflows/ci.yml
+          git diff -- .github/workflows/ci.yml > workflow-format.patch
+
+      - name: Upload workflow formatting patch
+        uses: actions/upload-artifact@v4
+        with:
+          name: workflow-format-patch
+          path: workflow-format.patch
+          retention-days: 1
+
       - name: Check formatting
         run: pnpm format:check
 
@@ -74,7 +86,7 @@ jobs:
         id: agent-index
         continue-on-error: true
         run: |
-          rm -f typecheck.log
+          rm -f typecheck.log workflow-format.patch
           pnpm ai:index
           git diff --exit-code -- .ai/repo-index.json .ai/file-tree.md
 
