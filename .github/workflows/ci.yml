@@ -50,12 +50,12 @@ jobs:
       - name: Check generated index
         run: pnpm ai:index:check
 
-      - name: Commit final files
+      - name: Commit generated index artifacts
         shell: bash
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add .github/workflows/ci.yml .ai/repo-index.json .ai/file-tree.md
+          git add .ai/repo-index.json .ai/file-tree.md
           if ! git diff --cached --quiet; then
             git commit -m 'chore: finalize repository index'
             git push origin HEAD:${{ github.head_ref }}
