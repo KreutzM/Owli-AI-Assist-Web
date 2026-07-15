@@ -19,7 +19,7 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["vite/client", "vite-plugin-pwa/client"],
+    "types": ["node", "vite/client", "vite-plugin-pwa/client"],
     "paths": {
       "@/*": ["./src/*"]
     }

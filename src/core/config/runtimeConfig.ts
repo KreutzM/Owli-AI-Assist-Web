@@ -1,22 +1,111 @@
 import { z } from 'zod';
 
-const runtimeConfigSchema = z.object({
-  apiMode: z.enum(['mock', 'remote']),
-  apiBaseUrl: z.string().url(),
-  appVersion: z.string().min(1).max(32),
-  versionCode: z.number().int().positive(),
-  defaultLocale: z.string().min(2).max(32),
-});
+export const STAGING_API_ROOT = 'https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev/';
+export const PRODUCTION_API_ROOT = 'https://api.owli-ai.com/';
 
-export type RuntimeConfig = z.infer<typeof runtimeConfigSchema>;
+export type RuntimeConfigurationErrorCode =
+  | 'API_MODE_INVALID'
+  | 'REMOTE_BASE_URL_MISSING'
+  | 'REMOTE_BASE_URL_INVALID'
+  | 'REMOTE_BASE_URL_NOT_APPROVED'
+  | 'APP_VERSION_INVALID'
+  | 'VERSION_CODE_INVALID'
+  | 'LOCALE_INVALID';
+
+export type RuntimeConfig =
+  | {
+      mode: 'mock';
+      appVersion: string;
+      versionCode: number;
+      defaultLocale: string;
+    }
+  | {
+      mode: 'remote';
+      target: 'staging' | 'production';
+      apiBaseUrl: string;
+      appVersion: string;
+      versionCode: number;
+      defaultLocale: string;
+    }
+  | { mode: 'invalid_configuration'; reason: RuntimeConfigurationErrorCode };
+
+const apiModeSchema = z.enum(['mock', 'remote']);
+const appVersionSchema = z.string().trim().min(1).max(32);
+const localeSchema = z.string().regex(/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/);
 
 export function readRuntimeConfig(env: ImportMetaEnv = import.meta.env): RuntimeConfig {
-  const versionCode = Number.parseInt(env.VITE_OWLI_VERSION_CODE ?? '1', 10);
-  return runtimeConfigSchema.parse({
-    apiMode: env.VITE_OWLI_API_MODE ?? 'mock',
-    apiBaseUrl: env.VITE_OWLI_API_BASE_URL ?? 'https://api.owli-ai.com',
-    appVersion: env.VITE_OWLI_APP_VERSION ?? '0.1.0',
+  const mode = apiModeSchema.safeParse(String(env.VITE_OWLI_API_MODE ?? 'mock'));
+  if (!mode.success) {
+    return { mode: 'invalid_configuration', reason: 'API_MODE_INVALID' };
+  }
+
+  const appVersion = appVersionSchema.safeParse(env.VITE_OWLI_APP_VERSION ?? '0.1.0');
+  if (!appVersion.success) {
+    return { mode: 'invalid_configuration', reason: 'APP_VERSION_INVALID' };
+  }
+
+  const versionCodeRaw = env.VITE_OWLI_VERSION_CODE ?? '1';
+  if (!/^[1-9]\d*$/.test(versionCodeRaw)) {
+    return { mode: 'invalid_configuration', reason: 'VERSION_CODE_INVALID' };
+  }
+  const versionCode = Number(versionCodeRaw);
+  if (!Number.isSafeInteger(versionCode)) {
+    return { mode: 'invalid_configuration', reason: 'VERSION_CODE_INVALID' };
+  }
+
+  const locale = localeSchema.safeParse(env.VITE_OWLI_DEFAULT_LOCALE ?? 'de-DE');
+  if (!locale.success) {
+    return { mode: 'invalid_configuration', reason: 'LOCALE_INVALID' };
+  }
+
+  if (mode.data === 'mock') {
+    return {
+      mode: 'mock',
+      appVersion: appVersion.data,
+      versionCode,
+      defaultLocale: locale.data,
+    };
+  }
+
+  const rawBaseUrl = env.VITE_OWLI_API_BASE_URL;
+  if (!rawBaseUrl) {
+    return { mode: 'invalid_configuration', reason: 'REMOTE_BASE_URL_MISSING' };
+  }
+
+  let normalized: string;
+  try {
+    const url = new URL(rawBaseUrl);
+    if (
+      url.protocol !== 'https:' ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      (url.pathname !== '/' && url.pathname !== '')
+    ) {
+      return { mode: 'invalid_configuration', reason: 'REMOTE_BASE_URL_INVALID' };
+    }
+    normalized = `${url.origin}/`;
+  } catch {
+    return { mode: 'invalid_configuration', reason: 'REMOTE_BASE_URL_INVALID' };
+  }
+
+  const target =
+    normalized === STAGING_API_ROOT
+      ? 'staging'
+      : normalized === PRODUCTION_API_ROOT
+        ? 'production'
+        : undefined;
+  if (!target) {
+    return { mode: 'invalid_configuration', reason: 'REMOTE_BASE_URL_NOT_APPROVED' };
+  }
+
+  return {
+    mode: 'remote',
+    target,
+    apiBaseUrl: normalized,
+    appVersion: appVersion.data,
     versionCode,
-    defaultLocale: env.VITE_OWLI_DEFAULT_LOCALE ?? 'de-DE',
-  });
+    defaultLocale: locale.data,
+  };
 }

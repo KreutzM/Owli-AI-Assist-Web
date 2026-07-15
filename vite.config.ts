@@ -40,6 +40,8 @@ export default defineConfig({
       devOptions: { enabled: false },
     }),
   ],
+  server: { port: 5173, strictPort: true },
+  preview: { port: 4173, strictPort: true },
   resolve: {
     alias: { '@': path.resolve(import.meta.dirname, 'src') },
   },

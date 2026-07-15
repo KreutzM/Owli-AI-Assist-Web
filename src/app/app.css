@@ -251,6 +251,24 @@ select {
 audio {
   width: 100%;
 }
+.remote-catalog {
+  max-width: 54rem;
+}
+.profile-list {
+  display: grid;
+  gap: 0.8rem;
+  padding: 0;
+  list-style: none;
+}
+.profile-list li {
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  padding: 1rem;
+  background: var(--surface-soft);
+}
+.profile-list li p {
+  color: var(--text-muted);
+}
 .site-footer {
   display: flex;
   flex-wrap: wrap;
