@@ -4,6 +4,7 @@ export const STAGING_API_ROOT = 'https://owli-ai-backend-staging.michael-kreutze
 export const PRODUCTION_API_ROOT = 'https://api.owli-ai.com/';
 
 export type RuntimeConfigurationErrorCode =
+  | 'API_MODE_INVALID'
   | 'REMOTE_BASE_URL_MISSING'
   | 'REMOTE_BASE_URL_INVALID'
   | 'REMOTE_BASE_URL_NOT_APPROVED'
@@ -33,6 +34,10 @@ const localeSchema = z.string().regex(/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/);
 
 export function readRuntimeConfig(env: ImportMetaEnv = import.meta.env): RuntimeConfig {
   const mode = env.VITE_OWLI_API_MODE ?? 'mock';
+  if (mode !== 'mock' && mode !== 'remote') {
+    return { mode: 'invalid_configuration', reason: 'API_MODE_INVALID' };
+  }
+
   const appVersion = appVersionSchema.safeParse(env.VITE_OWLI_APP_VERSION ?? '0.1.0');
   if (!appVersion.success) {
     return { mode: 'invalid_configuration', reason: 'APP_VERSION_INVALID' };
