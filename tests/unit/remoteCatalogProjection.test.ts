@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { RemoteCatalogClient } from '@/core/api/remoteCatalogClient';
+import { PROFILE_REGISTRY_SCHEMA_VERSION } from '@/core/api/remoteCatalogContracts';
 
 const config = {
   mode: 'remote' as const,
@@ -29,7 +30,7 @@ const bootstrap = {
 };
 
 describe('RemoteCatalogClient', () => {
-  it('uses config, bootstrap and profiles in order with dual opt-in', async () => {
+  it('uses config, bootstrap and public profiles in order with dual opt-in', async () => {
     const requests: string[] = [];
     vi.stubGlobal(
       'fetch',
@@ -43,11 +44,20 @@ describe('RemoteCatalogClient', () => {
             profiles: { backendSupportedProfileIds: ['allowed'] },
           });
         }
-        if (url.endsWith('/session/bootstrap')) return Response.json(bootstrap);
+        if (url.endsWith('/session/bootstrap')) {
+          expect(JSON.parse(String(init?.body))).toMatchObject({
+            platform: 'web',
+            installationId: 'installation-test-id',
+          });
+          return Response.json(bootstrap);
+        }
         expect(init?.cache).toBe('no-store');
+        const headers = new Headers(init?.headers);
+        expect(headers.get('Authorization')).toBeNull();
+        expect(headers.get('Accept')).toBe('application/json');
         return Response.json(
           {
-            schemaVersion: '1',
+            schemaVersion: PROFILE_REGISTRY_SCHEMA_VERSION,
             defaultProfileId: 'blocked',
             profiles: [
               {
@@ -75,7 +85,9 @@ describe('RemoteCatalogClient', () => {
       }),
     );
 
-    const catalog = await new RemoteCatalogClient(config).initialize();
+    const catalog = await new RemoteCatalogClient(config, {
+      installationId: 'installation-test-id',
+    }).initialize();
     expect(requests).toEqual(['/api/v1/config', '/api/v1/session/bootstrap', '/api/v1/profiles']);
     expect(catalog.profiles.map((profile) => profile.id)).toEqual(['allowed']);
     expect(catalog.defaultProfileId).toBeUndefined();
