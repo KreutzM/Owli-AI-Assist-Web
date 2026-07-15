@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 
 const target = process.argv[2] ?? process.env.OWLI_WEB_DEPLOY_TARGET;
 const declaredTarget = process.env.OWLI_WEB_DEPLOY_TARGET;
@@ -43,4 +43,5 @@ const content = `/*
   Cache-Control: no-cache
 `;
 
+await mkdir('dist', { recursive: true });
 await writeFile('dist/_headers', content, 'utf8');
