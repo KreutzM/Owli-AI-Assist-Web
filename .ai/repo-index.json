@@ -94,7 +94,12 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "bytes": 1888,
+      "bytes": 2546,
+      "area": ".github"
+    },
+    {
+      "path": ".github/workflows/web-ci.yml",
+      "bytes": 2953,
       "area": ".github"
     },
     {
@@ -198,6 +203,16 @@
       "area": "docs"
     },
     {
+      "path": "docs/REMOTE-SLICE-2-CHECKLIST.md",
+      "bytes": 258,
+      "area": "docs"
+    },
+    {
+      "path": "docs/REMOTE-SLICE-2.md",
+      "bytes": 879,
+      "area": "docs"
+    },
+    {
       "path": "docs/REPO_MAP.md",
       "bytes": 1482,
       "area": "docs"
@@ -224,7 +239,7 @@
     },
     {
       "path": "eslint.config.js",
-      "bytes": 1594,
+      "bytes": 1798,
       "area": "eslint.config.js"
     },
     {
@@ -234,7 +249,7 @@
     },
     {
       "path": "package.json",
-      "bytes": 1971,
+      "bytes": 2364,
       "area": "package.json"
     },
     {
@@ -319,7 +334,7 @@
     },
     {
       "path": "src/app/App.tsx",
-      "bytes": 2315,
+      "bytes": 3164,
       "area": "src"
     },
     {
@@ -329,7 +344,12 @@
     },
     {
       "path": "src/app/app.css",
-      "bytes": 4939,
+      "bytes": 5247,
+      "area": "src"
+    },
+    {
+      "path": "src/app/runtime.ts",
+      "bytes": 1009,
       "area": "src"
     },
     {
@@ -344,12 +364,22 @@
     },
     {
       "path": "src/core/api/owliApi.ts",
-      "bytes": 490,
+      "bytes": 580,
+      "area": "src"
+    },
+    {
+      "path": "src/core/api/remoteCatalogClient.ts",
+      "bytes": 6785,
+      "area": "src"
+    },
+    {
+      "path": "src/core/api/remoteCatalogContracts.ts",
+      "bytes": 2576,
       "area": "src"
     },
     {
       "path": "src/core/api/remoteOwliApi.ts",
-      "bytes": 9669,
+      "bytes": 1988,
       "area": "src"
     },
     {
@@ -364,7 +394,7 @@
     },
     {
       "path": "src/core/config/runtimeConfig.ts",
-      "bytes": 799,
+      "bytes": 3046,
       "area": "src"
     },
     {
@@ -375,6 +405,11 @@
     {
       "path": "src/core/identity/installationId.ts",
       "bytes": 380,
+      "area": "src"
+    },
+    {
+      "path": "src/core/session/remoteSessionManager.ts",
+      "bytes": 2184,
       "area": "src"
     },
     {
@@ -400,6 +435,16 @@
     {
       "path": "src/features/postcard/AudioPostcardPanel.tsx",
       "bytes": 4603,
+      "area": "src"
+    },
+    {
+      "path": "src/features/remote/README.md",
+      "bytes": 252,
+      "area": "src"
+    },
+    {
+      "path": "src/features/remote/RemoteCatalog.tsx",
+      "bytes": 5608,
       "area": "src"
     },
     {
@@ -478,8 +523,73 @@
       "area": "tests"
     },
     {
+      "path": "tests/e2e/remote-readiness.spec.ts",
+      "bytes": 2115,
+      "area": "tests"
+    },
+    {
+      "path": "tests/unit/cloudflareHeaders.test.ts",
+      "bytes": 1434,
+      "area": "tests"
+    },
+    {
+      "path": "tests/unit/remoteAbort.test.ts",
+      "bytes": 1095,
+      "area": "tests"
+    },
+    {
+      "path": "tests/unit/remoteArchitecture.test.ts",
+      "bytes": 798,
+      "area": "tests"
+    },
+    {
+      "path": "tests/unit/remoteCatalogContracts.test.ts",
+      "bytes": 1872,
+      "area": "tests"
+    },
+    {
+      "path": "tests/unit/remoteCatalogProjection.test.ts",
+      "bytes": 2797,
+      "area": "tests"
+    },
+    {
+      "path": "tests/unit/remoteEtag.test.ts",
+      "bytes": 2372,
+      "area": "tests"
+    },
+    {
+      "path": "tests/unit/remoteNoLoop.test.ts",
+      "bytes": 1212,
+      "area": "tests"
+    },
+    {
+      "path": "tests/unit/remotePortPolicy.test.ts",
+      "bytes": 406,
+      "area": "tests"
+    },
+    {
+      "path": "tests/unit/remoteSessionManager.test.ts",
+      "bytes": 2097,
+      "area": "tests"
+    },
+    {
+      "path": "tests/unit/remoteStoragePrivacy.test.ts",
+      "bytes": 599,
+      "area": "tests"
+    },
+    {
+      "path": "tests/unit/runtimeConfig.remote.test.ts",
+      "bytes": 1514,
+      "area": "tests"
+    },
+    {
       "path": "tools/check-architecture.mjs",
       "bytes": 2643,
+      "area": "tools"
+    },
+    {
+      "path": "tools/generate-cloudflare-headers.mjs",
+      "bytes": 1268,
       "area": "tools"
     },
     {
@@ -489,7 +599,7 @@
     },
     {
       "path": "tsconfig.app.json",
-      "bytes": 800,
+      "bytes": 808,
       "area": "tsconfig.app.json"
     },
     {
@@ -504,7 +614,7 @@
     },
     {
       "path": "vite.config.ts",
-      "bytes": 1455,
+      "bytes": 1544,
       "area": "vite.config.ts"
     },
     {
