@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RemoteClientError, type RemoteCatalogClient } from '@/core/api/remoteCatalogClient';
 import type { RemoteProfileCatalog } from '@/core/api/remoteCatalogContracts';
 import { RemoteCatalog } from '@/features/remote/RemoteCatalog';
@@ -16,6 +16,8 @@ const catalog: RemoteProfileCatalog = {
     },
   ],
 };
+
+afterEach(cleanup);
 
 function asClient(value: {
   initialize: (signal?: AbortSignal) => Promise<RemoteProfileCatalog>;
@@ -36,7 +38,7 @@ describe('RemoteCatalog attempts', () => {
   it('aborts the active request when the runtime client is replaced', async () => {
     let firstSignal: AbortSignal | undefined;
     const firstClient = asClient({
-      initialize: vi.fn((signal) => {
+      initialize: vi.fn((signal?: AbortSignal) => {
         firstSignal = signal;
         return pendingUntilAbort(signal);
       }),
@@ -80,7 +82,7 @@ describe('RemoteCatalog attempts', () => {
     let refreshSignal: AbortSignal | undefined;
     const client = asClient({
       initialize: vi.fn(async () => catalog),
-      refresh: vi.fn((signal) => {
+      refresh: vi.fn((signal?: AbortSignal) => {
         refreshSignal = signal;
         return pendingUntilAbort(signal);
       }),
