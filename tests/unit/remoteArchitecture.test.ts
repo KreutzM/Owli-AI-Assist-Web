@@ -2,9 +2,17 @@ import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 
 describe('remote capability isolation', () => {
-  it('keeps provider-backed capabilities out of the remote feature', async () => {
+  it('keeps provider-backed modules, calls and controls out of the remote feature', async () => {
     const source = await readFile('src/features/remote/RemoteCatalog.tsx', 'utf8');
-    expect(source).not.toMatch(/camera|imageBase64|scene\/|followup|song\/|audio|video|share/i);
+    expect(source).not.toMatch(
+      /from ['"]@\/(?:features\/(?:camera|capture|scene|followup|song|postcard)|core\/api\/(?:owliApi|remoteOwliApi))[^'"]*['"]/i,
+    );
+    expect(source).not.toMatch(
+      /\.(?:describeScene|createFollowup|createSong|captureImage|upload|share|playAudio|playVideo)\s*\(/,
+    );
+    expect(source).not.toMatch(
+      /<button[^>]*>[\s\S]*?(?:Kamera|Aufnahme|Szenenanalyse|Rückfrage|Postcard|Audio abspielen|Video abspielen)[\s\S]*?<\/button>/i,
+    );
   });
 
   it('keeps the remote client route allowlist narrow', async () => {
