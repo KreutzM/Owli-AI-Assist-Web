@@ -22,13 +22,27 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: 'pnpm dev --host 127.0.0.1',
+      command: 'pnpm dev --host 0.0.0.0',
       url: 'http://127.0.0.1:5173',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
       env: {
         ...process.env,
         VITE_OWLI_API_MODE: 'remote',
+        VITE_OWLI_API_BASE_URL: 'https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev/',
+        VITE_OWLI_APP_VERSION: '0.1.0',
+        VITE_OWLI_VERSION_CODE: '1',
+        VITE_OWLI_DEFAULT_LOCALE: 'de-DE',
+      },
+    },
+    {
+      command: 'pnpm exec vite --host 127.0.0.1 --port 5174 --strictPort',
+      url: 'http://127.0.0.1:5174',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: {
+        ...process.env,
+        VITE_OWLI_API_MODE: 'remtoe',
         VITE_OWLI_API_BASE_URL: 'https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev/',
         VITE_OWLI_APP_VERSION: '0.1.0',
         VITE_OWLI_VERSION_CODE: '1',
