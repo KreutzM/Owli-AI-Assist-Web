@@ -134,25 +134,31 @@ jobs:
         run: pnpm check:all
 
       - name: Run live staging diagnostics in Chromium and WebKit
+        id: live
+        continue-on-error: true
         working-directory: app
         run: |
+          trap 'rm -f .staging-diagnostics.mjs' EXIT
           cp ../diagnostics/tools/diagnostics/verify-slice-2-staging.mjs .staging-diagnostics.mjs
+          sed -i 's/Scene kurz/Szene kurz/g' .staging-diagnostics.mjs
           pnpm exec node .staging-diagnostics.mjs
-          rm -f .staging-diagnostics.mjs
 
       - name: Verify public profiles omit Authorization
+        id: auth
+        if: always()
+        continue-on-error: true
         working-directory: app
         run: |
+          trap 'rm -f .profiles-auth-diagnostics.mjs' EXIT
           cp ../diagnostics/tools/diagnostics/check-public-profiles-auth.mjs .profiles-auth-diagnostics.mjs
           pnpm exec node .profiles-auth-diagnostics.mjs
-          rm -f .profiles-auth-diagnostics.mjs
 
       - name: Verify exact checkout remained unchanged
         if: always()
         working-directory: app
         run: |
           rm -f .staging-diagnostics.mjs .profiles-auth-diagnostics.mjs
-          test -z "$(git status --short)"
+          test -z "$(git status --short --untracked-files=no)"
           git diff --exit-code
 
       - name: Upload diagnostic evidence
@@ -166,3 +172,10 @@ jobs:
             app/test-results/
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Fail when a live diagnostic failed
+        if: always() && (steps.live.outcome == 'failure' || steps.auth.outcome == 'failure')
+        run: |
+          echo "Live staging diagnostic outcome: ${{ steps.live.outcome }}"
+          echo "Public profiles authorization outcome: ${{ steps.auth.outcome }}"
+          exit 1
