@@ -201,7 +201,9 @@ function projectCatalog(
 }
 
 function assertNotAborted(signal?: AbortSignal): void {
-  if (signal?.aborted) throw new RemoteClientError('REQUEST_ABORTED');
+  if (signal !== undefined && signal.aborted) {
+    throw new RemoteClientError('REQUEST_ABORTED');
+  }
 }
 
 function createMemoryInstallationId(): string {
