@@ -84,6 +84,9 @@ jobs:
           echo $? > build.exit
           exit 0
 
+      - name: Generate repository index artifacts
+        run: pnpm ai:index
+
       - name: Upload validation diagnostics
         uses: actions/upload-artifact@v4
         with:
@@ -103,6 +106,8 @@ jobs:
             unit.exit
             build.log
             build.exit
+            .ai/repo-index.json
+            .ai/file-tree.md
           retention-days: 1
 
       - name: Enforce validation results
