@@ -50,7 +50,7 @@ test.describe('remote readiness', () => {
   test('announces loading and then an empty catalog accessibly', async ({ page }) => {
     let releaseConfig: () => void = () => undefined;
     const configGate = new Promise<void>((resolve) => {
-      releaseConfig = resolve;
+      releaseConfig = () => resolve();
     });
     await routeRemoteApi(page, { configGate, profiles: [] });
 
@@ -86,7 +86,7 @@ test.describe('remote readiness', () => {
   }) => {
     let releaseRefresh: () => void = () => undefined;
     const refreshGate = new Promise<void>((resolve) => {
-      releaseRefresh = resolve;
+      releaseRefresh = () => resolve();
     });
     await routeRemoteApi(page, {
       profileResponder: async (call, route, request) => {
