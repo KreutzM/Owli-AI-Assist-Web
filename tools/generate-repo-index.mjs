@@ -63,7 +63,9 @@ async function emit(relative, content) {
     if (current !== content) {
       const currentLines = current.split('\n');
       const expectedLines = content.split('\n');
-      const firstDifferentLine = expectedLines.findIndex((line, index) => line !== currentLines[index]);
+      const firstDifferentLine = expectedLines.findIndex(
+        (line, index) => line !== currentLines[index],
+      );
       console.error(`${relative} is stale. Run pnpm ai:index.`);
       console.error(
         `First difference at line ${firstDifferentLine + 1}: current=${JSON.stringify(currentLines[firstDifferentLine])} expected=${JSON.stringify(expectedLines[firstDifferentLine])}`,
