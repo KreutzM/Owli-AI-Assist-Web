@@ -1,5 +1,6 @@
 import { readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import prettier from 'prettier';
 
 const root = process.cwd();
 const checkOnly = process.argv.includes('--check');
@@ -31,16 +32,14 @@ const records = await Promise.all(
   }),
 );
 
-const index =
-  JSON.stringify(
-    {
-      schemaVersion: 1,
-      generatedBy: 'tools/generate-repo-index.mjs',
-      files: records,
-    },
-    null,
-    2,
-  ) + '\n';
+const index = await prettier.format(
+  JSON.stringify({
+    schemaVersion: 1,
+    generatedBy: 'tools/generate-repo-index.mjs',
+    files: records,
+  }),
+  { parser: 'json' },
+);
 
 const grouped = Map.groupBy(records, (record) => record.area);
 let tree = '# Generated Web Repository File Tree\n\n';
