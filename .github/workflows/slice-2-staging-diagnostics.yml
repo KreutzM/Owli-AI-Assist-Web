@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/slice-2-staging-diagnostics.yml
       - tools/diagnostics/verify-slice-2-staging.mjs
+      - tools/diagnostics/check-public-profiles-auth.mjs
   workflow_dispatch:
 
 permissions:
@@ -139,11 +140,18 @@ jobs:
           pnpm exec node .staging-diagnostics.mjs
           rm -f .staging-diagnostics.mjs
 
+      - name: Verify public profiles omit Authorization
+        working-directory: app
+        run: |
+          cp ../diagnostics/tools/diagnostics/check-public-profiles-auth.mjs .profiles-auth-diagnostics.mjs
+          pnpm exec node .profiles-auth-diagnostics.mjs
+          rm -f .profiles-auth-diagnostics.mjs
+
       - name: Verify exact checkout remained unchanged
         if: always()
         working-directory: app
         run: |
-          rm -f .staging-diagnostics.mjs
+          rm -f .staging-diagnostics.mjs .profiles-auth-diagnostics.mjs
           test -z "$(git status --short)"
           git diff --exit-code
 
