@@ -12,14 +12,20 @@ type State =
 
 export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
   const [state, setState] = useState<State>({ status: 'loading' });
+  const [busy, setBusy] = useState(true);
   const currentCatalog = useRef<RemoteProfileCatalog | undefined>(undefined);
   const attempt = useRef(0);
+  const activeController = useRef<AbortController | undefined>(undefined);
 
   const run = useCallback(
     async (refresh: boolean) => {
-      const id = ++attempt.current;
+      activeController.current?.abort();
       const controller = new AbortController();
+      activeController.current = controller;
+      const id = ++attempt.current;
+      setBusy(true);
       if (!refresh) setState({ status: 'loading' });
+
       try {
         const catalog = refresh
           ? await client.refresh(controller.signal)
@@ -29,7 +35,12 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
         setState(catalog.profiles.length ? { status: 'ready', catalog } : { status: 'empty' });
       } catch (error) {
         if (id !== attempt.current) return;
-        if (error instanceof RemoteClientError && error.code === 'REQUEST_ABORTED') return;
+        if (
+          (error instanceof RemoteClientError && error.code === 'REQUEST_ABORTED') ||
+          (error instanceof DOMException && error.name === 'AbortError')
+        ) {
+          return;
+        }
         if (refresh && currentCatalog.current) {
           setState({ status: 'refresh_failed', catalog: currentCatalog.current });
         } else if (error instanceof RemoteClientError && error.code === 'RATE_LIMITED') {
@@ -40,44 +51,35 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
         } else {
           setState({ status: 'unavailable' });
         }
+      } finally {
+        if (id === attempt.current && activeController.current === controller) {
+          activeController.current = undefined;
+          setBusy(false);
+        }
       }
     },
     [client],
   );
 
   useEffect(() => {
-    const controller = new AbortController();
-    const id = ++attempt.current;
-    void client
-      .initialize(controller.signal)
-      .then((catalog) => {
-        if (id !== attempt.current) return;
-        currentCatalog.current = catalog;
-        setState(catalog.profiles.length ? { status: 'ready', catalog } : { status: 'empty' });
-      })
-      .catch((error: unknown) => {
-        if (id !== attempt.current) return;
-        if (error instanceof RemoteClientError && error.code === 'REQUEST_ABORTED') return;
-        if (error instanceof RemoteClientError && error.code === 'RATE_LIMITED') {
-          setState({
-            status: 'rate_limited',
-            ...(error.retryAt !== undefined ? { retryAt: error.retryAt } : {}),
-          });
-        } else {
-          setState({ status: 'unavailable' });
-        }
-      });
+    currentCatalog.current = undefined;
+    void run(false);
     return () => {
-      controller.abort();
       attempt.current += 1;
+      activeController.current?.abort();
+      activeController.current = undefined;
     };
-  }, [client]);
+  }, [run]);
 
   const catalog =
     state.status === 'ready' || state.status === 'refresh_failed' ? state.catalog : undefined;
 
   return (
-    <section className="panel remote-catalog" aria-labelledby="remote-title">
+    <section
+      className="panel remote-catalog"
+      aria-labelledby="remote-title"
+      aria-busy={busy}
+    >
       <p className="eyebrow">Online-Vorbereitung</p>
       <h2 id="remote-title">Backend-Bereitschaft und Profile</h2>
       <p>
@@ -92,12 +94,18 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
         </p>
       )}
 
+      {busy && catalog !== undefined && (
+        <p className="live-status" role="status" aria-live="polite">
+          Der Profilkatalog wird aktualisiert …
+        </p>
+      )}
+
       {state.status === 'empty' && (
         <div>
           <p className="live-status" role="status">
             Der Dienst ist erreichbar, bietet aktuell aber keine freigegebenen Profile an.
           </p>
-          <RetryButton onRetry={() => void run(false)} />
+          <RetryButton disabled={busy} onRetry={() => void run(false)} />
         </div>
       )}
 
@@ -106,7 +114,7 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
           <p className="live-status" role="alert">
             Der Dienst ist vorübergehend ausgelastet. Bitte versuche es später erneut.
           </p>
-          <RetryButton onRetry={() => void run(false)} />
+          <RetryButton disabled={busy} onRetry={() => void run(false)} />
         </div>
       )}
 
@@ -115,7 +123,7 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
           <p className="live-status" role="alert">
             Die Online-Vorbereitung ist derzeit nicht verfügbar. Es wurden keine Inhalte übertragen.
           </p>
-          <RetryButton onRetry={() => void run(false)} />
+          <RetryButton disabled={busy} onRetry={() => void run(false)} />
         </div>
       )}
 
@@ -136,7 +144,12 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
               </li>
             ))}
           </ul>
-          <button className="button button--secondary" type="button" onClick={() => void run(true)}>
+          <button
+            className="button button--secondary"
+            type="button"
+            disabled={busy}
+            onClick={() => void run(true)}
+          >
             Profilkatalog aktualisieren
           </button>
         </>
@@ -145,9 +158,9 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
   );
 }
 
-function RetryButton({ onRetry }: { onRetry: () => void }) {
+function RetryButton({ disabled, onRetry }: { disabled: boolean; onRetry: () => void }) {
   return (
-    <button className="button button--primary" type="button" onClick={onRetry}>
+    <button className="button button--primary" type="button" disabled={disabled} onClick={onRetry}>
       Erneut versuchen
     </button>
   );
