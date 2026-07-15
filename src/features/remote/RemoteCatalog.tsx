@@ -63,8 +63,12 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
 
   useEffect(() => {
     currentCatalog.current = undefined;
-    void run(false);
+    let active = true;
+    queueMicrotask(() => {
+      if (active) void run(false);
+    });
     return () => {
+      active = false;
       attempt.current += 1;
       activeController.current?.abort();
       activeController.current = undefined;
