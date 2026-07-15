@@ -17,6 +17,7 @@ const excludedFiles = new Set([
   '.ai/file-tree.md',
   '.ai/repo-index.json',
   'pnpm-lock.yaml',
+  'tools/generate-repo-index.mjs',
   'typecheck.log',
 ]);
 const files = (await walk(root))
@@ -60,7 +61,13 @@ async function emit(relative, content) {
   if (checkOnly) {
     const current = await readFile(target, 'utf8').catch(() => '');
     if (current !== content) {
+      const currentLines = current.split('\n');
+      const expectedLines = content.split('\n');
+      const firstDifferentLine = expectedLines.findIndex((line, index) => line !== currentLines[index]);
       console.error(`${relative} is stale. Run pnpm ai:index.`);
+      console.error(
+        `First difference at line ${firstDifferentLine + 1}: current=${JSON.stringify(currentLines[firstDifferentLine])} expected=${JSON.stringify(expectedLines[firstDifferentLine])}`,
+      );
       process.exitCode = 1;
     }
     return;
