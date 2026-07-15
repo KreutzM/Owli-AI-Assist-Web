@@ -33,28 +33,33 @@ type RemoteRuntimeConfig = Extract<RuntimeConfig, { mode: 'remote' }>;
  * the remote composition root, so every broad operation fails closed here.
  */
 export class RemoteOwliApi implements OwliApi {
-  constructor(
-    _config: RemoteRuntimeConfig,
-    _installationId: string,
-  ) {}
+  constructor(config: RemoteRuntimeConfig, installationId: string) {
+    void config;
+    void installationId;
+  }
 
-  listProfiles(_signal?: AbortSignal): Promise<PublicProfile[]> {
+  listProfiles(signal?: AbortSignal): Promise<PublicProfile[]> {
+    void signal;
     return Promise.reject(remoteCapabilityUnavailable());
   }
 
-  describeScene(_request: SceneRequest): Promise<SceneResult> {
+  describeScene(request: SceneRequest): Promise<SceneResult> {
+    void request;
     return Promise.reject(remoteCapabilityUnavailable());
   }
 
-  askFollowup(_request: FollowupRequest): Promise<FollowupResult> {
+  askFollowup(request: FollowupRequest): Promise<FollowupResult> {
+    void request;
     return Promise.reject(remoteCapabilityUnavailable());
   }
 
-  generateAudioPostcard(_request: AudioPostcardRequest): Promise<AudioPostcardResult> {
+  generateAudioPostcard(request: AudioPostcardRequest): Promise<AudioPostcardResult> {
+    void request;
     return Promise.reject(remoteCapabilityUnavailable());
   }
 
-  getUsage(_signal?: AbortSignal): Promise<UsageSnapshot | undefined> {
+  getUsage(signal?: AbortSignal): Promise<UsageSnapshot | undefined> {
+    void signal;
     return Promise.resolve(undefined);
   }
 }
