@@ -31,7 +31,26 @@ describe('RemoteSessionManager', () => {
     expect(bootstrap).toHaveBeenCalledTimes(1);
   });
 
-  it('retries exactly once after 401', async () => {
+  it('retries initial bootstrap exactly once after 401', async () => {
+    const bootstrap = vi
+      .fn<() => Promise<WebBootstrapResponseV2>>()
+      .mockRejectedValueOnce(new RemoteHttpError(401))
+      .mockResolvedValueOnce(session('second'));
+    const manager = new RemoteSessionManager(bootstrap);
+    await expect(manager.ensure()).resolves.toMatchObject({ sessionToken: 'second' });
+    expect(bootstrap).toHaveBeenCalledTimes(2);
+  });
+
+  it('lets a second bootstrap 401 escape', async () => {
+    const bootstrap = vi.fn(async () => {
+      throw new RemoteHttpError(401);
+    });
+    const manager = new RemoteSessionManager(bootstrap);
+    await expect(manager.ensure()).rejects.toMatchObject({ status: 401 });
+    expect(bootstrap).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries an authenticated operation exactly once after 401', async () => {
     const bootstrap = vi.fn(async () => session(String(bootstrap.mock.calls.length)));
     const manager = new RemoteSessionManager(bootstrap);
     const operation = vi
@@ -39,6 +58,17 @@ describe('RemoteSessionManager', () => {
       .mockRejectedValueOnce(new RemoteHttpError(401))
       .mockResolvedValueOnce('ok');
     await expect(manager.withUnauthorizedRetry(operation)).resolves.toBe('ok');
+    expect(operation).toHaveBeenCalledTimes(2);
+    expect(bootstrap).toHaveBeenCalledTimes(2);
+  });
+
+  it('lets a second authenticated operation 401 escape', async () => {
+    const bootstrap = vi.fn(async () => session(String(bootstrap.mock.calls.length)));
+    const manager = new RemoteSessionManager(bootstrap);
+    const operation = vi.fn(async () => {
+      throw new RemoteHttpError(401);
+    });
+    await expect(manager.withUnauthorizedRetry(operation)).rejects.toMatchObject({ status: 401 });
     expect(operation).toHaveBeenCalledTimes(2);
     expect(bootstrap).toHaveBeenCalledTimes(2);
   });
