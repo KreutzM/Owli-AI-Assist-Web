@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { webBootstrapResponseV2Schema } from '@/core/api/remoteCatalogContracts';
+import {
+  PROFILE_REGISTRY_SCHEMA_VERSION,
+  remoteProfilesResponseSchema,
+  webBootstrapResponseV2Schema,
+} from '@/core/api/remoteCatalogContracts';
 
 const valid = {
   sessionToken: 'token',
@@ -17,6 +21,22 @@ const valid = {
       note: 'public browser client',
     },
   },
+};
+
+const validProfiles = {
+  schemaVersion: PROFILE_REGISTRY_SCHEMA_VERSION,
+  defaultProfileId: 'basic',
+  profiles: [
+    {
+      id: 'basic',
+      label: 'Basic',
+      description: 'Basic profile',
+      availability: 'backend',
+      transports: {
+        backend: { available: true, supportsStreaming: false, supportsFollowup: false },
+      },
+    },
+  ],
 };
 
 describe('Web bootstrap v2 contract', () => {
@@ -58,6 +78,18 @@ describe('Web bootstrap v2 contract', () => {
         ...valid,
         bootstrapInfo: { ...valid.bootstrapInfo, platform: 'android' },
       }).success,
+    ).toBe(false);
+  });
+});
+
+describe('profile registry contract', () => {
+  it('accepts only the pinned registry schema version', () => {
+    expect(remoteProfilesResponseSchema.safeParse(validProfiles).success).toBe(true);
+    expect(
+      remoteProfilesResponseSchema.safeParse({ ...validProfiles, schemaVersion: '1' }).success,
+    ).toBe(false);
+    expect(
+      remoteProfilesResponseSchema.safeParse({ ...validProfiles, schemaVersion: '' }).success,
     ).toBe(false);
   });
 });
