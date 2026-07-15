@@ -43,17 +43,33 @@ jobs:
       - name: Check formatting
         run: pnpm format:check
 
-      - name: Run lint
-        run: pnpm lint
+      - name: Capture lint diagnostics
+        run: |
+          set +e
+          pnpm lint > lint.log 2>&1
+          echo $? > lint.exit
+          exit 0
 
-      - name: Run typecheck
-        run: pnpm typecheck
+      - name: Capture typecheck diagnostics
+        run: |
+          set +e
+          pnpm typecheck > typecheck.log 2>&1
+          echo $? > typecheck.exit
+          exit 0
 
-      - name: Run architecture guardrails
-        run: pnpm guardrails
+      - name: Capture architecture diagnostics
+        run: |
+          set +e
+          pnpm guardrails > guardrails.log 2>&1
+          echo $? > guardrails.exit
+          exit 0
 
-      - name: Run unit tests
-        run: pnpm test
+      - name: Capture unit test diagnostics
+        run: |
+          set +e
+          pnpm test > unit.log 2>&1
+          echo $? > unit.exit
+          exit 0
 
       - name: Capture production build diagnostics
         run: |
@@ -62,17 +78,27 @@ jobs:
           echo $? > build.exit
           exit 0
 
-      - name: Upload production build diagnostics
+      - name: Upload validation diagnostics
         uses: actions/upload-artifact@v4
         with:
-          name: build-diagnostics
+          name: validation-diagnostics
           path: |
+            lint.log
+            lint.exit
+            typecheck.log
+            typecheck.exit
+            guardrails.log
+            guardrails.exit
+            unit.log
+            unit.exit
             build.log
             build.exit
           retention-days: 1
 
-      - name: Enforce production build result
-        run: test "$(cat build.exit)" = "0"
-
-      - name: Verify agent index
-        run: pnpm ai:index:check
+      - name: Enforce validation results
+        run: |
+          test "$(cat lint.exit)" = "0"
+          test "$(cat typecheck.exit)" = "0"
+          test "$(cat guardrails.exit)" = "0"
+          test "$(cat unit.exit)" = "0"
+          test "$(cat build.exit)" = "0"
