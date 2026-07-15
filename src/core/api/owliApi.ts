@@ -4,7 +4,9 @@ import type { RuntimeConfig } from '@/core/config/runtimeConfig';
 import { getOrCreateInstallationId } from '@/core/identity/installationId';
 import type { OwliApi } from '@/core/types';
 
-export function createOwliApi(config: RuntimeConfig): OwliApi {
-  if (config.apiMode === 'mock') return new MockOwliApi();
+type ActiveRuntimeConfig = Exclude<RuntimeConfig, { mode: 'invalid_configuration' }>;
+
+export function createOwliApi(config: ActiveRuntimeConfig): OwliApi {
+  if (config.mode === 'mock') return new MockOwliApi();
   return new RemoteOwliApi(config, getOrCreateInstallationId());
 }
