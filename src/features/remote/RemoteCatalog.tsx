@@ -18,13 +18,13 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
   const activeController = useRef<AbortController | undefined>(undefined);
 
   const run = useCallback(
-    async (refresh: boolean) => {
+    async (refresh: boolean, showLoading: boolean) => {
       activeController.current?.abort();
       const controller = new AbortController();
       activeController.current = controller;
       const id = ++attempt.current;
       setBusy(true);
-      if (!refresh) setState({ status: 'loading' });
+      if (!refresh && showLoading) setState({ status: 'loading' });
 
       try {
         const catalog = refresh
@@ -65,7 +65,7 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
     currentCatalog.current = undefined;
     let active = true;
     queueMicrotask(() => {
-      if (active) void run(false);
+      if (active) void run(false, true);
     });
     return () => {
       active = false;
@@ -105,7 +105,7 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
           <p className="live-status" role="status">
             Der Dienst ist erreichbar, bietet aktuell aber keine freigegebenen Profile an.
           </p>
-          <RetryButton disabled={busy} onRetry={() => void run(false)} />
+          <RetryButton disabled={busy} onRetry={() => void run(false, false)} />
         </div>
       )}
 
@@ -114,7 +114,7 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
           <p className="live-status" role="alert">
             Der Dienst ist vorübergehend ausgelastet. Bitte versuche es später erneut.
           </p>
-          <RetryButton disabled={busy} onRetry={() => void run(false)} />
+          <RetryButton disabled={busy} onRetry={() => void run(false, false)} />
         </div>
       )}
 
@@ -123,7 +123,7 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
           <p className="live-status" role="alert">
             Die Online-Vorbereitung ist derzeit nicht verfügbar. Es wurden keine Inhalte übertragen.
           </p>
-          <RetryButton disabled={busy} onRetry={() => void run(false)} />
+          <RetryButton disabled={busy} onRetry={() => void run(false, false)} />
         </div>
       )}
 
@@ -148,7 +148,7 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
             className="button button--secondary"
             type="button"
             disabled={busy}
-            onClick={() => void run(true)}
+            onClick={() => void run(true, false)}
           >
             Profilkatalog aktualisieren
           </button>
