@@ -244,7 +244,7 @@
     },
     {
       "path": "playwright.config.ts",
-      "bytes": 1001,
+      "bytes": 1497,
       "area": "playwright.config.ts"
     },
     {
@@ -509,7 +509,7 @@
     },
     {
       "path": "tests/e2e/app.spec.ts",
-      "bytes": 402,
+      "bytes": 419,
       "area": "tests"
     },
     {
