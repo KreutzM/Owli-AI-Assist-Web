@@ -23,11 +23,12 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:a11y": "playwright test tests/e2e/accessibility.spec.ts tests/e2e/remote-readiness.spec.ts",
+    "test:ports": "node tools/check-vite-port-policy.mjs",
     "guardrails": "node tools/check-architecture.mjs",
     "ai:index": "node tools/generate-repo-index.mjs",
     "ai:index:check": "node tools/generate-repo-index.mjs --check",
     "check:fast": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm guardrails && pnpm test",
-    "check:all": "pnpm check:fast && pnpm build && pnpm test:e2e && pnpm ai:index:check"
+    "check:all": "pnpm check:fast && pnpm build && pnpm test:ports && pnpm test:e2e && pnpm ai:index:check"
   },
   "dependencies": {
     "react": "19.2.7",
