@@ -61,10 +61,6 @@ export function readRuntimeConfig(env: ImportMetaEnv = import.meta.env): Runtime
     };
   }
 
-  if (mode !== 'remote') {
-    return { mode: 'invalid_configuration', reason: 'REMOTE_BASE_URL_INVALID' };
-  }
-
   const rawBaseUrl = env.VITE_OWLI_API_BASE_URL;
   if (!rawBaseUrl) {
     return { mode: 'invalid_configuration', reason: 'REMOTE_BASE_URL_MISSING' };
