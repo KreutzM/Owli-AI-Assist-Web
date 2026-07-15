@@ -3,8 +3,8 @@ import type { WebBootstrapResponseV2 } from '@/core/api/remoteCatalogContracts';
 const EXPIRY_SKEW_MS = 30_000;
 
 export class RemoteSessionManager {
-  #session?: WebBootstrapResponseV2;
-  #inFlight?: Promise<WebBootstrapResponseV2>;
+  #session: WebBootstrapResponseV2 | undefined;
+  #inFlight: Promise<WebBootstrapResponseV2> | undefined;
 
   constructor(
     private readonly bootstrap: (signal?: AbortSignal) => Promise<WebBootstrapResponseV2>,
