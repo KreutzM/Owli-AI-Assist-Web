@@ -1,6 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 
 const target = process.argv[2] ?? process.env.OWLI_WEB_DEPLOY_TARGET;
+const declaredTarget = process.env.OWLI_WEB_DEPLOY_TARGET;
 const origins = {
   mock: { connect: '', media: '' },
   staging: {
@@ -13,8 +14,13 @@ const origins = {
   },
 };
 
-if (!target || !(target in origins)) {
+if (!target || !Object.hasOwn(origins, target)) {
   throw new Error('OWLI_WEB_DEPLOY_TARGET must be exactly mock, staging, or production.');
+}
+if (declaredTarget !== undefined && declaredTarget !== target) {
+  throw new Error(
+    `Runtime build target ${declaredTarget} does not match header target ${target}.`,
+  );
 }
 
 const selected = origins[target];
