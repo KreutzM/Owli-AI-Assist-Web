@@ -1,6 +1,9 @@
 name: Web CI Diagnostics
 
 on:
+  pull_request:
+    branches:
+      - pwa-mvp/remote-profiles-session
   push:
     branches:
       - pwa-mvp/remote-profiles-session
@@ -10,14 +13,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: web-ci-diagnostics-${{ github.ref }}
+  group: web-ci-diagnostics-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   validate:
     name: Branch diagnostics
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -40,35 +43,11 @@ jobs:
       - name: Check formatting
         run: pnpm format:check
 
-      - name: Capture lint diagnostics
-        run: |
-          set +e
-          pnpm lint > lint.log 2>&1
-          echo $? > lint.exit
-          exit 0
+      - name: Run lint
+        run: pnpm lint
 
-      - name: Capture typecheck diagnostics
-        run: |
-          set +e
-          pnpm typecheck > typecheck.log 2>&1
-          echo $? > typecheck.exit
-          exit 0
-
-      - name: Upload validation diagnostics
-        uses: actions/upload-artifact@v4
-        with:
-          name: validation-diagnostics
-          path: |
-            lint.log
-            lint.exit
-            typecheck.log
-            typecheck.exit
-          retention-days: 1
-
-      - name: Enforce validation result
-        run: |
-          test "$(cat lint.exit)" = "0"
-          test "$(cat typecheck.exit)" = "0"
+      - name: Run typecheck
+        run: pnpm typecheck
 
       - name: Run architecture guardrails
         run: pnpm guardrails
@@ -76,8 +55,24 @@ jobs:
       - name: Run unit tests
         run: pnpm test
 
-      - name: Build production PWA
-        run: pnpm build
+      - name: Capture production build diagnostics
+        run: |
+          set +e
+          pnpm build > build.log 2>&1
+          echo $? > build.exit
+          exit 0
+
+      - name: Upload production build diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-diagnostics
+          path: |
+            build.log
+            build.exit
+          retention-days: 1
+
+      - name: Enforce production build result
+        run: test "$(cat build.exit)" = "0"
 
       - name: Verify agent index
         run: pnpm ai:index:check
