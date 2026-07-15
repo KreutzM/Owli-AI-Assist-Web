@@ -10,6 +10,14 @@ describe('remote runtime configuration', () => {
     expect(readRuntimeConfig(env({ VITE_OWLI_API_BASE_URL: 'not a url' })).mode).toBe('mock');
   });
 
+  it('requires the exact remote mode value', () => {
+    expect(
+      readRuntimeConfig(
+        env({ VITE_OWLI_API_MODE: 'remtoe', VITE_OWLI_API_BASE_URL: STAGING_API_ROOT }),
+      ),
+    ).toEqual({ mode: 'invalid_configuration', reason: 'API_MODE_INVALID' });
+  });
+
   it('accepts the exact staging root', () => {
     expect(
       readRuntimeConfig(
