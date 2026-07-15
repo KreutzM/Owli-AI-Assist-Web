@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RemoteClientError, type RemoteCatalogClient } from '@/core/api/remoteCatalogClient';
 import type { RemoteProfileCatalog } from '@/core/api/remoteCatalogContracts';
@@ -17,7 +17,10 @@ const catalog: RemoteProfileCatalog = {
   ],
 };
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 function asClient(value: {
   initialize: (signal?: AbortSignal) => Promise<RemoteProfileCatalog>;
@@ -38,7 +41,7 @@ describe('RemoteCatalog attempts', () => {
   it('aborts the active request when the runtime client is replaced', async () => {
     let firstSignal: AbortSignal | undefined;
     const firstClient = asClient({
-      initialize: vi.fn((signal?: AbortSignal) => {
+      initialize: vi.fn<(signal?: AbortSignal) => Promise<RemoteProfileCatalog>>((signal) => {
         firstSignal = signal;
         return pendingUntilAbort(signal);
       }),
@@ -49,12 +52,12 @@ describe('RemoteCatalog attempts', () => {
       refresh: vi.fn(async () => catalog),
     });
 
-    const { rerender } = render(<RemoteCatalog client={firstClient} />);
+    const view = render(<RemoteCatalog client={firstClient} />);
     await waitFor(() => expect(firstSignal).toBeDefined());
-    rerender(<RemoteCatalog client={secondClient} />);
+    view.rerender(<RemoteCatalog client={secondClient} />);
 
     await waitFor(() => expect(firstSignal?.aborted).toBe(true));
-    expect(await screen.findByRole('heading', { name: 'Basic' })).toBeVisible();
+    expect(await view.findByRole('heading', { name: 'Basic' })).toBeVisible();
   });
 
   it('disables retry while the replacement attempt is active and aborts it on unmount', async () => {
@@ -68,13 +71,14 @@ describe('RemoteCatalog attempts', () => {
       });
     const client = asClient({ initialize, refresh: vi.fn(async () => catalog) });
 
-    const { unmount } = render(<RemoteCatalog client={client} />);
-    const retry = await screen.findByRole('button', { name: 'Erneut versuchen' });
-    fireEvent.click(retry);
-    await waitFor(() => expect(retry).toBeDisabled());
+    const view = render(<RemoteCatalog client={client} />);
+    fireEvent.click(await view.findByRole('button', { name: 'Erneut versuchen' }));
+    await waitFor(() =>
+      expect(view.getByRole('button', { name: 'Erneut versuchen' })).toBeDisabled(),
+    );
     expect(initialize).toHaveBeenCalledTimes(2);
 
-    unmount();
+    view.unmount();
     expect(retrySignal?.aborted).toBe(true);
   });
 
@@ -82,22 +86,23 @@ describe('RemoteCatalog attempts', () => {
     let refreshSignal: AbortSignal | undefined;
     const client = asClient({
       initialize: vi.fn(async () => catalog),
-      refresh: vi.fn((signal?: AbortSignal) => {
+      refresh: vi.fn<(signal?: AbortSignal) => Promise<RemoteProfileCatalog>>((signal) => {
         refreshSignal = signal;
         return pendingUntilAbort(signal);
       }),
     });
 
-    const { unmount } = render(<RemoteCatalog client={client} />);
-    expect(await screen.findByRole('heading', { name: 'Basic' })).toBeVisible();
-    const refresh = screen.getByRole('button', { name: 'Profilkatalog aktualisieren' });
-    fireEvent.click(refresh);
+    const view = render(<RemoteCatalog client={client} />);
+    expect(await view.findByRole('heading', { name: 'Basic' })).toBeVisible();
+    fireEvent.click(view.getByRole('button', { name: 'Profilkatalog aktualisieren' }));
 
-    await waitFor(() => expect(refresh).toBeDisabled());
-    expect(screen.getByRole('heading', { name: 'Basic' })).toBeVisible();
-    expect(screen.getByRole('status')).toHaveTextContent('wird aktualisiert');
+    await waitFor(() =>
+      expect(view.getByRole('button', { name: 'Profilkatalog aktualisieren' })).toBeDisabled(),
+    );
+    expect(view.getByRole('heading', { name: 'Basic' })).toBeVisible();
+    expect(view.getByRole('status')).toHaveTextContent('wird aktualisiert');
 
-    unmount();
+    view.unmount();
     expect(refreshSignal?.aborted).toBe(true);
   });
 });
