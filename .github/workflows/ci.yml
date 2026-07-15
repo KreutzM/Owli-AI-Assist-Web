@@ -70,8 +70,27 @@ jobs:
       - name: Build production PWA
         run: pnpm build
 
-      - name: Verify agent index
-        run: pnpm ai:index:check
+      - name: Generate and verify agent index
+        id: agent-index
+        continue-on-error: true
+        run: |
+          rm -f typecheck.log
+          pnpm ai:index
+          git diff --exit-code -- .ai/repo-index.json .ai/file-tree.md
+
+      - name: Upload generated agent index
+        if: steps.agent-index.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-agent-index
+          path: |
+            .ai/repo-index.json
+            .ai/file-tree.md
+          retention-days: 1
+
+      - name: Enforce agent index result
+        if: steps.agent-index.outcome == 'failure'
+        run: exit 1
 
   browser:
     name: Browser and accessibility smoke
