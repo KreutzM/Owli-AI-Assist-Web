@@ -98,11 +98,6 @@
       "area": ".github"
     },
     {
-      "path": ".github/workflows/web-ci.yml",
-      "bytes": 2953,
-      "area": ".github"
-    },
-    {
       "path": ".gitignore",
       "bytes": 152,
       "area": ".gitignore"
@@ -594,7 +589,7 @@
     },
     {
       "path": "tools/generate-repo-index.mjs",
-      "bytes": 2399,
+      "bytes": 2427,
       "area": "tools"
     },
     {
