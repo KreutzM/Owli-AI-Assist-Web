@@ -1,7 +1,6 @@
 import { spawn } from 'node:child_process';
 
-const STAGING_API_ROOT =
-  'https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev/';
+const STAGING_API_ROOT = 'https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev/';
 
 const target = process.argv[2];
 const printConfigOnly = process.argv.includes('--print-config');

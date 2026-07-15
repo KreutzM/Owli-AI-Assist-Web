@@ -8,11 +8,7 @@ interface RemoteScenario {
   configGate?: Promise<void>;
   configStatuses?: number[];
   profiles?: unknown[];
-  profileResponder?: (
-    call: number,
-    route: Route,
-    request: Request,
-  ) => Promise<void> | void;
+  profileResponder?: (call: number, route: Route, request: Request) => Promise<void> | void;
 }
 
 interface RemoteStats {
@@ -42,9 +38,9 @@ test.describe('remote readiness', () => {
       platform: 'web',
       installationId: expect.any(String),
     });
-    expect(String((stats.bootstrapBodies[0] as { installationId: string }).installationId)).not.toBe(
-      '',
-    );
+    expect(
+      String((stats.bootstrapBodies[0] as { installationId: string }).installationId),
+    ).not.toBe('');
     expect(stats.profileHeaders[0]?.get('Authorization')).toBeNull();
     expect(stats.origins.every((origin) => allowedAppOrigins.has(origin))).toBe(true);
     await expectNoSeriousViolations(page);
@@ -159,17 +155,16 @@ test.describe('fail-closed runtime', () => {
       await route.abort('failed');
     });
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Online-Konfiguration nicht verfügbar' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Online-Konfiguration nicht verfügbar' }),
+    ).toBeVisible();
     await expect(page.getByRole('alert')).toContainText('ohne Netzwerkzugriff angehalten');
     expect(apiRequests).toBe(0);
     await expectNoSeriousViolations(page);
   });
 });
 
-async function routeRemoteApi(
-  page: Page,
-  scenario: RemoteScenario = {},
-): Promise<RemoteStats> {
+async function routeRemoteApi(page: Page, scenario: RemoteScenario = {}): Promise<RemoteStats> {
   const stats: RemoteStats = {
     configCalls: 0,
     bootstrapBodies: [],
@@ -197,8 +192,9 @@ async function routeRemoteApi(
         stats.configCalls += 1;
         await scenario.configGate;
         const status =
-          scenario.configStatuses?.[Math.min(stats.configCalls - 1, scenario.configStatuses.length - 1)] ??
-          200;
+          scenario.configStatuses?.[
+            Math.min(stats.configCalls - 1, scenario.configStatuses.length - 1)
+          ] ?? 200;
         if (status !== 200) {
           await fulfillJson(
             route,
@@ -253,7 +249,11 @@ async function routeRemoteApi(
   return stats;
 }
 
-async function fulfillProfiles(route: Route, request: Request, profiles: unknown[] = defaultProfiles) {
+async function fulfillProfiles(
+  route: Route,
+  request: Request,
+  profiles: unknown[] = defaultProfiles,
+) {
   await fulfillJson(
     route,
     request,
@@ -295,7 +295,9 @@ function corsHeaders(request: Request, exposeEtag = false): Record<string, strin
 async function expectNoSeriousViolations(page: Page) {
   const results = await new AxeBuilder({ page }).analyze();
   expect(
-    results.violations.filter((violation) => ['critical', 'serious'].includes(violation.impact ?? '')),
+    results.violations.filter((violation) =>
+      ['critical', 'serious'].includes(violation.impact ?? ''),
+    ),
   ).toEqual([]);
 }
 

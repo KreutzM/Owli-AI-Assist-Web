@@ -26,11 +26,9 @@ function asClient(value: {
 
 function pendingUntilAbort(signal: AbortSignal | undefined): Promise<RemoteProfileCatalog> {
   return new Promise((_resolve, reject) => {
-    signal?.addEventListener(
-      'abort',
-      () => reject(new RemoteClientError('REQUEST_ABORTED')),
-      { once: true },
-    );
+    signal?.addEventListener('abort', () => reject(new RemoteClientError('REQUEST_ABORTED')), {
+      once: true,
+    });
   });
 }
 

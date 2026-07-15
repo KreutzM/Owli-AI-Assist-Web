@@ -38,8 +38,7 @@ describe('deployment build targets', () => {
     await expect(printBuildConfig('staging')).resolves.toEqual({
       OWLI_WEB_DEPLOY_TARGET: 'staging',
       VITE_OWLI_API_MODE: 'remote',
-      VITE_OWLI_API_BASE_URL:
-        'https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev/',
+      VITE_OWLI_API_BASE_URL: 'https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev/',
       VITE_OWLI_APP_VERSION: '0.1.0',
       VITE_OWLI_VERSION_CODE: '1',
       VITE_OWLI_DEFAULT_LOCALE: 'de-DE',

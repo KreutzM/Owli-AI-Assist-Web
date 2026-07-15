@@ -18,9 +18,7 @@ if (!target || !Object.hasOwn(origins, target)) {
   throw new Error('OWLI_WEB_DEPLOY_TARGET must be exactly mock, staging, or production.');
 }
 if (declaredTarget !== undefined && declaredTarget !== target) {
-  throw new Error(
-    `Runtime build target ${declaredTarget} does not match header target ${target}.`,
-  );
+  throw new Error(`Runtime build target ${declaredTarget} does not match header target ${target}.`);
 }
 
 const selected = origins[target];

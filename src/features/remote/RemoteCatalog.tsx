@@ -75,11 +75,7 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
     state.status === 'ready' || state.status === 'refresh_failed' ? state.catalog : undefined;
 
   return (
-    <section
-      className="panel remote-catalog"
-      aria-labelledby="remote-title"
-      aria-busy={busy}
-    >
+    <section className="panel remote-catalog" aria-labelledby="remote-title" aria-busy={busy}>
       <p className="eyebrow">Online-Vorbereitung</p>
       <h2 id="remote-title">Backend-Bereitschaft und Profile</h2>
       <p>
