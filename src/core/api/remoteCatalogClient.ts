@@ -35,26 +35,36 @@ interface ProfileCatalogCacheEntry {
   response: RemoteProfilesResponse;
 }
 
+interface RemoteCatalogClientOptions {
+  installationId?: string;
+}
+
 export class RemoteCatalogClient {
   readonly #sessions: RemoteSessionManager;
+  readonly #installationId: string;
   #cache?: ProfileCatalogCacheEntry;
 
-  constructor(private readonly config: RemoteRuntimeConfig) {
+  constructor(
+    private readonly config: RemoteRuntimeConfig,
+    options: RemoteCatalogClientOptions = {},
+  ) {
+    this.#installationId = options.installationId ?? createMemoryInstallationId();
+    if (!this.#installationId.trim()) {
+      throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
+    }
     this.#sessions = new RemoteSessionManager((signal) => this.#bootstrap(signal));
   }
 
   async initialize(signal?: AbortSignal): Promise<RemoteProfileCatalog> {
     const publicConfig = await this.#loadConfig(signal);
-    const session = await this.#sessions.ensure(signal);
-    return this.#loadProfiles(publicConfig, signal, session.sessionToken);
+    await this.#sessions.ensure(signal);
+    return this.#loadProfiles(publicConfig, signal);
   }
 
   async refresh(signal?: AbortSignal): Promise<RemoteProfileCatalog> {
     const publicConfig = await this.#loadConfig(signal);
-    return this.#sessions.withUnauthorizedRetry(
-      (token) => this.#loadProfiles(publicConfig, signal, token),
-      signal,
-    );
+    await this.#sessions.ensure(signal);
+    return this.#loadProfiles(publicConfig, signal);
   }
 
   async #loadConfig(signal?: AbortSignal): Promise<RemotePublicConfig> {
@@ -63,10 +73,12 @@ export class RemoteCatalogClient {
       ...(signal ? { signal } : {}),
     });
     const parsed = remotePublicConfigSchema.safeParse(await response.json().catch(() => undefined));
+    assertNotAborted(signal);
     if (!parsed.success) throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
     const expected = this.config.target === 'staging' ? 'staging' : 'prod';
-    if (parsed.data.environment !== expected)
+    if (parsed.data.environment !== expected) {
       throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
+    }
     return parsed.data;
   }
 
@@ -79,12 +91,14 @@ export class RemoteCatalogClient {
         versionCode: this.config.versionCode,
         platform: 'web',
         locale: this.config.defaultLocale,
+        installationId: this.#installationId,
       }),
       ...(signal ? { signal } : {}),
     });
     const parsed = webBootstrapResponseV2Schema.safeParse(
       await response.json().catch(() => undefined),
     );
+    assertNotAborted(signal);
     if (!parsed.success) throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
     const expected = this.config.target === 'staging' ? 'staging' : 'prod';
     if (parsed.data.bootstrapInfo.environment !== expected) {
@@ -96,13 +110,9 @@ export class RemoteCatalogClient {
   async #loadProfiles(
     publicConfig: RemotePublicConfig,
     signal: AbortSignal | undefined,
-    token: string,
     cacheless304Recovery = false,
   ): Promise<RemoteProfileCatalog> {
-    const headers: Record<string, string> = {
-      Accept: 'application/json',
-      Authorization: `Bearer ${token}`,
-    };
+    const headers: Record<string, string> = { Accept: 'application/json' };
     if (this.#cache && !cacheless304Recovery) headers['If-None-Match'] = this.#cache.etag;
 
     const response = await this.#fetch(
@@ -114,13 +124,14 @@ export class RemoteCatalogClient {
       },
       true,
     );
+    assertNotAborted(signal);
 
     if (response.status === 304) {
       if (this.#cache && !cacheless304Recovery) {
         return projectCatalog(this.#cache.response, publicConfig);
       }
       if (!cacheless304Recovery) {
-        return this.#loadProfiles(publicConfig, signal, token, true);
+        return this.#loadProfiles(publicConfig, signal, true);
       }
       throw new RemoteClientError('PROFILE_CACHE_INVALID');
     }
@@ -129,6 +140,7 @@ export class RemoteCatalogClient {
     const parsed = remoteProfilesResponseSchema.safeParse(
       await response.json().catch(() => undefined),
     );
+    assertNotAborted(signal);
     if (!parsed.success) throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
     const etag = response.headers.get('ETag');
     if (!etag) throw new RemoteClientError('PROFILE_CACHE_INVALID');
@@ -148,8 +160,9 @@ export class RemoteCatalogClient {
           Number.isFinite(retryAfter) ? Date.now() + retryAfter * 1000 : undefined,
         );
       }
-      if (response.status === 401 || response.status === 403)
+      if (response.status === 401 || response.status === 403) {
         throw new RemoteHttpError(response.status);
+      }
       if (response.status >= 500) throw new RemoteClientError('SERVICE_UNAVAILABLE');
       throw new RemoteClientError('BOOTSTRAP_REJECTED');
     } catch (error) {
@@ -185,4 +198,15 @@ function projectCatalog(
     ? response.defaultProfileId
     : undefined;
   return { profiles, ...(defaultProfileId ? { defaultProfileId } : {}) };
+}
+
+function assertNotAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new RemoteClientError('REQUEST_ABORTED');
+}
+
+function createMemoryInstallationId(): string {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+  return `web-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
