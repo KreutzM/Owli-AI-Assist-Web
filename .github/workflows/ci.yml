@@ -65,8 +65,20 @@ jobs:
       - name: Build production PWA and headers
         run: pnpm build:production
 
+      - name: Generate agent index
+        run: pnpm ai:index
+
+      - name: Upload generated agent index
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-agent-index
+          path: |
+            .ai/file-tree.md
+            .ai/repo-index.json
+          retention-days: 1
+
       - name: Verify agent index
-        run: pnpm ai:index:check
+        run: git diff --exit-code -- .ai/file-tree.md .ai/repo-index.json
 
   browser:
     name: Browser and accessibility matrix
