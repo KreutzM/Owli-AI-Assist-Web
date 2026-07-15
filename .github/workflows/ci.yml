@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: web-ci-${{ github.ref }}
@@ -16,14 +16,12 @@ concurrency:
 
 jobs:
   validate:
-    name: Normalize formatting and index
+    name: Type, lint, unit, guardrails, build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Check out feature branch
+      - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -40,17 +38,61 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Normalize formatting and repository index
-        run: |
-          pnpm format
-          pnpm ai:index
-          if ! git diff --quiet; then
-            git config user.name github-actions[bot]
-            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-            git add -A
-            git commit -m "chore: normalize formatting and repository index"
-            git push origin HEAD:${{ github.head_ref }}
-          fi
+      - name: Check formatting
+        run: pnpm format:check
 
-      - name: Validate normalized branch
-        run: pnpm check:all
+      - name: Run lint
+        run: pnpm lint
+
+      - name: Run typecheck
+        run: pnpm typecheck
+
+      - name: Run architecture guardrails
+        run: pnpm guardrails
+
+      - name: Run unit tests
+        run: pnpm test
+
+      - name: Build production PWA
+        run: pnpm build
+
+      - name: Verify agent index
+        run: pnpm ai:index:check
+
+  browser:
+    name: Browser and accessibility smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: validate
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Run Chromium and WebKit smoke tests
+        run: pnpm test:e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
