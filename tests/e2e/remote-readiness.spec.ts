@@ -4,6 +4,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Authorization, Content-Type',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Origin': '*',
+  'Access-Control-Expose-Headers': 'ETag',
 };
 
 test.describe('remote readiness', () => {
@@ -94,7 +95,7 @@ async function routeRemoteApi(page: Page) {
 async function fulfillJson(route: Route, json: unknown, headers: Record<string, string> = {}) {
   await route.fulfill({
     status: 200,
-    headers: { ...corsHeaders, ...headers },
+    headers: { 'Content-Type': 'application/json', ...corsHeaders, ...headers },
     json,
   });
 }
