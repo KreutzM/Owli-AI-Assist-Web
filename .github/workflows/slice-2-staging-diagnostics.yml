@@ -1,0 +1,160 @@
+name: Slice 2 Staging Linux Diagnostics
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/slice-2-staging-diagnostics.yml
+      - tools/diagnostics/verify-slice-2-staging.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: slice-2-staging-diagnostics-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXPECTED_APP_SHA: cc9e233aee4c4c16975c6619961fa19d7259862f
+
+jobs:
+  verify:
+    name: Exact commit, Linux gates, and live staging browsers
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out diagnostic definitions
+        uses: actions/checkout@v4
+        with:
+          path: diagnostics
+          persist-credentials: false
+
+      - name: Check out exact merged application commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_APP_SHA }}
+          path: app
+          persist-credentials: false
+
+      - name: Verify exact application commit
+        working-directory: app
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_APP_SHA"
+          test -z "$(git status --short)"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: Install dependencies reproducibly
+        working-directory: app
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        working-directory: app
+        run: pnpm format:check
+
+      - name: Run lint
+        working-directory: app
+        run: pnpm lint
+
+      - name: Run typecheck
+        working-directory: app
+        run: pnpm typecheck
+
+      - name: Run architecture guardrails
+        working-directory: app
+        run: pnpm guardrails
+
+      - name: Run active unit and component suites
+        working-directory: app
+        run: pnpm test
+
+      - name: Build mock artifact
+        working-directory: app
+        run: pnpm build
+
+      - name: Verify occupied ports fail fast
+        working-directory: app
+        run: pnpm test:ports
+
+      - name: Build staging artifact
+        working-directory: app
+        run: pnpm build:staging
+
+      - name: Verify generated staging artifact and headers
+        working-directory: app
+        run: |
+          test -f dist/index.html
+          test -f dist/sw.js
+          test -f dist/manifest.webmanifest
+          test -f dist/_headers
+          grep -F "connect-src 'self' https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev" dist/_headers
+          ! grep -F "https://api.owli-ai.com" dist/_headers
+          ! grep -F "pages.dev" dist/_headers
+          ! grep -E "connect-src[^;]*\\*" dist/_headers
+          grep -F "media-src 'self' blob:" dist/_headers
+          ! grep -E "media-src[^;]*(workers.dev|api.owli-ai.com)" dist/_headers
+          ! grep -E "api/v1|workers\\.dev" dist/sw.js
+          if grep -F "/* /index.html 200" dist/_redirects; then
+            echo "::warning file=public/_redirects::Known Cloudflare Pages redirect-loop rule is still present."
+          fi
+
+      - name: Build production artifact
+        working-directory: app
+        run: pnpm build:production
+
+      - name: Verify repository index
+        working-directory: app
+        run: pnpm ai:index:check
+
+      - name: Install Chromium and WebKit
+        working-directory: app
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Run repository browser and accessibility matrix
+        working-directory: app
+        run: pnpm test:e2e
+
+      - name: Run aggregate repository gate
+        working-directory: app
+        run: pnpm check:all
+
+      - name: Run live staging diagnostics in Chromium and WebKit
+        working-directory: app
+        run: |
+          cp ../diagnostics/tools/diagnostics/verify-slice-2-staging.mjs .staging-diagnostics.mjs
+          pnpm exec node .staging-diagnostics.mjs
+          rm -f .staging-diagnostics.mjs
+
+      - name: Verify exact checkout remained unchanged
+        if: always()
+        working-directory: app
+        run: |
+          rm -f .staging-diagnostics.mjs
+          test -z "$(git status --short)"
+          git diff --exit-code
+
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slice-2-staging-diagnostics
+          path: |
+            app/staging-diagnostics-artifacts/
+            app/playwright-report/
+            app/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
