@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: web-ci-${{ github.ref }}
@@ -20,10 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Check out feature branch
+      - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -39,17 +37,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Refresh generated repository index
-        run: |
-          pnpm ai:index
-          if ! git diff --quiet -- .ai/repo-index.json .ai/file-tree.md; then
-            git config user.name github-actions[bot]
-            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-            git add .ai/repo-index.json .ai/file-tree.md
-            git commit -m "chore: refresh repository index"
-            git push origin HEAD:${{ github.head_ref }}
-          fi
 
       - name: Check formatting
         run: pnpm format:check
