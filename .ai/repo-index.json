@@ -64,7 +64,7 @@
       "bytes": 396,
       "area": ".github"
     },
-    { "path": ".github/workflows/ci.yml", "bytes": 2354, "area": ".github" },
+    { "path": ".github/workflows/ci.yml", "bytes": 2702, "area": ".github" },
     { "path": ".gitignore", "bytes": 152, "area": ".gitignore" },
     { "path": ".nvmrc", "bytes": 3, "area": ".nvmrc" },
     { "path": ".prettierignore", "bytes": 111, "area": ".prettierignore" },
@@ -156,7 +156,7 @@
     { "path": "src/core/api/owliApi.ts", "bytes": 580, "area": "src" },
     {
       "path": "src/core/api/remoteCatalogClient.ts",
-      "bytes": 7520,
+      "bytes": 7553,
       "area": "src"
     },
     {
@@ -169,7 +169,7 @@
     { "path": "src/core/api/sse.ts", "bytes": 1442, "area": "src" },
     {
       "path": "src/core/config/runtimeConfig.ts",
-      "bytes": 3202,
+      "bytes": 3259,
       "area": "src"
     },
     {
@@ -267,12 +267,12 @@
     { "path": "tests/e2e/app.spec.ts", "bytes": 727, "area": "tests" },
     {
       "path": "tests/e2e/remote-readiness.spec.ts",
-      "bytes": 10637,
+      "bytes": 10653,
       "area": "tests"
     },
     {
       "path": "tests/unit/RemoteCatalog.test.tsx",
-      "bytes": 3841,
+      "bytes": 4016,
       "area": "tests"
     },
     {
