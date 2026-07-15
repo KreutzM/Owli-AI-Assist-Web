@@ -29,12 +29,13 @@ export type RuntimeConfig =
     }
   | { mode: 'invalid_configuration'; reason: RuntimeConfigurationErrorCode };
 
+const apiModeSchema = z.enum(['mock', 'remote']);
 const appVersionSchema = z.string().trim().min(1).max(32);
 const localeSchema = z.string().regex(/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/);
 
 export function readRuntimeConfig(env: ImportMetaEnv = import.meta.env): RuntimeConfig {
-  const mode = String(env.VITE_OWLI_API_MODE ?? 'mock');
-  if (mode !== 'mock' && mode !== 'remote') {
+  const mode = apiModeSchema.safeParse(String(env.VITE_OWLI_API_MODE ?? 'mock'));
+  if (!mode.success) {
     return { mode: 'invalid_configuration', reason: 'API_MODE_INVALID' };
   }
 
@@ -57,7 +58,7 @@ export function readRuntimeConfig(env: ImportMetaEnv = import.meta.env): Runtime
     return { mode: 'invalid_configuration', reason: 'LOCALE_INVALID' };
   }
 
-  if (mode === 'mock') {
+  if (mode.data === 'mock') {
     return {
       mode: 'mock',
       appVersion: appVersion.data,
