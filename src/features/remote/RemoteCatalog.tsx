@@ -12,7 +12,7 @@ type State =
 
 export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
   const [state, setState] = useState<State>({ status: 'loading' });
-  const currentCatalog = useRef<RemoteProfileCatalog>();
+  const currentCatalog = useRef<RemoteProfileCatalog | undefined>(undefined);
   const attempt = useRef(0);
 
   const run = useCallback(
@@ -35,13 +35,12 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
         } else if (error instanceof RemoteClientError && error.code === 'RATE_LIMITED') {
           setState({
             status: 'rate_limited',
-            ...(error.retryAt ? { retryAt: error.retryAt } : {}),
+            ...(error.retryAt !== undefined ? { retryAt: error.retryAt } : {}),
           });
         } else {
           setState({ status: 'unavailable' });
         }
       }
-      return () => controller.abort();
     },
     [client],
   );
@@ -49,7 +48,6 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
   useEffect(() => {
     const controller = new AbortController();
     const id = ++attempt.current;
-    setState({ status: 'loading' });
     void client
       .initialize(controller.signal)
       .then((catalog) => {
@@ -63,7 +61,7 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
         if (error instanceof RemoteClientError && error.code === 'RATE_LIMITED') {
           setState({
             status: 'rate_limited',
-            ...(error.retryAt ? { retryAt: error.retryAt } : {}),
+            ...(error.retryAt !== undefined ? { retryAt: error.retryAt } : {}),
           });
         } else {
           setState({ status: 'unavailable' });
@@ -127,7 +125,7 @@ export function RemoteCatalog({ client }: { client: RemoteCatalogClient }) {
         </p>
       )}
 
-      {catalog && (
+      {catalog !== undefined && (
         <>
           <ul className="profile-list" aria-label="Verfügbare Backend-Profile">
             {catalog.profiles.map((profile) => (
