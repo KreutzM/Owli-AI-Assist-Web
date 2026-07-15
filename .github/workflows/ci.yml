@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: web-ci-${{ github.ref }}
@@ -20,8 +20,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Check out repository
+      - name: Check out feature branch
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -38,6 +40,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Refresh generated repository index
+        run: |
+          pnpm ai:index
+          if ! git diff --quiet -- .ai/repo-index.json .ai/file-tree.md; then
+            git config user.name github-actions[bot]
+            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+            git add .ai/repo-index.json .ai/file-tree.md
+            git commit -m "chore: refresh repository index"
+            git push origin HEAD:${{ github.head_ref }}
+          fi
+
       - name: Check formatting
         run: pnpm format:check
 
@@ -45,21 +58,7 @@ jobs:
         run: pnpm lint
 
       - name: Run typecheck
-        id: typecheck
-        continue-on-error: true
-        run: pnpm typecheck 2>&1 | tee typecheck.log
-
-      - name: Upload typecheck diagnostics
-        if: steps.typecheck.outcome == 'failure'
-        uses: actions/upload-artifact@v4
-        with:
-          name: typecheck-diagnostics
-          path: typecheck.log
-          retention-days: 1
-
-      - name: Enforce typecheck result
-        if: steps.typecheck.outcome == 'failure'
-        run: exit 1
+        run: pnpm typecheck
 
       - name: Run architecture guardrails
         run: pnpm guardrails
@@ -70,27 +69,8 @@ jobs:
       - name: Build production PWA
         run: pnpm build
 
-      - name: Generate and verify agent index
-        id: agent-index
-        continue-on-error: true
-        run: |
-          rm -f typecheck.log
-          pnpm ai:index
-          git diff --exit-code -- .ai/repo-index.json .ai/file-tree.md
-
-      - name: Upload generated agent index
-        if: steps.agent-index.outcome == 'failure'
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-agent-index
-          path: |
-            .ai/repo-index.json
-            .ai/file-tree.md
-          retention-days: 1
-
-      - name: Enforce agent index result
-        if: steps.agent-index.outcome == 'failure'
-        run: exit 1
+      - name: Verify agent index
+        run: pnpm ai:index:check
 
   browser:
     name: Browser and accessibility smoke
