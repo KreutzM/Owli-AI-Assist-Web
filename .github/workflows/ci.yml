@@ -2,18 +2,21 @@ name: Web CI
 
 on:
   pull_request:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: web-ci-review-diagnostics-${{ github.ref }}
+  group: web-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  diagnostics:
-    name: Remaining review gate diagnostics
+  validate:
+    name: Type, lint, unit, guardrails, builds
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -35,36 +38,70 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Collect gate diagnostics
-        shell: bash
-        run: |
-          mkdir -p diagnostics
-          set +e
-          pnpm format:check > diagnostics/format.log 2>&1
-          echo $? > diagnostics/format.exit
-          pnpm lint > diagnostics/lint.log 2>&1
-          echo $? > diagnostics/lint.exit
-          pnpm typecheck > diagnostics/typecheck.log 2>&1
-          echo $? > diagnostics/typecheck.exit
-          pnpm guardrails > diagnostics/guardrails.log 2>&1
-          echo $? > diagnostics/guardrails.exit
-          pnpm test > diagnostics/unit.log 2>&1
-          echo $? > diagnostics/unit.exit
-          exit 0
+      - name: Check formatting
+        run: pnpm format:check
 
-      - name: Upload remaining gate diagnostics
-        if: always()
+      - name: Run lint
+        run: pnpm lint
+
+      - name: Run typecheck
+        run: pnpm typecheck
+
+      - name: Run architecture guardrails
+        run: pnpm guardrails
+
+      - name: Run unit tests
+        run: pnpm test
+
+      - name: Build mock PWA
+        run: pnpm build
+
+      - name: Verify occupied ports fail fast
+        run: pnpm test:ports
+
+      - name: Build staging PWA and headers
+        run: pnpm build:staging
+
+      - name: Build production PWA and headers
+        run: pnpm build:production
+
+      - name: Verify agent index
+        run: pnpm ai:index:check
+
+  browser:
+    name: Browser and accessibility matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: validate
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Run Chromium and WebKit remote-state matrix
+        run: pnpm test:e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: remaining-review-gate-diagnostics
-          path: diagnostics/
-          retention-days: 1
-
-      - name: Enforce gates
-        shell: bash
-        run: |
-          test "$(cat diagnostics/format.exit)" = "0"
-          test "$(cat diagnostics/lint.exit)" = "0"
-          test "$(cat diagnostics/typecheck.exit)" = "0"
-          test "$(cat diagnostics/guardrails.exit)" = "0"
-          test "$(cat diagnostics/unit.exit)" = "0"
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
