@@ -13,7 +13,12 @@ const excludedDirs = new Set([
   'artifacts',
   'tmp',
 ]);
-const excludedFiles = new Set(['.ai/file-tree.md', '.ai/repo-index.json', 'pnpm-lock.yaml']);
+const excludedFiles = new Set([
+  '.ai/file-tree.md',
+  '.ai/repo-index.json',
+  'pnpm-lock.yaml',
+  'typecheck.log',
+]);
 const files = (await walk(root))
   .map((file) => slash(path.relative(root, file)))
   .filter((file) => !excludedFiles.has(file))
