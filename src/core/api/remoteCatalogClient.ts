@@ -205,7 +205,7 @@ function assertNotAborted(signal?: AbortSignal): void {
 }
 
 function createMemoryInstallationId(): string {
-  if (typeof globalThis.crypto?.randomUUID === 'function') {
+  if (typeof globalThis.crypto.randomUUID === 'function') {
     return globalThis.crypto.randomUUID();
   }
   return `web-${Date.now()}-${Math.random().toString(36).slice(2)}`;
