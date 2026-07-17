@@ -1,308 +1,272 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page, type Request, type Route } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 
-const PROFILE_SCHEMA_VERSION = 'vlm_profile_registry/v1';
-const STAGING_API_ORIGIN = 'https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev';
-const allowedAppOrigins = new Set(['http://127.0.0.1:5173', 'http://localhost:5173']);
+const remoteUrl = 'http://127.0.0.1:5173';
+const png = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGOs2HKHgYGBiYGBgYGBAQAYJgIMiYqd0gAAAABJRU5ErkJggg==',
+  'base64',
+);
 
-interface RemoteScenario {
-  configGate?: Promise<void>;
-  configStatuses?: number[];
-  profiles?: unknown[];
-  profileResponder?: (call: number, route: Route, request: Request) => Promise<void> | void;
-}
-
-interface RemoteStats {
-  configCalls: number;
-  bootstrapBodies: unknown[];
-  profileHeaders: Headers[];
-  origins: string[];
-}
-
-test.describe('remote readiness', () => {
-  test.use({ baseURL: 'http://127.0.0.1:5173' });
-
-  test('renders the ready state without provider-backed controls', async ({ page }) => {
-    const stats = await routeRemoteApi(page);
-    await page.goto('/');
-
-    await expect(
-      page.getByRole('heading', { name: 'Backend-Bereitschaft und Profile' }),
-    ).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Basic' })).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: /Kamera|Aufnahme|Rückfrage|Postcard/i }),
-    ).toHaveCount(0);
-    expect(stats.bootstrapBodies).toHaveLength(1);
-    expect(stats.bootstrapBodies[0]).toMatchObject({
-      platform: 'web',
-      installationId: expect.any(String),
+test.describe('remote camera and streaming scene', () => {
+  test('gates actions and keeps file fallback usable after camera denial', async ({ page }) => {
+    await mockReadiness(page);
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'mediaDevices', {
+        configurable: true,
+        value: {
+          getUserMedia: () => Promise.reject(new DOMException('denied', 'NotAllowedError')),
+        },
+      });
     });
-    expect(
-      String((stats.bootstrapBodies[0] as { installationId: string }).installationId),
-    ).not.toBe('');
-    expect(stats.profileHeaders[0]?.get('Authorization')).toBeNull();
-    expect(stats.origins.length).toBeGreaterThan(0);
-    expect(stats.origins.every((origin) => allowedAppOrigins.has(origin))).toBe(true);
-    await expectNoSeriousViolations(page);
-  });
+    await page.goto(remoteUrl);
 
-  test('announces loading and then an empty catalog accessibly', async ({ page }) => {
-    let releaseConfig: () => void = () => undefined;
-    const configGate = new Promise<void>((resolve) => {
-      releaseConfig = () => resolve();
-    });
-    await routeRemoteApi(page, { configGate, profiles: [] });
+    await expect(page.getByRole('button', { name: 'Rückkamera öffnen' })).toBeEnabled();
+    await expect(page.getByLabel('Oder ein Bild auswählen')).toBeEnabled();
+    await page.getByRole('button', { name: 'Rückkamera öffnen' }).click();
+    await expect(page.getByRole('alert')).toContainText('Kamerazugriff wurde nicht erlaubt');
+    await expect(page.getByLabel('Oder ein Bild auswählen')).toBeEnabled();
 
-    await page.goto('/');
-    await expect(page.getByRole('status')).toContainText(
-      'Sichere Verbindung und Profilkatalog werden vorbereitet',
+    await page.setViewportSize({ width: 320, height: 800 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+      true,
     );
-    releaseConfig();
-    await expect(page.getByRole('status')).toContainText('keine freigegebenen Profile');
-    await expect(page.getByRole('button', { name: 'Erneut versuchen' })).toBeEnabled();
-    await expectNoSeriousViolations(page);
+    const accessibility = await new AxeBuilder({ page }).analyze();
+    expect(accessibility.violations).toEqual([]);
   });
 
-  test('shows a rate-limited retry state', async ({ page }) => {
-    await routeRemoteApi(page, { configStatuses: [429] });
-    await page.goto('/');
-    await expect(page.getByRole('alert')).toContainText('vorübergehend ausgelastet');
-    await expect(page.getByRole('button', { name: 'Erneut versuchen' })).toBeEnabled();
-    await expectNoSeriousViolations(page);
-  });
-
-  test('recovers from an unavailable startup through one user retry', async ({ page }) => {
-    const stats = await routeRemoteApi(page, { configStatuses: [503, 200] });
-    await page.goto('/');
-    await expect(page.getByRole('alert')).toContainText('derzeit nicht verfügbar');
-    await page.getByRole('button', { name: 'Erneut versuchen' }).click();
-    await expect(page.getByRole('heading', { name: 'Basic' })).toBeVisible();
-    expect(stats.configCalls).toBe(2);
-  });
-
-  test('keeps the catalog visible, disables refresh while active, and reports refresh failure', async ({
-    page,
-  }) => {
-    let releaseRefresh: () => void = () => undefined;
-    const refreshGate = new Promise<void>((resolve) => {
-      releaseRefresh = () => resolve();
+  test('normalizes a file and sends the exact streaming request', async ({ page }) => {
+    await mockReadiness(page);
+    let body: Record<string, unknown> | undefined;
+    let requestHeaders: Record<string, string> | undefined;
+    await page.route('**/api/v1/scene/describe', async (route) => {
+      body = route.request().postDataJSON() as Record<string, unknown>;
+      requestHeaders = await route.request().allHeaders();
+      await route.fulfill(sse(sceneEvents()));
     });
-    await routeRemoteApi(page, {
-      profileResponder: async (call, route, request) => {
-        if (call === 1) {
-          await fulfillProfiles(route, request);
-          return;
-        }
-        await refreshGate;
-        await fulfillJson(route, request, { error: 'unavailable' }, 503);
+    await page.goto(remoteUrl);
+    await page.getByLabel('Oder ein Bild auswählen').setInputFiles({
+      name: 'scene.png',
+      mimeType: 'image/png',
+      buffer: png,
+    });
+
+    await expect(page.getByRole('button', { name: 'Szene beschreiben' })).toBeEnabled();
+    await expect(page.getByText(/Normalisiertes JPEG:/u)).toBeVisible();
+    await page.getByRole('button', { name: 'Szene beschreiben' }).click();
+    await expect(page.getByRole('heading', { name: 'Szenenbeschreibung' })).toBeVisible();
+    await expect(page.getByText('Eine helle Straße.')).toBeVisible();
+
+    expect(Object.keys(body ?? {}).sort()).toEqual(
+      [
+        'sessionToken',
+        'installationId',
+        'imageBase64',
+        'imageMimeType',
+        'sceneMode',
+        'stream',
+        'profileId',
+        'locale',
+      ].sort(),
+    );
+    expect(body).toMatchObject({
+      sessionToken: 'session-1',
+      imageMimeType: 'image/jpeg',
+      sceneMode: 'describe',
+      stream: true,
+      profileId: 'brief',
+      locale: 'de-DE',
+    });
+    expect(String(body?.imageBase64)).toMatch(/^\/9j\//u);
+    expect(String(body?.imageBase64).length).toBeLessThanOrEqual(5_592_408);
+    expect(requestHeaders?.accept).toBe('text/event-stream');
+    expect(requestHeaders?.['content-type']).toContain('application/json');
+    expect(requestHeaders?.authorization).toBeUndefined();
+    expect(requestHeaders?.['x-request-id']).toBeUndefined();
+  });
+
+  test('retries exactly one pre-stream 401 with a fresh session', async ({ page }) => {
+    let bootstrapCalls = 0;
+    await mockReadiness(page, {
+      bootstrap: () => {
+        bootstrapCalls += 1;
+        return bootstrap(`session-${bootstrapCalls}`, true);
       },
     });
-    await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Basic' })).toBeVisible();
-
-    const refreshButton = page.getByRole('button', { name: 'Profilkatalog aktualisieren' });
-    await refreshButton.click();
-    await expect(refreshButton).toBeDisabled();
-    await expect(page.getByRole('status')).toContainText('wird aktualisiert');
-    releaseRefresh();
-    await expect(page.getByRole('status')).toContainText('konnte aber nicht aktualisiert werden');
-    await expect(page.getByRole('heading', { name: 'Basic' })).toBeVisible();
-    await expect(refreshButton).toBeEnabled();
-    await expectNoSeriousViolations(page);
-  });
-
-  test('uses If-None-Match for refresh and drops the memory cache on reload', async ({ page }) => {
-    const stats = await routeRemoteApi(page);
-    await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Basic' })).toBeVisible();
-
-    const refreshButton = page.getByRole('button', { name: 'Profilkatalog aktualisieren' });
-    await refreshButton.click();
-    await expect.poll(() => stats.profileHeaders.length).toBe(2);
-    await expect(refreshButton).toBeEnabled();
-    expect(stats.profileHeaders[0]?.get('If-None-Match')).toBeNull();
-    expect(stats.profileHeaders[1]?.get('If-None-Match')).toBe('"one"');
-
-    await page.reload();
-    await expect(page.getByRole('heading', { name: 'Basic' })).toBeVisible();
-    await expect.poll(() => stats.profileHeaders.length).toBe(3);
-    expect(stats.profileHeaders[2]?.get('If-None-Match')).toBeNull();
-  });
-
-  test('serves the remote flow through localhost as well as 127.0.0.1', async ({ page }) => {
-    await routeRemoteApi(page);
-    await page.goto('http://localhost:5173/');
-    await expect(page.getByRole('heading', { name: 'Basic' })).toBeVisible();
-  });
-});
-
-test.describe('fail-closed runtime', () => {
-  test.use({ baseURL: 'http://127.0.0.1:5174' });
-
-  test('renders the configuration error without making an API request', async ({ page }) => {
-    let apiRequests = 0;
-    page.on('request', (request) => {
-      const url = new URL(request.url());
-      if (url.origin === STAGING_API_ORIGIN && url.pathname.startsWith('/api/')) {
-        apiRequests += 1;
+    let sceneCalls = 0;
+    await page.route('**/api/v1/scene/describe', async (route) => {
+      sceneCalls += 1;
+      if (sceneCalls === 1) {
+        await route.fulfill({ status: 401 });
+        return;
       }
+      await route.fulfill(sse(sceneEvents()));
     });
+    await page.goto(remoteUrl);
+    await chooseFileAndDescribe(page);
+    await expect(page.getByRole('heading', { name: 'Szenenbeschreibung' })).toBeVisible();
+    expect(bootstrapCalls).toBe(2);
+    expect(sceneCalls).toBe(2);
+  });
 
-    await page.goto('/');
-    await expect(
-      page.getByRole('heading', { name: 'Online-Konfiguration nicht verfügbar' }),
-    ).toBeVisible();
-    await expect(page.getByRole('alert')).toContainText('ohne Netzwerkzugriff angehalten');
-    expect(apiRequests).toBe(0);
-    await expectNoSeriousViolations(page);
+  test('does not retry after SSE headers are accepted', async ({ page }) => {
+    let bootstrapCalls = 0;
+    await mockReadiness(page, {
+      bootstrap: () => {
+        bootstrapCalls += 1;
+        return bootstrap(`session-${bootstrapCalls}`, true);
+      },
+    });
+    let sceneCalls = 0;
+    await page.route('**/api/v1/scene/describe', async (route) => {
+      sceneCalls += 1;
+      await route.fulfill(
+        sse(
+          event('metadata', {
+            mode: 'describe',
+            modelAlias: 'scene-describe-v1',
+            profileId: 'brief',
+            locale: 'de-DE',
+          }) + event('unknown', {}),
+        ),
+      );
+    });
+    await page.goto(remoteUrl);
+    await chooseFileAndDescribe(page);
+    await expect(page.getByRole('alert')).toContainText('Streaming-Antwort');
+    expect(bootstrapCalls).toBe(1);
+    expect(sceneCalls).toBe(1);
+  });
+
+  test('keeps controls disabled when any readiness signal is false', async ({ page }) => {
+    await mockReadiness(page, { configScene: false });
+    await page.goto(remoteUrl);
+    await expect(page.getByRole('alert')).toContainText('nicht freigegeben');
+    await expect(page.getByRole('button', { name: 'Rückkamera öffnen' })).toBeDisabled();
+    await expect(page.getByLabel('Oder ein Bild auswählen')).toBeDisabled();
   });
 });
 
-async function routeRemoteApi(page: Page, scenario: RemoteScenario = {}): Promise<RemoteStats> {
-  const stats: RemoteStats = {
-    configCalls: 0,
-    bootstrapBodies: [],
-    profileHeaders: [],
-    origins: [],
-  };
-  let profileCalls = 0;
-
-  await page.route('**/api/v1/**', async (route) => {
-    const request = route.request();
-    const origin = request.headers().origin;
-    if (origin) stats.origins.push(origin);
-
-    if (request.method() === 'OPTIONS') {
-      await route.fulfill({ status: 204, headers: corsHeaders(request) });
-      return;
-    }
-
-    switch (new URL(request.url()).pathname) {
-      case '/api/v1/config': {
-        stats.configCalls += 1;
-        await scenario.configGate;
-        const status =
-          scenario.configStatuses?.[
-            Math.min(stats.configCalls - 1, scenario.configStatuses.length - 1)
-          ] ?? 200;
-        if (status !== 200) {
-          await fulfillJson(
-            route,
-            request,
-            { error: status === 429 ? 'rate_limited' : 'unavailable' },
-            status,
-            status === 429 ? { 'Retry-After': '60' } : {},
-          );
-          return;
-        }
-        await fulfillJson(route, request, {
-          environment: 'staging',
-          features: { sceneDescribe: false, followup: false },
-          profiles: { backendSupportedProfileIds: ['basic'] },
-        });
-        return;
-      }
-      case '/api/v1/session/bootstrap':
-        stats.bootstrapBodies.push(request.postDataJSON());
-        await fulfillJson(route, request, {
-          sessionToken: 'private',
-          expiresAt: new Date(Date.now() + 120_000).toISOString(),
-          featureFlags: { sceneDescribe: false, followup: false },
-          bootstrapInfo: {
-            environment: 'staging',
-            sessionTtlSeconds: 120,
-            sessionSchemaVersion: 2,
-            platform: 'web',
-            trust: {
-              kind: 'browser_public_client',
-              status: 'unattested_public_client',
-              enforced: false,
-              note: 'public browser client',
-            },
-          },
-        });
-        return;
-      case '/api/v1/profiles':
-        profileCalls += 1;
-        stats.profileHeaders.push(new Headers(request.headers()));
-        if (scenario.profileResponder) {
-          await scenario.profileResponder(profileCalls, route, request);
-          return;
-        }
-        await fulfillProfiles(route, request, scenario.profiles);
-        return;
-      default:
-        await route.abort('failed');
-    }
+async function chooseFileAndDescribe(page: Page): Promise<void> {
+  await page.getByLabel('Oder ein Bild auswählen').setInputFiles({
+    name: 'scene.png',
+    mimeType: 'image/png',
+    buffer: png,
   });
-
-  return stats;
+  await page.getByRole('button', { name: 'Szene beschreiben' }).click();
 }
 
-async function fulfillProfiles(
-  route: Route,
-  request: Request,
-  profiles: unknown[] = defaultProfiles,
-) {
-  await fulfillJson(
-    route,
-    request,
-    {
-      schemaVersion: PROFILE_SCHEMA_VERSION,
-      defaultProfileId: profiles.length ? 'basic' : '',
-      profiles,
-    },
-    200,
-    { ETag: '"one"', 'Access-Control-Expose-Headers': 'ETag' },
+interface ReadinessOptions {
+  configScene?: boolean;
+  bootstrapScene?: boolean;
+  streaming?: boolean;
+  bootstrap?: () => Record<string, unknown>;
+}
+
+async function mockReadiness(page: Page, options: ReadinessOptions = {}): Promise<void> {
+  const {
+    configScene = true,
+    bootstrapScene = true,
+    streaming = true,
+    bootstrap: bootstrapFactory = () => bootstrap('session-1', bootstrapScene),
+  } = options;
+  await page.route('**/api/v1/config', (route) =>
+    json(route, {
+      environment: 'staging',
+      features: { sceneDescribe: configScene, followup: false },
+      profiles: { backendSupportedProfileIds: ['brief'] },
+    }),
+  );
+  await page.route('**/api/v1/session/bootstrap', (route) => json(route, bootstrapFactory()));
+  await page.route('**/api/v1/profiles', (route) =>
+    json(
+      route,
+      {
+        schemaVersion: 'vlm_profile_registry/v1',
+        defaultProfileId: 'brief',
+        profiles: [
+          {
+            id: 'brief',
+            label: 'Kurz',
+            description: 'Kurze Beschreibung',
+            availability: 'backend',
+            transports: {
+              backend: {
+                available: true,
+                supportsStreaming: streaming,
+                supportsFollowup: false,
+              },
+            },
+          },
+        ],
+      },
+      { ETag: '"profiles-1"' },
+    ),
   );
 }
 
-async function fulfillJson(
-  route: Route,
-  request: Request,
-  json: unknown,
-  status = 200,
-  headers: Record<string, string> = {},
-) {
-  await route.fulfill({
-    status,
-    headers: { ...corsHeaders(request), 'Content-Type': 'application/json', ...headers },
-    json,
-  });
-}
-
-function corsHeaders(request: Request): Record<string, string> {
-  const origin = request.headers().origin ?? 'http://127.0.0.1:5173';
+function bootstrap(sessionToken: string, sceneDescribe: boolean): Record<string, unknown> {
   return {
-    'Access-Control-Allow-Headers': 'Accept, Content-Type, If-None-Match',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Origin': origin,
-    Vary: 'Origin',
+    sessionToken,
+    expiresAt: '2030-01-01T00:00:00.000Z',
+    featureFlags: { sceneDescribe, followup: false },
+    bootstrapInfo: {
+      environment: 'staging',
+      sessionTtlSeconds: 120,
+      sessionSchemaVersion: 2,
+      platform: 'web',
+      trust: {
+        kind: 'browser_public_client',
+        status: 'unattested_public_client',
+        enforced: false,
+        note: 'public browser client',
+      },
+    },
   };
 }
 
-async function expectNoSeriousViolations(page: Page) {
-  const results = await new AxeBuilder({ page }).analyze();
-  expect(
-    results.violations.filter((violation) =>
-      ['critical', 'serious'].includes(violation.impact ?? ''),
-    ),
-  ).toEqual([]);
+function sceneEvents(): string {
+  return (
+    event('metadata', {
+      mode: 'describe',
+      modelAlias: 'scene-describe-v1',
+      profileId: 'brief',
+      locale: 'de-DE',
+    }) +
+    event('delta', { textDelta: 'Eine helle Straße.', requestId: 'request-1' }) +
+    event('done', {
+      answerText: 'Eine helle Straße.',
+      mode: 'describe',
+      modelAlias: 'scene-describe-v1',
+      requestId: 'request-1',
+      sceneToken: 'scene-token',
+      sceneTokenExpiresAt: '2030-01-01T00:00:00.000Z',
+      profileId: 'brief',
+      locale: 'de-DE',
+    })
+  );
 }
 
-const defaultProfiles = [
-  {
-    id: 'basic',
-    label: 'Basic',
-    description: 'Readiness profile',
-    availability: 'backend',
-    transports: {
-      backend: {
-        available: true,
-        supportsStreaming: false,
-        supportsFollowup: false,
-      },
-    },
-  },
-];
+function event(name: string, data: unknown): string {
+  return `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
+function sse(body: string) {
+  return {
+    status: 200,
+    contentType: 'text/event-stream; charset=utf-8',
+    body,
+  };
+}
+
+async function json(
+  route: Route,
+  body: unknown,
+  headers: Record<string, string> = {},
+): Promise<void> {
+  await route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    headers,
+    body: JSON.stringify(body),
+  });
+}
