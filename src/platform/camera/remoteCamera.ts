@@ -22,29 +22,40 @@ export class CameraError extends Error {
 export class RemoteCamera {
   #stream: MediaStream | undefined;
   #video: HTMLVideoElement | undefined;
+  #generation = 0;
 
   get active(): boolean {
     return this.#stream !== undefined;
   }
 
   async start(video: HTMLVideoElement): Promise<void> {
-    this.stop();
+    const generation = ++this.#generation;
+    this.#releaseCurrent();
     const mediaDevices = Reflect.get(navigator, 'mediaDevices') as MediaDevices | undefined;
     if (!mediaDevices || typeof mediaDevices.getUserMedia !== 'function') {
       throw new CameraError('CAMERA_UNSUPPORTED');
     }
 
+    let stream: MediaStream | undefined;
     try {
-      const stream = await mediaDevices.getUserMedia({
+      stream = await mediaDevices.getUserMedia({
         audio: false,
         video: { facingMode: { ideal: 'environment' } },
       });
+      if (generation !== this.#generation) {
+        stopStream(stream);
+        return;
+      }
+
       this.#stream = stream;
       this.#video = video;
       video.srcObject = stream;
       await video.play();
+      if (generation !== this.#generation) this.#releaseOwned(stream, video);
     } catch (error) {
-      this.stop();
+      if (stream && this.#stream !== stream) stopStream(stream);
+      if (generation !== this.#generation) return;
+      this.#releaseCurrent();
       throw classifyCameraError(error);
     }
   }
@@ -88,7 +99,20 @@ export class RemoteCamera {
   }
 
   stop(): void {
-    this.#stream?.getTracks().forEach((track) => track.stop());
+    this.#generation += 1;
+    this.#releaseCurrent();
+  }
+
+  #releaseOwned(stream: MediaStream, video: HTMLVideoElement): void {
+    stopStream(stream);
+    video.pause();
+    if (video.srcObject === stream) video.srcObject = null;
+    if (this.#stream === stream) this.#stream = undefined;
+    if (this.#video === video) this.#video = undefined;
+  }
+
+  #releaseCurrent(): void {
+    if (this.#stream) stopStream(this.#stream);
     if (this.#video) {
       this.#video.pause();
       this.#video.srcObject = null;
@@ -96,6 +120,10 @@ export class RemoteCamera {
     this.#stream = undefined;
     this.#video = undefined;
   }
+}
+
+function stopStream(stream: MediaStream): void {
+  stream.getTracks().forEach((track) => track.stop());
 }
 
 function classifyCameraError(error: unknown): CameraError {
