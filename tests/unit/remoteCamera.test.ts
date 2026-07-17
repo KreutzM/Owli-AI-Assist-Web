@@ -32,6 +32,32 @@ describe('RemoteCamera', () => {
     expect(camera.active).toBe(false);
   });
 
+  it('stops a stream that resolves after the camera attempt was cancelled', async () => {
+    const stop = vi.fn();
+    const stream = { getTracks: () => [{ stop }] } as unknown as MediaStream;
+    let resolveStream: ((value: MediaStream) => void) | undefined;
+    const getUserMedia = vi.fn(
+      () =>
+        new Promise<MediaStream>((resolve) => {
+          resolveStream = resolve;
+        }),
+    );
+    stubMediaDevices(getUserMedia);
+    const video = document.createElement('video');
+    const play = vi.spyOn(video, 'play').mockResolvedValue();
+    const camera = new RemoteCamera();
+
+    const start = camera.start(video);
+    camera.stop();
+    resolveStream?.(stream);
+    await start;
+
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(play).not.toHaveBeenCalled();
+    expect(video.srcObject).toBeNull();
+    expect(camera.active).toBe(false);
+  });
+
   it.each([
     ['NotAllowedError', 'CAMERA_DENIED'],
     ['SecurityError', 'CAMERA_DENIED'],
