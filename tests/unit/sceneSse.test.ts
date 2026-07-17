@@ -55,7 +55,10 @@ describe('strict scene SSE consumer', () => {
 
   it('does not resolve until clean EOF after done', async () => {
     let streamController: ReadableStreamDefaultController<Uint8Array> | undefined;
-    const terminal = vi.fn();
+    let resolveTerminal: (() => void) | undefined;
+    const terminalSeen = new Promise<void>((resolve) => {
+      resolveTerminal = resolve;
+    });
     let resolved = false;
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
@@ -63,14 +66,14 @@ describe('strict scene SSE consumer', () => {
         controller.enqueue(bytes(metadata + done));
       },
     });
-    const pending = consumeSceneSse(stream, options({ callbacks: { onTerminal: terminal } })).then(
-      (value) => {
-        resolved = true;
-        return value;
-      },
-    );
-    await Promise.resolve();
-    expect(terminal).toHaveBeenCalledTimes(1);
+    const pending = consumeSceneSse(
+      stream,
+      options({ callbacks: { onTerminal: () => resolveTerminal?.() } }),
+    ).then((value) => {
+      resolved = true;
+      return value;
+    });
+    await terminalSeen;
     expect(resolved).toBe(false);
     streamController?.close();
     await expect(pending).resolves.toMatchObject({ answerText: 'Eine helle Straße.' });

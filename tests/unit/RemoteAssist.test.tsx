@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RemoteAssistClient, RemoteReadiness } from '@/core/api/remoteAssistClient';
 import type {
@@ -82,8 +82,12 @@ describe('RemoteAssist', () => {
     expect(screen.queryByRole('heading', { name: 'Szenenbeschreibung' })).not.toBeInTheDocument();
 
     resolveStream?.(sceneResult());
-    await screen.findByRole('heading', { name: 'Szenenbeschreibung' });
-    expect(screen.getByText('Eine helle Straße.')).toBeInTheDocument();
+    const completedHeading = await screen.findByRole('heading', {
+      name: 'Szenenbeschreibung',
+    });
+    const completedResult = completedHeading.closest('section');
+    if (!completedResult) throw new Error('Missing completed scene result');
+    expect(within(completedResult).getByText('Eine helle Straße.')).toBeInTheDocument();
     expect(describeScene).toHaveBeenCalledTimes(1);
   });
 
@@ -115,9 +119,10 @@ describe('RemoteAssist', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Szene beschreiben' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Abbrechen' }));
 
-    await screen.findByText('Der Vorgang wurde abgebrochen.');
+    const retry = await screen.findByRole('button', { name: 'Erneut senden' });
+    expect(screen.getByRole('status')).toHaveTextContent('Der Vorgang wurde abgebrochen.');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Erneut senden' })).toBeEnabled();
+    expect(retry).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Rückkamera öffnen' })).toHaveFocus();
   });
 });

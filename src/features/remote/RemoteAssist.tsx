@@ -46,11 +46,12 @@ export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssis
   }, [state.status]);
 
   const selectFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const selected = event.currentTarget.files?.[0];
+    const input = event.currentTarget;
+    const selected = input.files?.[0];
     try {
       if (selected) await workflow.prepare(selected);
     } finally {
-      event.currentTarget.value = '';
+      input.value = '';
     }
   };
 
