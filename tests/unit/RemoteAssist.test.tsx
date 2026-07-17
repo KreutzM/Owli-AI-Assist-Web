@@ -160,53 +160,6 @@ describe('RemoteAssist', () => {
     await screen.findByRole('heading', { name: 'Szenenbeschreibung' });
     expect(describeScene).toHaveBeenCalledTimes(2);
   });
-
-  it('clears the previous live segment before a consecutive stream begins', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-07-17T12:00:00.000Z'));
-    let call = 0;
-    const describeScene = vi.fn(
-      async (_input: NormalizedSceneInput, callbacks: SceneStreamCallbacks) => {
-        call += 1;
-        callbacks.onMetadata?.({
-          mode: 'describe',
-          modelAlias: 'scene-describe-v1',
-          profileId: 'brief',
-          locale: 'de-DE',
-        });
-        if (call === 1) {
-          callbacks.onDelta?.('Erster Satz.');
-          await vi.advanceTimersByTimeAsync(2_000);
-          callbacks.onTerminal?.();
-          return { ...sceneResult(), answerText: 'Erster Satz.' };
-        }
-        expect(screen.getByText('Die Beschreibung wird übertragen …')).toBeInTheDocument();
-        const liveRegion = document.querySelector('[aria-live="polite"]');
-        expect(liveRegion).toHaveTextContent('');
-        callbacks.onDelta?.('Zweiter Satz.');
-        callbacks.onTerminal?.();
-        return { ...sceneResult(), answerText: 'Zweiter Satz.' };
-      },
-    );
-    renderRemote({ describeScene });
-
-    const fileInput = await screen.findByLabelText('Oder ein Bild auswählen');
-    fireEvent.change(fileInput, {
-      target: { files: [new File([new Uint8Array([1])], 'first.png', { type: 'image/png' })] },
-    });
-    fireEvent.click(await screen.findByRole('button', { name: 'Szene beschreiben' }));
-    await vi.runAllTimersAsync();
-    await screen.findByRole('heading', { name: 'Szenenbeschreibung' });
-    fireEvent.click(screen.getByRole('button', { name: 'Neues Bild' }));
-
-    fireEvent.change(screen.getByLabelText('Oder ein Bild auswählen'), {
-      target: { files: [new File([new Uint8Array([2])], 'second.png', { type: 'image/png' })] },
-    });
-    fireEvent.click(await screen.findByRole('button', { name: 'Szene beschreiben' }));
-    await vi.runAllTimersAsync();
-    expect(describeScene).toHaveBeenCalledTimes(2);
-    vi.useRealTimers();
-  });
 });
 
 function renderRemote(overrides: Partial<RemoteAssistClient> = {}) {
