@@ -4,32 +4,43 @@ import type { RemoteCamera } from '@/platform/camera/remoteCamera';
 import type { BrowserSceneImageNormalizer } from '@/platform/image/browserSceneImageNormalizer';
 import { useRemoteScene } from '@/features/remote/useRemoteScene';
 import { useSceneAnnouncements } from '@/features/remote/useSceneAnnouncements';
+import '@/features/remote/remote.css';
 
 interface RemoteAssistProps {
   client: RemoteAssistClient;
   camera: RemoteCamera;
   normalizer: BrowserSceneImageNormalizer;
+  locale: string;
 }
 
-export function RemoteAssist({ client, camera, normalizer }: RemoteAssistProps) {
-  const workflow = useRemoteScene(client, camera, normalizer);
+export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssistProps) {
+  const workflow = useRemoteScene(client, camera, normalizer, locale);
   const { state } = workflow;
   const announcement = useSceneAnnouncements(state);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraButtonRef = useRef<HTMLButtonElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [videoReady, setVideoReady] = useState(false);
 
   const readinessEnabled =
     state.readiness?.sceneDescribeEnabled === true && state.selectedProfileId !== undefined;
-  const active = ['camera_starting', 'normalizing', 'requesting', 'streaming', 'terminal_waiting_for_eof'].includes(
-    state.status,
-  );
+  const active = [
+    'camera_starting',
+    'normalizing',
+    'requesting',
+    'streaming',
+    'terminal_waiting_for_eof',
+  ].includes(state.status);
   const cameraVisible = state.status === 'camera_starting' || state.status === 'camera_ready';
-  const canDescribe = state.image !== undefined && ['prepared', 'cancelled', 'recoverable_error'].includes(state.status);
+  const canDescribe =
+    state.image !== undefined &&
+    ['prepared', 'cancelled', 'recoverable_error'].includes(state.status);
 
   useEffect(() => {
-    if (state.status === 'recoverable_error' || state.status === 'contract_error' || state.status === 'cancelled') {
+    if (
+      state.status === 'recoverable_error' ||
+      state.status === 'contract_error' ||
+      state.status === 'cancelled'
+    ) {
       cameraButtonRef.current?.focus();
     }
   }, [state.status]);
@@ -48,18 +59,21 @@ export function RemoteAssist({ client, camera, normalizer }: RemoteAssistProps) 
       <p className="eyebrow">Sichere Online-Beschreibung</p>
       <h2 id="remote-scene-title">Eine Szene aufnehmen oder auswählen</h2>
       <p>
-        Kamera und Datei werden erst nach deiner Aktion verwendet. Das Bild wird lokal geprüft, als JPEG
-        verkleinert und nicht im Browser gespeichert.
+        Kamera und Datei werden erst nach deiner Aktion verwendet. Das Bild wird lokal geprüft, als
+        JPEG verkleinert und nicht im Browser gespeichert.
       </p>
 
       {state.status === 'readiness_loading' && (
-        <p className="live-status" role="status">Sichere Sitzung und Profile werden vorbereitet …</p>
+        <p className="live-status" role="status">
+          Sichere Sitzung und Profile werden vorbereitet …
+        </p>
       )}
 
       {state.status === 'readiness_unavailable' && (
         <div>
           <p className="live-status" role="alert">
-            {state.errorMessage ?? 'Die Szenenbeschreibung ist in dieser Bereitstellung nicht freigegeben.'}
+            {state.errorMessage ??
+              'Die Szenenbeschreibung ist in dieser Bereitstellung nicht freigegeben.'}
           </p>
           <button
             className="button button--primary"
@@ -106,7 +120,6 @@ export function RemoteAssist({ client, camera, normalizer }: RemoteAssistProps) 
             <div className="file-control">
               <label htmlFor="scene-file">Oder ein Bild auswählen</label>
               <input
-                ref={fileInputRef}
                 id="scene-file"
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
@@ -147,7 +160,9 @@ export function RemoteAssist({ client, camera, normalizer }: RemoteAssistProps) 
         </div>
       )}
 
-      {state.status === 'normalizing' && <p role="status">Das Bild wird lokal geprüft und vorbereitet …</p>}
+      {state.status === 'normalizing' && (
+        <p role="status">Das Bild wird lokal geprüft und vorbereitet …</p>
+      )}
 
       {state.image && (
         <div className="scene-preview">
@@ -161,7 +176,11 @@ export function RemoteAssist({ client, camera, normalizer }: RemoteAssistProps) 
 
       {state.status === 'prepared' && (
         <div className="scene-actions">
-          <button className="button button--primary" type="button" onClick={() => void workflow.describe()}>
+          <button
+            className="button button--primary"
+            type="button"
+            onClick={() => void workflow.describe()}
+          >
             Szene beschreiben
           </button>
           <button className="button button--secondary" type="button" onClick={workflow.reset}>
@@ -198,10 +217,16 @@ export function RemoteAssist({ client, camera, normalizer }: RemoteAssistProps) 
         state.status === 'contract_error' ||
         state.status === 'rate_limited') && (
         <div>
-          <p className="live-status" role="alert">{state.errorMessage}</p>
+          <p className="live-status" role="alert">
+            {state.errorMessage}
+          </p>
           <div className="scene-actions">
             {canDescribe && (
-              <button className="button button--primary" type="button" onClick={() => void workflow.describe()}>
+              <button
+                className="button button--primary"
+                type="button"
+                onClick={() => void workflow.describe()}
+              >
                 Mit dem vorbereiteten Bild erneut versuchen
               </button>
             )}
@@ -214,10 +239,16 @@ export function RemoteAssist({ client, camera, normalizer }: RemoteAssistProps) 
 
       {state.status === 'cancelled' && (
         <div>
-          <p className="live-status" role="status">Der Vorgang wurde abgebrochen.</p>
+          <p className="live-status" role="status">
+            Der Vorgang wurde abgebrochen.
+          </p>
           <div className="scene-actions">
             {canDescribe && (
-              <button className="button button--primary" type="button" onClick={() => void workflow.describe()}>
+              <button
+                className="button button--primary"
+                type="button"
+                onClick={() => void workflow.describe()}
+              >
                 Erneut senden
               </button>
             )}
