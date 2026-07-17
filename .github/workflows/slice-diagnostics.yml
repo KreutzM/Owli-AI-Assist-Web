@@ -23,11 +23,72 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Capture typecheck output
+      - name: Apply type corrections
         run: |
-          pnpm typecheck > .slice-type-diagnostics.txt 2>&1 || true
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one match, found {count}")
+              file.write_text(text.replace(old, new))
+
+          replace(
+              "src/core/api/sceneSse.ts",
+              """        metadataSeen,
+                  terminalAt,
+                });
+          """,
+              """        metadataSeen,
+                  ...(terminalAt !== undefined ? { terminalAt } : {}),
+                });
+          """,
+          )
+
+          path = Path("tests/unit/sceneImageInspection.test.ts")
+          text = path.read_text()
+          text = text.replace(
+              "new Uint8Array([1, 2, 3])",
+              "new Uint8Array([1, 2, 3]).buffer",
+          )
+          text = text.replace(
+              "new Uint8Array(SOURCE_FILE_MAX_BYTES + 1)",
+              "new Uint8Array(SOURCE_FILE_MAX_BYTES + 1).buffer",
+          )
+          text = text.replace(
+              "function jpeg(width: number, height: number, orientation: number): Uint8Array {",
+              "function jpeg(width: number, height: number, orientation: number): ArrayBuffer {",
+          )
+          text = text.replace(
+              "  ]);\n}\n\nfunction png",
+              "  ]).buffer;\n}\n\nfunction png",
+              1,
+          )
+          text = text.replace(
+              "function png(width: number, height: number): Uint8Array {",
+              "function png(width: number, height: number): ArrayBuffer {",
+          )
+          text = text.replace(
+              "  ]);\n}\n\nfunction webp",
+              "  ]).buffer;\n}\n\nfunction webp",
+              1,
+          )
+          text = text.replace(
+              "function webp(width: number, height: number): Uint8Array {",
+              "function webp(width: number, height: number): ArrayBuffer {",
+          )
+          text = text.replace("  return bytes;\n}", "  return bytes.buffer;\n}", 1)
+          path.write_text(text)
+          PY
+          pnpm format
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .slice-type-diagnostics.txt
-          git commit -m "ci: capture slice type diagnostics"
+          git add --all
+          git commit -m "fix: satisfy slice type contracts"
           git push origin HEAD:${{ github.head_ref }}
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
