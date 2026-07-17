@@ -316,7 +316,7 @@ async function installLiveRegionObserver(page: Page): Promise<void> {
     ).__owliE2e;
     state.liveAnnouncements.length = 0;
     const record = () => {
-      const text = liveRegion.textContent?.trim() ?? '';
+      const text = liveRegion.textContent.trim();
       if (text && state.liveAnnouncements.at(-1) !== text) state.liveAnnouncements.push(text);
     };
     new MutationObserver(record).observe(liveRegion, {
@@ -362,7 +362,11 @@ async function installHarness(
       });
 
       if (slowNormalization) {
-        const originalToBlob = HTMLCanvasElement.prototype.toBlob;
+        const originalToBlob = Object.getOwnPropertyDescriptor(
+          HTMLCanvasElement.prototype,
+          'toBlob',
+        )?.value as HTMLCanvasElement['toBlob'] | undefined;
+        if (!originalToBlob) throw new Error('Canvas toBlob is unavailable.');
         HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
           return originalToBlob.call(
             this,

@@ -325,7 +325,7 @@
     },
     {
       "path": "tests/e2e/remote-staging.spec.ts",
-      "bytes": 25662,
+      "bytes": 25851,
       "area": "tests"
     },
     {
@@ -428,7 +428,7 @@
     { "path": "tsconfig.json", "bytes": 107, "area": "tsconfig.json" },
     {
       "path": "tsconfig.node.json",
-      "bytes": 542,
+      "bytes": 578,
       "area": "tsconfig.node.json"
     },
     { "path": "vite.config.ts", "bytes": 1544, "area": "vite.config.ts" },
