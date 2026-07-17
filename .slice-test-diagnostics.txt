@@ -1,0 +1,573 @@
+
+> owli-ai-assist-web@0.1.0 test /home/runner/work/Owli-AI-Assist-Web/Owli-AI-Assist-Web
+> vitest run
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/runner/work/Owli-AI-Assist-Web/Owli-AI-Assist-Web[39m
+
+ [32m✓[39m tests/unit/remoteAssistClient.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 245[2mms[22m[39m
+ [31m❯[39m tests/unit/sceneSse.test.ts [2m([22m[2m13 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 34[2mms[22m[39m
+     [32m✓[39m accepts chunk boundaries and a terminal event at clean EOF[32m 17[2mms[22m[39m
+[31m     [31m×[31m does not resolve until clean EOF after done[39m[32m 2[2mms[22m[39m
+     [32m✓[39m rejects invalid lifecycle: event: done
+data: {"answerText":"Eine helle Straße.","mode":"describe","modelAlias":"scene-describe-v1","requestId":"request-1","sceneToken":"scene-token","sceneTokenExpiresAt":"2026-07-17T12:00:00.000Z","profileId":"brief","locale":"de-DE"}
+
+[32m 1[2mms[22m[39m
+     [32m✓[39m rejects invalid lifecycle: event: metadata
+data: {"mode":"describe","modelAlias":"scene-describe-v1","profileId":"brief","locale":"de-DE"}
+
+event: metadata
+data: {"mode":"describe","modelAlias":"scene-describe-v1","profileId":"brief","locale":"de-DE"}
+
+event: done
+data: {"answerText":"Eine helle Straße.","mode":"describe","modelAlias":"scene-describe-v1","requestId":"request-1","sceneToken":"scene-token","sceneTokenExpiresAt":"2026-07-17T12:00:00.000Z","profileId":"brief","locale":"de-DE"}
+
+[32m 1[2mms[22m[39m
+     [32m✓[39m rejects invalid lifecycle: event: metadata
+data: {"mode":"describe","modelAlias":"scene-describe-v1","profileId":"brief","locale":"de-DE"}
+
+event: done
+data: {"answerText":"Eine helle Straße.","mode":"describe","modelAlias":"scene-describe-v1","requestId":"request-1","sceneToken":"scene-token","sceneTokenExpiresAt":"2026-07-17T12:00:00.000Z","profileId":"brief","locale":"de-DE"}
+
+event: delta
+data: {"textDelta":"Eine helle Straße.","requestId":"request-1"}
+
+[32m 1[2mms[22m[39m
+     [32m✓[39m rejects invalid lifecycle: event: metadata
+data: {"mode":"describe","modelAlias":"scene-describe-v1","profileId":"brief","locale":"de-DE"}
+
+event: delta
+data: {"textDelta":"Eine helle Straße.","requestId":"request-1"}
+
+[32m 1[2mms[22m[39m
+     [32m✓[39m rejects invalid lifecycle: event: metadata
+data: {"mode":"describe","modelAlias":"scene-describe-v1","profileId":"brief","locale":"de-DE"}
+
+event: mystery
+data: {}
+
+[32m 1[2mms[22m[39m
+     [32m✓[39m surfaces a terminal error only after EOF[32m 1[2mms[22m[39m
+     [32m✓[39m enforces the first-event timeout[32m 3[2mms[22m[39m
+     [32m✓[39m enforces the valid-event idle timeout[32m 1[2mms[22m[39m
+     [32m✓[39m enforces the total request timeout[32m 1[2mms[22m[39m
+     [32m✓[39m enforces terminal-to-EOF timeout[32m 1[2mms[22m[39m
+     [32m✓[39m pins every normative timeout constant[32m 0[2mms[22m[39m
+ [31m❯[39m tests/unit/RemoteAssist.test.tsx [2m([22m[2m3 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 1360[2mms[22m[39m
+     [32m✓[39m gates capture controls until all readiness signals pass[32m 196[2mms[22m[39m
+[31m     [31m×[31m keeps visible deltas quiet and completes only after clean EOF resolution[39m[32m 97[2mms[22m[39m
+[31m     [31m×[31m cancels neutrally, aborts the attempt, and keeps explicit retry available[39m[33m 1065[2mms[22m[39m
+ [32m✓[39m tests/unit/sceneImageInspection.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m tests/unit/remoteEtag.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m tests/unit/remoteCamera.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m tests/unit/remoteSessionManager.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m tests/unit/remoteCatalogProjection.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m tests/unit/cloudflareHeaders.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 359[2mms[22m[39m
+ [32m✓[39m tests/unit/remoteCatalogContracts.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/unit/sceneImageNormalization.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m tests/unit/remoteArchitecture.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/unit/runtimeConfig.remote.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/features/postcard/AudioPostcardPanel.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 202[2mms[22m[39m
+ [32m✓[39m tests/unit/remoteNoLoop.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/unit/remoteStoragePrivacy.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/unit/remoteAbort.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/core/identity/installationId.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/core/api/sse.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/core/session/sessionStore.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/features/scene/sceneReducer.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/app/App.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 223[2mms[22m[39m
+ [32m✓[39m tests/unit/remotePortPolicy.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 7[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 3 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/unit/RemoteAssist.test.tsx[2m > [22mRemoteAssist[2m > [22mkeeps visible deltas quiet and completes only after clean EOF resolution
+[31m[1mTestingLibraryElementError[22m: Found multiple elements with the text: Eine helle Straße.
+
+Here are the matching elements:
+
+Ignored nodes: comments, script, style
+[36m<p>[31m
+  [0mEine helle Straße.[0m
+[36m</p>[31m
+
+Ignored nodes: comments, script, style
+[36m<p[31m
+  [33maria-atomic[31m=[32m"true"[31m
+  [33maria-live[31m=[32m"polite"[31m
+  [33mclass[31m=[32m"visually-hidden"[31m
+[36m>[31m
+  [0mEine helle Straße.[0m
+[36m</p>[31m
+
+(If this is intentional, then use the `*AllBy*` variant of the query (like `queryAllByText`, `getAllByText`, or `findAllByText`)).
+
+Ignored nodes: comments, script, style
+[36m<body>[31m
+  [36m<div>[31m
+    [36m<section[31m
+      [33maria-busy[31m=[32m"false"[31m
+      [33maria-labelledby[31m=[32m"remote-scene-title"[31m
+      [33mclass[31m=[32m"panel remote-scene"[31m
+    [36m>[31m
+      [36m<p[31m
+        [33mclass[31m=[32m"eyebrow"[31m
+      [36m>[31m
+        [0mSichere Online-Beschreibung[0m
+      [36m</p>[31m
+      [36m<h2[31m
+        [33mid[31m=[32m"remote-scene-title"[31m
+      [36m>[31m
+        [0mEine Szene aufnehmen oder auswählen[0m
+      [36m</h2>[31m
+      [36m<p>[31m
+        [0mKamera und Datei werden erst nach deiner Aktion verwendet. Das Bild wird lokal geprüft, als JPEG verkleinert und nicht im Browser gespeichert.[0m
+      [36m</p>[31m
+      [36m<div[31m
+        [33mclass[31m=[32m"scene-controls"[31m
+      [36m>[31m
+        [36m<label[31m
+          [33mfor[31m=[32m"scene-profile"[31m
+        [36m>[31m
+          [0mProfil für die Beschreibung[0m
+        [36m</label>[31m
+        [36m<select[31m
+          [33mid[31m=[32m"scene-profile"[31m
+        [36m>[31m
+          [36m<option[31m
+            [33mvalue[31m=[32m"brief"[31m
+          [36m>[31m
+            [0mKurz[0m
+          [36m</option>[31m
+        [36m</select>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"scene-source-actions"[31m
+        [36m>[31m
+          [36m<button[31m
+            [33mclass[31m=[32m"button button--primary"[31m
+            [33mtype[31m=[32m"button"[31m
+          [36m>[31m
+            [0mRückkamera öffnen[0m
+          [36m</button>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"file-control"[31m
+          [36m>[31m
+            [36m<label[31m
+              [33mfor[31m=[32m"scene-file"[31m
+            [36m>[31m
+              [0mOder ein Bild auswählen[0m
+            [36m</label>[31m
+            [36m<input[31m
+              [33maccept[31m=[32m"image/jpeg,image/png,image/webp"[31m
+              [33mid[31m=[32m"scene-file"[31m
+              [33mtype[31m=[32m"file"[31m
+            [36m/>[31m
+          [36m</div>[31m
+        [36m</div>[31m
+      [36m</div>[31m
+      [36m<video[31m
+        [33maria-hidden[31m=[32m"true"[31m
+        [33mclass[31m=[32m"camera-preview camera-preview--hidden"[31m
+        [33mplaysinline[31m=[32m""[31m
+      [36m/>[31m
+      [36m<div[31m
+        [33mclass[31m=[32m"scene-preview"[31m
+      [36m>[31m
+        [36m<img[31m
+          [33malt[31m=[32m"Ausgewählte Szene"[31m
+          [33msrc[31m=[32m"blob:normalized-scene"[31m
+        [36m/>[31m
+        [36m<p>[31m
+          [0mNormalisiertes JPEG: [0m
+          [0m640[0m
+          [0m × [0m
+          [0m480[0m
+          [0m Pixel,[0m
+          [0m [0m
+          [0m1 KiB[0m
+        [36m</p>[31m
+      [36m</div>[31m
+      [36m<section[31m
+        [33maria-labelledby[31m=[32m"scene-result-title"[31m
+        [33mclass[31m=[32m"scene-result"[31m
+      [36m>[31m
+        [36m<h3[31m
+          [33mid[31m=[32m"scene-result-title"[31m
+        [36m>[31m
+          [0mSzenenbeschreibung[0m
+        [36m</h3>[31m
+        [36m<p>[31m
+          [0mEine helle Straße.[0m
+        [36m</p>[31m
+      [36m</section>[31m
+      [36m<button[31m
+        [33mclass[31m=[32m"button button--secondary"[31m
+        [33mtype[31m=[32m"button"[31m
+      [36m>[31m
+        [0mNeues Bild[0m
+      [36m</button>[31m
+      [36m<p[31m
+        [33maria-atomic[31m=[32m"true"[31m
+        [33maria-live[31m=[32m"polite"[31m
+        [33mclass[31m=[32m"visually-hidden"[31m
+      [36m>[31m
+        [0mEine helle Straße.[0m
+      [36m</p>[31m
+    [36m</section>[31m
+  [36m</div>[31m
+[36m</body>[31m[39m
+[90m [2m❯[22m Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m❯[22m getElementError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m20:35[22m[39m
+[90m [2m❯[22m getMultipleElementsFoundError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m23:10[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m55:13[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2m❯[22m tests/unit/RemoteAssist.test.tsx:[2m86:19[22m[39m
+    [90m 84|[39m     [34mresolveStream[39m[33m?.[39m([34msceneResult[39m())[33m;[39m
+    [90m 85|[39m     [35mawait[39m screen[33m.[39m[34mfindByRole[39m([32m'heading'[39m[33m,[39m { name[33m:[39m [32m'Szenenbeschreibung'[39m })[33m;[39m
+    [90m 86|[39m     [34mexpect[39m(screen[33m.[39m[34mgetByText[39m([32m'Eine helle Straße.'[39m))[33m.[39m[34mtoBeInTheDocument[39m()[33m;[39m
+    [90m   |[39m                   [31m^[39m
+    [90m 87|[39m     [34mexpect[39m(describeScene)[33m.[39m[34mtoHaveBeenCalledTimes[39m([34m1[39m)[33m;[39m
+    [90m 88|[39m   })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/unit/RemoteAssist.test.tsx[2m > [22mRemoteAssist[2m > [22mcancels neutrally, aborts the attempt, and keeps explicit retry available
+[31m[1mTestingLibraryElementError[22m[39m: Found multiple elements with the text: Der Vorgang wurde abgebrochen.
+
+Here are the matching elements:
+
+Ignored nodes: comments, script, style
+[36m<p[39m
+  [33mclass[39m=[32m"live-status"[39m
+  [33mrole[39m=[32m"status"[39m
+[36m>[39m
+  [0mDer Vorgang wurde abgebrochen.[0m
+[36m</p>[39m
+
+Ignored nodes: comments, script, style
+[36m<p[39m
+  [33maria-atomic[39m=[32m"true"[39m
+  [33maria-live[39m=[32m"polite"[39m
+  [33mclass[39m=[32m"visually-hidden"[39m
+[36m>[39m
+  [0mDer Vorgang wurde abgebrochen.[0m
+[36m</p>[39m
+
+(If this is intentional, then use the `*AllBy*` variant of the query (like `queryAllByText`, `getAllByText`, or `findAllByText`)).
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33maria-busy[39m=[32m"false"[39m
+      [33maria-labelledby[39m=[32m"remote-scene-title"[39m
+      [33mclass[39m=[32m"panel remote-scene"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"eyebrow"[39m
+      [36m>[39m
+        [0mSichere Online-Beschreibung[0m
+      [36m</p>[39m
+      [36m<h2[39m
+        [33mid[39m=[32m"remote-scene-title"[39m
+      [36m>[39m
+        [0mEine Szene aufnehmen oder auswählen[0m
+      [36m</h2>[39m
+      [36m<p>[39m
+        [0mKamera und Datei werden erst nach deiner Aktion verwendet. Das Bild wird lokal geprüft, als JPEG verkleinert und nicht im Browser gespeichert.[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"scene-controls"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mfor[39m=[32m"scene-profile"[39m
+        [36m>[39m
+          [0mProfil für die Beschreibung[0m
+        [36m</label>[39m
+        [36m<select[39m
+          [33mid[39m=[32m"scene-profile"[39m
+        [36m>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"brief"[39m
+          [36m>[39m
+            [0mKurz[0m
+          [36m</option>[39m
+        [36m</select>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"scene-source-actions"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"button button--primary"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mRückkamera öffnen[0m
+          [36m</button>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"file-control"[39m
+          [36m>[39m
+            [36m<label[39m
+              [33mfor[39m=[32m"scene-file"[39m
+            [36m>[39m
+              [0mOder ein Bild auswählen[0m
+            [36m</label>[39m
+            [36m<input[39m
+              [33maccept[39m=[32m"image/jpeg,image/png,image/webp"[39m
+              [33mid[39m=[32m"scene-file"[39m
+              [33mtype[39m=[32m"file"[39m
+            [36m/>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<video[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"camera-preview camera-preview--hidden"[39m
+        [33mplaysinline[39m=[32m""[39m
+      [36m/>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"scene-preview"[39m
+      [36m>[39m
+        [36m<img[39m
+          [33malt[39m=[32m"Ausgewählte Szene"[39m
+          [33msrc[39m=[32m"blob:normalized-scene"[39m
+        [36m/>[39m
+        [36m<p>[39m
+          [0mNormalisiertes JPEG: [0m
+          [0m640[0m
+          [0m × [0m
+          [0m480[0m
+          [0m Pixel,[0m
+          [0m [0m
+          [0m1 KiB[0m
+        [36m</p>[39m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"live-status"[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0mDer Vorgang wurde abgebrochen.[0m
+        [36m</p>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"scene-actions"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"button button--primary"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mErneut senden[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"button button--secondary"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mZurücksetzen[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33maria-atomic[39m=[32m"true"[39m
+        [33maria-live[39m=[32m"polite"[39m
+        [33mclass[39m=[32m"visually-hidden"[39m
+      [36m>[39m
+        [0mDer Vorgang wurde abgebrochen.[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33maria-busy[39m=[32m"false"[39m
+      [33maria-labelledby[39m=[32m"remote-scene-title"[39m
+      [33mclass[39m=[32m"panel remote-scene"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"eyebrow"[39m
+      [36m>[39m
+        [0mSichere Online-Beschreibung[0m
+      [36m</p>[39m
+      [36m<h2[39m
+        [33mid[39m=[32m"remote-scene-title"[39m
+      [36m>[39m
+        [0mEine Szene aufnehmen oder auswählen[0m
+      [36m</h2>[39m
+      [36m<p>[39m
+        [0mKamera und Datei werden erst nach deiner Aktion verwendet. Das Bild wird lokal geprüft, als JPEG verkleinert und nicht im Browser gespeichert.[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"scene-controls"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mfor[39m=[32m"scene-profile"[39m
+        [36m>[39m
+          [0mProfil für die Beschreibung[0m
+        [36m</label>[39m
+        [36m<select[39m
+          [33mid[39m=[32m"scene-profile"[39m
+        [36m>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"brief"[39m
+          [36m>[39m
+            [0mKurz[0m
+          [36m</option>[39m
+        [36m</select>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"scene-source-actions"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"button button--primary"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mRückkamera öffnen[0m
+          [36m</button>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"file-control"[39m
+          [36m>[39m
+            [36m<label[39m
+              [33mfor[39m=[32m"scene-file"[39m
+            [36m>[39m
+              [0mOder ein Bild auswählen[0m
+            [36m</label>[39m
+            [36m<input[39m
+              [33maccept[39m=[32m"image/jpeg,image/png,image/webp"[39m
+              [33mid[39m=[32m"scene-file"[39m
+              [33mtype[39m=[32m"file"[39m
+            [36m/>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<video[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"camera-preview camera-preview--hidden"[39m
+        [33mplaysinline[39m=[32m""[39m
+      [36m/>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"scene-preview"[39m
+      [36m>[39m
+        [36m<img[39m
+          [33malt[39m=[32m"Ausgewählte Szene"[39m
+          [33msrc[39m=[32m"blob:normalized-scene"[39m
+        [36m/>[39m
+        [36m<p>[39m
+          [0mNormalisiertes JPEG: [0m
+          [0m640[0m
+          [0m × [0m
+          [0m480[0m
+          [0m Pixel,[0m
+          [0m [0m
+          [0m1 KiB[0m
+        [36m</p>[39m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"live-status"[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0mDer Vorgang wurde abgebrochen.[0m
+        [36m</p>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"scene-actions"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"button button--primary"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mErneut senden[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"button button--secondary"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mZurücksetzen[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33maria-atomic[39m=[32m"true"[39m
+        [33maria-live[39m=[32m"polite"[39m
+        [33mclass[39m=[32m"visually-hidden"[39m
+      [36m>[39m
+        [0mDer Vorgang wurde abgebrochen.[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2m❯[22m waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:[2m163:27[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m86:33[22m[39m
+[36m [2m❯[22m tests/unit/RemoteAssist.test.tsx:[2m118:18[22m[39m
+    [90m116|[39m     fireEvent.click(await screen.findByRole('button', { name: 'Abbrech…
+    [90m117|[39m
+    [90m118|[39m     [35mawait[39m screen[33m.[39m[34mfindByText[39m([32m'Der Vorgang wurde abgebrochen.'[39m)[33m;[39m
+    [90m   |[39m                  [31m^[39m
+    [90m119|[39m     [34mexpect[39m(screen[33m.[39m[34mqueryByRole[39m([32m'alert'[39m))[33m.[39mnot[33m.[39m[34mtoBeInTheDocument[39m()[33m;[39m
+    [90m120|[39m     expect(screen.getByRole('button', { name: 'Erneut senden' })).toBe…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/unit/sceneSse.test.ts[2m > [22mstrict scene SSE consumer[2m > [22mdoes not resolve until clean EOF after done
+[31m[1mAssertionError[22m: expected "vi.fn()" to be called 1 times, but got 0 times[39m
+[36m [2m❯[22m tests/unit/sceneSse.test.ts:[2m73:22[22m[39m
+    [90m 71|[39m     )[33m;[39m
+    [90m 72|[39m     [35mawait[39m [33mPromise[39m[33m.[39m[34mresolve[39m()[33m;[39m
+    [90m 73|[39m     [34mexpect[39m(terminal)[33m.[39m[34mtoHaveBeenCalledTimes[39m([34m1[39m)[33m;[39m
+    [90m   |[39m                      [31m^[39m
+    [90m 74|[39m     [34mexpect[39m(resolved)[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m 75|[39m     streamController[33m?.[39m[34mclose[39m()[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Unhandled Errors [49m[22m[31m⎯⎯⎯⎯⎯⎯[39m
+[31m[1m
+Vitest caught 2 unhandled errors during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.[22m[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mTypeError[22m: Cannot set properties of null (setting 'value')[39m
+[36m [2m❯[22m selectFile src/features/remote/RemoteAssist.tsx:[2m53:27[22m[39m
+    [90m 51|[39m       [35mif[39m (selected) [35mawait[39m workflow[33m.[39m[34mprepare[39m(selected)[33m;[39m
+    [90m 52|[39m     } [35mfinally[39m {
+    [90m 53|[39m       event[33m.[39mcurrentTarget[33m.[39mvalue [33m=[39m [32m''[39m[33m;[39m
+    [90m   |[39m                           [31m^[39m
+    [90m 54|[39m     }
+    [90m 55|[39m   }[33m;[39m
+
+[31mThis error originated in "[1mtests/unit/RemoteAssist.test.tsx[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mkeeps visible deltas quiet and completes only after clean EOF resolution[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mTypeError[22m: Cannot set properties of null (setting 'value')[39m
+[36m [2m❯[22m selectFile src/features/remote/RemoteAssist.tsx:[2m53:27[22m[39m
+    [90m 51|[39m       [35mif[39m (selected) [35mawait[39m workflow[33m.[39m[34mprepare[39m(selected)[33m;[39m
+    [90m 52|[39m     } [35mfinally[39m {
+    [90m 53|[39m       event[33m.[39mcurrentTarget[33m.[39mvalue [33m=[39m [32m''[39m[33m;[39m
+    [90m   |[39m                           [31m^[39m
+    [90m 54|[39m     }
+    [90m 55|[39m   }[33m;[39m
+
+[31mThis error originated in "[1mtests/unit/RemoteAssist.test.tsx[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mcancels neutrally, aborts the attempt, and keeps explicit retry available[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+[31m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[39m
+
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m21 passed[39m[22m[90m (23)[39m
+[2m      Tests [22m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m102 passed[39m[22m[90m (105)[39m
+[2m     Errors [22m [1m[31m2 errors[39m[22m
+[2m   Start at [22m 11:09:31
+[2m   Duration [22m 28.84s[2m (transform 575ms, setup 2.75s, import 1.69s, tests 2.61s, environment 18.42s)[22m
+
+
+::error file=/home/runner/work/Owli-AI-Assist-Web/Owli-AI-Assist-Web/src/features/remote/RemoteAssist.tsx,title=Unhandled error,line=53,column=27::TypeError: Cannot set properties of null (setting 'value')%0A ❯ selectFile src/features/remote/RemoteAssist.tsx:53:27%0A%0AThis error originated in "tests/unit/RemoteAssist.test.tsx" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.%0AThe latest test that might've caused the error is "keeps visible deltas quiet and completes only after clean EOF resolution". It might mean one of the following:%0A- The error was thrown, while Vitest was running this test.%0A- If the error occurred after the test had been completed, this was the last documented test before it was thrown.%0A
+
+::error file=/home/runner/work/Owli-AI-Assist-Web/Owli-AI-Assist-Web/src/features/remote/RemoteAssist.tsx,title=Unhandled error,line=53,column=27::TypeError: Cannot set properties of null (setting 'value')%0A ❯ selectFile src/features/remote/RemoteAssist.tsx:53:27%0A%0AThis error originated in "tests/unit/RemoteAssist.test.tsx" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.%0AThe latest test that might've caused the error is "cancels neutrally, aborts the attempt, and keeps explicit retry available". It might mean one of the following:%0A- The error was thrown, while Vitest was running this test.%0A- If the error occurred after the test had been completed, this was the last documented test before it was thrown.%0A
+
+::error file=/home/runner/work/Owli-AI-Assist-Web/Owli-AI-Assist-Web/tests/unit/RemoteAssist.test.tsx,title=tests/unit/RemoteAssist.test.tsx > RemoteAssist > keeps visible deltas quiet and completes only after clean EOF resolution,line=86,column=19::TestingLibraryElementError: Found multiple elements with the text: Eine helle Straße.%0A%0AHere are the matching elements:%0A%0AIgnored nodes: comments, script, style%0A<p>%0A  Eine helle Straße.%0A</p>%0A%0AIgnored nodes: comments, script, style%0A<p%0A  aria-atomic="true"%0A  aria-live="polite"%0A  class="visually-hidden"%0A>%0A  Eine helle Straße.%0A</p>%0A%0A(If this is intentional, then use the `*AllBy*` variant of the query (like `queryAllByText`, `getAllByText`, or `findAllByText`)).%0A%0AIgnored nodes: comments, script, style%0A<body>%0A  <div>%0A    <section%0A      aria-busy="false"%0A      aria-labelledby="remote-scene-title"%0A      class="panel remote-scene"%0A    >%0A      <p%0A        class="eyebrow"%0A      >%0A        Sichere Online-Beschreibung%0A      </p>%0A      <h2%0A        id="remote-scene-title"%0A      >%0A        Eine Szene aufnehmen oder auswählen%0A      </h2>%0A      <p>%0A        Kamera und Datei werden erst nach deiner Aktion verwendet. Das Bild wird lokal geprüft, als JPEG verkleinert und nicht im Browser gespeichert.%0A      </p>%0A      <div%0A        class="scene-controls"%0A      >%0A        <label%0A          for="scene-profile"%0A        >%0A          Profil für die Beschreibung%0A        </label>%0A        <select%0A          id="scene-profile"%0A        >%0A          <option%0A            value="brief"%0A          >%0A            Kurz%0A          </option>%0A        </select>%0A        <div%0A          class="scene-source-actions"%0A        >%0A          <button%0A            class="button button--primary"%0A            type="button"%0A          >%0A            Rückkamera öffnen%0A          </button>%0A          <div%0A            class="file-control"%0A          >%0A            <label%0A              for="scene-file"%0A            >%0A              Oder ein Bild auswählen%0A            </label>%0A            <input%0A              accept="image/jpeg,image/png,image/webp"%0A              id="scene-file"%0A              type="file"%0A            />%0A          </div>%0A        </div>%0A      </div>%0A      <video%0A        aria-hidden="true"%0A        class="camera-preview camera-preview--hidden"%0A        playsinline=""%0A      />%0A      <div%0A        class="scene-preview"%0A      >%0A        <img%0A          alt="Ausgewählte Szene"%0A          src="blob:normalized-scene"%0A        />%0A        <p>%0A          Normalisiertes JPEG: %0A          640%0A           × %0A          480%0A           Pixel,%0A           %0A          1 KiB%0A        </p>%0A      </div>%0A      <section%0A        aria-labelledby="scene-result-title"%0A        class="scene-result"%0A      >%0A        <h3%0A          id="scene-result-title"%0A        >%0A          Szenenbeschreibung%0A        </h3>%0A        <p>%0A          Eine helle Straße.%0A        </p>%0A      </section>%0A      <button%0A        class="button button--secondary"%0A        type="button"%0A      >%0A        Neues Bild%0A      </button>%0A      <p%0A        aria-atomic="true"%0A        aria-live="polite"%0A        class="visually-hidden"%0A      >%0A        Eine helle Straße.%0A      </p>%0A    </section>%0A  </div>%0A</body>%0A ❯ Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19%0A ❯ getElementError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:20:35%0A ❯ getMultipleElementsFoundError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:23:10%0A ❯ node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:55:13%0A ❯ node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19%0A ❯ tests/unit/RemoteAssist.test.tsx:86:19%0A%0A
+
+::error file=/home/runner/work/Owli-AI-Assist-Web/Owli-AI-Assist-Web/tests/unit/RemoteAssist.test.tsx,title=tests/unit/RemoteAssist.test.tsx > RemoteAssist > cancels neutrally%2C aborts the attempt%2C and keeps explicit retry available,line=118,column=18::TestingLibraryElementError: Found multiple elements with the text: Der Vorgang wurde abgebrochen.%0A%0AHere are the matching elements:%0A%0AIgnored nodes: comments, script, style%0A<p%0A  class="live-status"%0A  role="status"%0A>%0A  Der Vorgang wurde abgebrochen.%0A</p>%0A%0AIgnored nodes: comments, script, style%0A<p%0A  aria-atomic="true"%0A  aria-live="polite"%0A  class="visually-hidden"%0A>%0A  Der Vorgang wurde abgebrochen.%0A</p>%0A%0A(If this is intentional, then use the `*AllBy*` variant of the query (like `queryAllByText`, `getAllByText`, or `findAllByText`)).%0A%0AIgnored nodes: comments, script, style%0A<body>%0A  <div>%0A    <section%0A      aria-busy="false"%0A      aria-labelledby="remote-scene-title"%0A      class="panel remote-scene"%0A    >%0A      <p%0A        class="eyebrow"%0A      >%0A        Sichere Online-Beschreibung%0A      </p>%0A      <h2%0A        id="remote-scene-title"%0A      >%0A        Eine Szene aufnehmen oder auswählen%0A      </h2>%0A      <p>%0A        Kamera und Datei werden erst nach deiner Aktion verwendet. Das Bild wird lokal geprüft, als JPEG verkleinert und nicht im Browser gespeichert.%0A      </p>%0A      <div%0A        class="scene-controls"%0A      >%0A        <label%0A          for="scene-profile"%0A        >%0A          Profil für die Beschreibung%0A        </label>%0A        <select%0A          id="scene-profile"%0A        >%0A          <option%0A            value="brief"%0A          >%0A            Kurz%0A          </option>%0A        </select>%0A        <div%0A          class="scene-source-actions"%0A        >%0A          <button%0A            class="button button--primary"%0A            type="button"%0A          >%0A            Rückkamera öffnen%0A          </button>%0A          <div%0A            class="file-control"%0A          >%0A            <label%0A              for="scene-file"%0A            >%0A              Oder ein Bild auswählen%0A            </label>%0A            <input%0A              accept="image/jpeg,image/png,image/webp"%0A              id="scene-file"%0A              type="file"%0A            />%0A          </div>%0A        </div>%0A      </div>%0A      <video%0A        aria-hidden="true"%0A        class="camera-preview camera-preview--hidden"%0A        playsinline=""%0A      />%0A      <div%0A        class="scene-preview"%0A      >%0A        <img%0A          alt="Ausgewählte Szene"%0A          src="blob:normalized-scene"%0A        />%0A        <p>%0A          Normalisiertes JPEG: %0A          640%0A           × %0A          480%0A           Pixel,%0A           %0A          1 KiB%0A        </p>%0A      </div>%0A      <div>%0A        <p%0A          class="live-status"%0A          role="status"%0A        >%0A          Der Vorgang wurde abgebrochen.%0A        </p>%0A        <div%0A          class="scene-actions"%0A        >%0A          <button%0A            class="button button--primary"%0A            type="button"%0A          >%0A            Erneut senden%0A          </button>%0A          <button%0A            class="button button--secondary"%0A            type="button"%0A          >%0A            Zurücksetzen%0A          </button>%0A        </div>%0A      </div>%0A      <p%0A        aria-atomic="true"%0A        aria-live="polite"%0A        class="visually-hidden"%0A      >%0A        Der Vorgang wurde abgebrochen.%0A      </p>%0A    </section>%0A  </div>%0A</body>%0A%0AIgnored nodes: comments, script, style%0A<body>%0A  <div>%0A    <section%0A      aria-busy="false"%0A      aria-labelledby="remote-scene-title"%0A      class="panel remote-scene"%0A    >%0A      <p%0A        class="eyebrow"%0A      >%0A        Sichere Online-Beschreibung%0A      </p>%0A      <h2%0A        id="remote-scene-title"%0A      >%0A        Eine Szene aufnehmen oder auswählen%0A      </h2>%0A      <p>%0A        Kamera und Datei werden erst nach deiner Aktion verwendet. Das Bild wird lokal geprüft, als JPEG verkleinert und nicht im Browser gespeichert.%0A      </p>%0A      <div%0A        class="scene-controls"%0A      >%0A        <label%0A          for="scene-profile"%0A        >%0A          Profil für die Beschreibung%0A        </label>%0A        <select%0A          id="scene-profile"%0A        >%0A          <option%0A            value="brief"%0A          >%0A            Kurz%0A          </option>%0A        </select>%0A        <div%0A          class="scene-source-actions"%0A        >%0A          <button%0A            class="button button--primary"%0A            type="button"%0A          >%0A            Rückkamera öffnen%0A          </button>%0A          <div%0A            class="file-control"%0A          >%0A            <label%0A              for="scene-file"%0A            >%0A              Oder ein Bild auswählen%0A            </label>%0A            <input%0A              accept="image/jpeg,image/png,image/webp"%0A              id="scene-file"%0A              type="file"%0A            />%0A          </div>%0A        </div>%0A      </div>%0A      <video%0A        aria-hidden="true"%0A        class="camera-preview camera-preview--hidden"%0A        playsinline=""%0A      />%0A      <div%0A        class="scene-preview"%0A      >%0A        <img%0A          alt="Ausgewählte Szene"%0A          src="blob:normalized-scene"%0A        />%0A        <p>%0A          Normalisiertes JPEG: %0A          640%0A           × %0A          480%0A           Pixel,%0A           %0A          1 KiB%0A        </p>%0A      </div>%0A      <div>%0A        <p%0A          class="live-status"%0A          role="status"%0A        >%0A          Der Vorgang wurde abgebrochen.%0A        </p>%0A        <div%0A          class="scene-actions"%0A        >%0A          <button%0A            class="button button--primary"%0A            type="button"%0A          >%0A            Erneut senden%0A          </button>%0A          <button%0A            class="button button--secondary"%0A            type="button"%0A          >%0A            Zurücksetzen%0A          </button>%0A        </div>%0A      </div>%0A      <p%0A        aria-atomic="true"%0A        aria-live="polite"%0A        class="visually-hidden"%0A      >%0A        Der Vorgang wurde abgebrochen.%0A      </p>%0A    </section>%0A  </div>%0A</body>%0A ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27%0A ❯ node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33%0A ❯ tests/unit/RemoteAssist.test.tsx:118:18%0A%0A
+
+::error file=/home/runner/work/Owli-AI-Assist-Web/Owli-AI-Assist-Web/tests/unit/sceneSse.test.ts,title=tests/unit/sceneSse.test.ts > strict scene SSE consumer > does not resolve until clean EOF after done,line=73,column=22::AssertionError: expected "vi.fn()" to be called 1 times, but got 0 times%0A ❯ tests/unit/sceneSse.test.ts:73:22%0A%0A
+ ELIFECYCLE  Test failed. See above for more details.
