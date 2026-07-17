@@ -13,6 +13,8 @@ const png = Buffer.from(
   'base64',
 );
 
+test.use({ serviceWorkers: 'block' });
+
 test.describe('remote camera and streaming scene', () => {
   test('gates actions and keeps file fallback usable after camera denial', async ({ page }) => {
     await mockReadiness(page);
