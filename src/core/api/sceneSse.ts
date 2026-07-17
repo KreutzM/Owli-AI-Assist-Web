@@ -44,6 +44,11 @@ interface SceneSseOptions {
   now?: () => number;
 }
 
+interface ParsedEvent {
+  event: string;
+  data: string;
+}
+
 export async function consumeSceneSse(
   stream: ReadableStream<Uint8Array>,
   options: SceneSseOptions,
@@ -59,6 +64,72 @@ export async function consumeSceneSse(
   let pendingDone: RemoteSceneResult | undefined;
   let pendingError: SceneErrorPayload | undefined;
 
+  const handleEvent = (event: ParsedEvent) => {
+    if (terminalSeen) contractFailure();
+    const eventAt = now();
+    switch (event.event) {
+      case 'metadata': {
+        if (metadataSeen) contractFailure();
+        const parsed = sceneMetadataSchema.safeParse(parseJson(event.data));
+        if (
+          !parsed.success ||
+          parsed.data.profileId !== options.profileId ||
+          parsed.data.locale !== options.locale
+        ) {
+          contractFailure();
+        }
+        metadataSeen = true;
+        lastValidEventAt = eventAt;
+        options.callbacks?.onMetadata?.(parsed.data);
+        return;
+      }
+      case 'delta': {
+        if (!metadataSeen) contractFailure();
+        const parsed = sceneDeltaSchema.safeParse(parseJson(event.data));
+        if (!parsed.success) contractFailure();
+        lastValidEventAt = eventAt;
+        if (parsed.data.textDelta) options.callbacks?.onDelta?.(parsed.data.textDelta);
+        return;
+      }
+      case 'done': {
+        if (!metadataSeen) contractFailure();
+        const parsed = sceneDoneSchema.safeParse(parseJson(event.data));
+        if (
+          !parsed.success ||
+          parsed.data.profileId !== options.profileId ||
+          parsed.data.locale !== options.locale
+        ) {
+          contractFailure();
+        }
+        terminalSeen = true;
+        terminalAt = eventAt;
+        pendingDone = {
+          answerText: parsed.data.answerText,
+          sceneToken: parsed.data.sceneToken,
+          sceneTokenExpiresAt: parsed.data.sceneTokenExpiresAt,
+          profileId: parsed.data.profileId,
+          locale: parsed.data.locale,
+          modelAlias: parsed.data.modelAlias,
+          requestId: parsed.data.requestId,
+        };
+        options.callbacks?.onTerminal?.();
+        return;
+      }
+      case 'error': {
+        if (!metadataSeen) contractFailure();
+        const parsed = sceneErrorSchema.safeParse(parseJson(event.data));
+        if (!parsed.success) contractFailure();
+        terminalSeen = true;
+        terminalAt = eventAt;
+        pendingError = parsed.data;
+        options.callbacks?.onTerminal?.();
+        return;
+      }
+      default:
+        contractFailure();
+    }
+  };
+
   try {
     for (;;) {
       assertNotAborted(options.signal);
@@ -73,82 +144,16 @@ export async function consumeSceneSse(
       buffer += decoder.decode(result.value, { stream: !result.done });
       const blocks = buffer.split(/\r?\n\r?\n/u);
       buffer = blocks.pop() ?? '';
-
+      if (result.done && buffer.trim()) {
+        blocks.push(buffer);
+        buffer = '';
+      }
       for (const block of blocks) {
         const event = parseSseBlock(block);
-        if (!event) continue;
-        if (terminalSeen) contractFailure();
-        const eventAt = now();
-
-        switch (event.event) {
-          case 'metadata': {
-            if (metadataSeen) contractFailure();
-            const parsed = sceneMetadataSchema.safeParse(parseJson(event.data));
-            if (
-              !parsed.success ||
-              parsed.data.profileId !== options.profileId ||
-              parsed.data.locale !== options.locale
-            ) {
-              contractFailure();
-            }
-            metadataSeen = true;
-            lastValidEventAt = eventAt;
-            options.callbacks?.onMetadata?.(parsed.data);
-            break;
-          }
-          case 'delta': {
-            if (!metadataSeen) contractFailure();
-            const parsed = sceneDeltaSchema.safeParse(parseJson(event.data));
-            if (!parsed.success) contractFailure();
-            lastValidEventAt = eventAt;
-            if (parsed.data.textDelta) options.callbacks?.onDelta?.(parsed.data.textDelta);
-            break;
-          }
-          case 'done': {
-            if (!metadataSeen) contractFailure();
-            const parsed = sceneDoneSchema.safeParse(parseJson(event.data));
-            if (
-              !parsed.success ||
-              parsed.data.profileId !== options.profileId ||
-              parsed.data.locale !== options.locale
-            ) {
-              contractFailure();
-            }
-            terminalSeen = true;
-            terminalAt = eventAt;
-            pendingDone = {
-              answerText: parsed.data.answerText,
-              sceneToken: parsed.data.sceneToken,
-              sceneTokenExpiresAt: parsed.data.sceneTokenExpiresAt,
-              profileId: parsed.data.profileId,
-              locale: parsed.data.locale,
-              modelAlias: parsed.data.modelAlias,
-              requestId: parsed.data.requestId,
-            };
-            options.callbacks?.onTerminal?.();
-            break;
-          }
-          case 'error': {
-            if (!metadataSeen) contractFailure();
-            const parsed = sceneErrorSchema.safeParse(parseJson(event.data));
-            if (!parsed.success) contractFailure();
-            terminalSeen = true;
-            terminalAt = eventAt;
-            pendingError = parsed.data;
-            options.callbacks?.onTerminal?.();
-            break;
-          }
-          default:
-            contractFailure();
-        }
+        if (event) handleEvent(event);
       }
 
       if (!result.done) continue;
-      const finalEvent = parseSseBlock(buffer);
-      if (finalEvent) {
-        if (terminalSeen) contractFailure();
-        contractFailure();
-      }
       if (!terminalSeen) contractFailure();
       if (pendingError) throw new SceneStreamError('REMOTE_STREAM_ERROR', pendingError);
       if (!pendingDone) contractFailure();
@@ -218,7 +223,7 @@ async function readWithTimeout(
   }
 }
 
-function parseSseBlock(block: string): { event: string; data: string } | undefined {
+function parseSseBlock(block: string): ParsedEvent | undefined {
   if (!block.trim()) return undefined;
   let event = 'message';
   const data: string[] = [];
