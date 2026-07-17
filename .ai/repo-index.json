@@ -150,7 +150,7 @@
     { "path": "src/app/App.test.tsx", "bytes": 563, "area": "src" },
     { "path": "src/app/App.tsx", "bytes": 3875, "area": "src" },
     { "path": "src/app/AppErrorBoundary.tsx", "bytes": 947, "area": "src" },
-    { "path": "src/app/app.css", "bytes": 5247, "area": "src" },
+    { "path": "src/app/app.css", "bytes": 5429, "area": "src" },
     { "path": "src/app/runtime.ts", "bytes": 1003, "area": "src" },
     { "path": "src/core/api/contracts.ts", "bytes": 2108, "area": "src" },
     { "path": "src/core/api/mockOwliApi.ts", "bytes": 3433, "area": "src" },
@@ -315,7 +315,7 @@
     { "path": "tests/e2e/app.spec.ts", "bytes": 727, "area": "tests" },
     {
       "path": "tests/e2e/remote-readiness.spec.ts",
-      "bytes": 9610,
+      "bytes": 9675,
       "area": "tests"
     },
     {
