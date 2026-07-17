@@ -8,6 +8,12 @@ import {
   type WebBootstrapResponseV2,
 } from '@/core/api/remoteCatalogContracts';
 import {
+  assertNotAborted,
+  blobToBase64,
+  createMemoryInstallationId,
+  forwardAbort,
+} from '@/core/api/remoteClientSupport';
+import {
   webSceneDescribeRequestSchema,
   type NormalizedSceneInput,
   type RemoteSceneResult,
@@ -239,11 +245,15 @@ export class RemoteAssistClient {
     );
     assertNotAborted(signal);
     if (response.status === 304) {
-      if (this.#cache && !cacheless304Recovery) return projectCatalog(this.#cache.response, publicConfig);
+      if (this.#cache && !cacheless304Recovery) {
+        return projectCatalog(this.#cache.response, publicConfig);
+      }
       if (!cacheless304Recovery) return this.#loadProfiles(publicConfig, signal, true);
       throw new RemoteClientError('PROFILE_CACHE_INVALID');
     }
-    const parsed = remoteProfilesResponseSchema.safeParse(await response.json().catch(() => undefined));
+    const parsed = remoteProfilesResponseSchema.safeParse(
+      await response.json().catch(() => undefined),
+    );
     if (!parsed.success) throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
     const etag = response.headers.get('ETag');
     if (!etag) throw new RemoteClientError('PROFILE_CACHE_INVALID');
@@ -256,7 +266,9 @@ export class RemoteAssistClient {
       const response = await this.#fetchImplementation(new URL(path, this.config.apiBaseUrl), init);
       if ((allow304 && response.status === 304) || response.ok) return response;
       if (response.status === 429) throw rateLimitError(response);
-      if (response.status === 401 || response.status === 403) throw new RemoteHttpError(response.status);
+      if (response.status === 401 || response.status === 403) {
+        throw new RemoteHttpError(response.status);
+      }
       throw statusError(response.status);
     } catch (error) {
       if (error instanceof RemoteClientError || error instanceof RemoteHttpError) throw error;
@@ -307,25 +319,6 @@ function projectCatalog(
   return { profiles, ...(defaultProfileId ? { defaultProfileId } : {}) };
 }
 
-async function blobToBase64(blob: Blob, signal?: AbortSignal): Promise<string> {
-  signal?.throwIfAborted();
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  signal?.throwIfAborted();
-  let binary = '';
-  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
-  }
-  return btoa(binary);
-}
-
-function forwardAbort(signal: AbortSignal | undefined, controller: AbortController): () => void {
-  if (!signal) return () => undefined;
-  const abort = () => controller.abort();
-  if (signal.aborted) abort();
-  else signal.addEventListener('abort', abort, { once: true });
-  return () => signal.removeEventListener('abort', abort);
-}
-
 function statusError(status: number): RemoteClientError {
   if (status >= 500) return new RemoteClientError('SERVICE_UNAVAILABLE', undefined, status);
   return new RemoteClientError('REQUEST_REJECTED', undefined, status);
@@ -351,13 +344,4 @@ function mapClientError(error: unknown, signal?: AbortSignal): Error {
     return new RemoteClientError('REQUEST_ABORTED');
   }
   return new RemoteClientError('NETWORK_UNAVAILABLE');
-}
-
-function assertNotAborted(signal?: AbortSignal): void {
-  if (signal?.aborted) throw new RemoteClientError('REQUEST_ABORTED');
-}
-
-function createMemoryInstallationId(): string {
-  if (typeof globalThis.crypto.randomUUID === 'function') return globalThis.crypto.randomUUID();
-  return `web-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
