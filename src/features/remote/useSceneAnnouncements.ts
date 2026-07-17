@@ -14,13 +14,11 @@ export function useSceneAnnouncements(state: RemoteSceneState): string {
     run: 0,
     text: '',
   });
-  const run = useRef(0);
   const lastAt = useRef(0);
   const announcedLength = useRef(0);
 
   useEffect(() => {
     if (state.status !== 'requesting') return;
-    run.current += 1;
     lastAt.current = Date.now();
     announcedLength.current = 0;
   }, [state.status]);
@@ -28,17 +26,17 @@ export function useSceneAnnouncements(state: RemoteSceneState): string {
   useEffect(() => {
     if (state.status !== 'streaming' || !state.streamedText) return;
     if (!SENTENCE_BOUNDARY.test(state.streamedText)) return;
-    const currentRun = run.current;
+    const currentRun = state.announcementRun ?? 0;
     const dueIn = Math.max(0, lastAt.current + ANNOUNCEMENT_INTERVAL_MS - Date.now());
     const timer = setTimeout(() => {
       const segment = state.streamedText.slice(announcedLength.current).trim();
-      if (!segment || currentRun !== run.current) return;
+      if (!segment) return;
       announcedLength.current = state.streamedText.length;
       lastAt.current = Date.now();
       setStreamAnnouncement({ run: currentRun, text: segment });
     }, dueIn);
     return () => clearTimeout(timer);
-  }, [state.status, state.streamedText]);
+  }, [state.announcementRun, state.status, state.streamedText]);
 
   if (state.status === 'requesting') return 'Die Szenenbeschreibung wird angefordert.';
   if (state.status === 'terminal_waiting_for_eof') {
@@ -46,7 +44,10 @@ export function useSceneAnnouncements(state: RemoteSceneState): string {
   }
   if (state.status === 'cancelled') return 'Der Vorgang wurde abgebrochen.';
   if (state.status === 'complete') return state.finalText ?? '';
-  if (state.status === 'streaming' && streamAnnouncement.run === run.current) {
+  if (
+    state.status === 'streaming' &&
+    streamAnnouncement.run === (state.announcementRun ?? 0)
+  ) {
     return streamAnnouncement.text;
   }
   return '';
