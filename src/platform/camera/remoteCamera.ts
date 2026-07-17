@@ -52,6 +52,7 @@ export class RemoteCamera {
   async capture(): Promise<Blob> {
     const video = this.#video;
     if (!video || video.videoWidth < 2 || video.videoHeight < 2) {
+      this.stop();
       throw new CameraError('CAMERA_NOT_READY');
     }
     if (video.videoWidth > SOURCE_MAX_SIDE_PX || video.videoHeight > SOURCE_MAX_SIDE_PX) {
