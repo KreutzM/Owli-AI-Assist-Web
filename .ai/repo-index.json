@@ -157,7 +157,7 @@
     { "path": "src/core/api/owliApi.ts", "bytes": 580, "area": "src" },
     {
       "path": "src/core/api/remoteAssistClient.ts",
-      "bytes": 12343,
+      "bytes": 12371,
       "area": "src"
     },
     {
