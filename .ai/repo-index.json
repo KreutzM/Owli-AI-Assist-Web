@@ -224,7 +224,7 @@
     { "path": "src/features/remote/README.md", "bytes": 730, "area": "src" },
     {
       "path": "src/features/remote/RemoteAssist.tsx",
-      "bytes": 9558,
+      "bytes": 10712,
       "area": "src"
     },
     { "path": "src/features/remote/remote.css", "bytes": 1392, "area": "src" },
@@ -235,12 +235,12 @@
     },
     {
       "path": "src/features/remote/useRemoteScene.ts",
-      "bytes": 10764,
+      "bytes": 11355,
       "area": "src"
     },
     {
       "path": "src/features/remote/useSceneAnnouncements.ts",
-      "bytes": 1634,
+      "bytes": 1923,
       "area": "src"
     },
     {
@@ -271,7 +271,7 @@
     },
     {
       "path": "src/platform/camera/remoteCamera.ts",
-      "bytes": 3346,
+      "bytes": 4229,
       "area": "src"
     },
     { "path": "src/platform/camera/types.ts", "bytes": 128, "area": "src" },
@@ -320,7 +320,7 @@
     },
     {
       "path": "tests/unit/RemoteAssist.test.tsx",
-      "bytes": 6098,
+      "bytes": 7470,
       "area": "tests"
     },
     {
@@ -345,7 +345,7 @@
     },
     {
       "path": "tests/unit/remoteCamera.test.ts",
-      "bytes": 3635,
+      "bytes": 4506,
       "area": "tests"
     },
     {
@@ -395,6 +395,11 @@
       "area": "tests"
     },
     { "path": "tests/unit/sceneSse.test.ts", "bytes": 5972, "area": "tests" },
+    {
+      "path": "tests/unit/useSceneAnnouncements.test.ts",
+      "bytes": 1324,
+      "area": "tests"
+    },
     { "path": "tools/build-web.mjs", "bytes": 2177, "area": "tools" },
     { "path": "tools/check-architecture.mjs", "bytes": 2643, "area": "tools" },
     {

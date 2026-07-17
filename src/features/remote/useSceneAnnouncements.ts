@@ -44,10 +44,7 @@ export function useSceneAnnouncements(state: RemoteSceneState): string {
   }
   if (state.status === 'cancelled') return 'Der Vorgang wurde abgebrochen.';
   if (state.status === 'complete') return state.finalText ?? '';
-  if (
-    state.status === 'streaming' &&
-    streamAnnouncement.run === (state.announcementRun ?? 0)
-  ) {
+  if (state.status === 'streaming' && streamAnnouncement.run === (state.announcementRun ?? 0)) {
     return streamAnnouncement.text;
   }
   return '';
