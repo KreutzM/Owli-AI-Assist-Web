@@ -5,33 +5,15 @@ const ANNOUNCEMENT_INTERVAL_MS = 2_000;
 const SENTENCE_BOUNDARY = /[.!?…][”"')\]]?\s*$/u;
 
 export function useSceneAnnouncements(state: RemoteSceneState): string {
-  const [announcement, setAnnouncement] = useState('');
+  const [streamAnnouncement, setStreamAnnouncement] = useState('');
   const lastAt = useRef(0);
   const announcedLength = useRef(0);
-  const completion = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    if (state.status === 'requesting') {
-      setAnnouncement('Die Szenenbeschreibung wird angefordert.');
-      lastAt.current = Date.now();
-      announcedLength.current = 0;
-      completion.current = undefined;
-      return;
-    }
-    if (state.status === 'terminal_waiting_for_eof') {
-      setAnnouncement('Die Antwort wurde empfangen und wird sicher abgeschlossen.');
-      return;
-    }
-    if (state.status === 'cancelled') {
-      setAnnouncement('Der Vorgang wurde abgebrochen.');
-      return;
-    }
-    if (state.status === 'complete' && state.finalText && completion.current !== state.finalText) {
-      completion.current = state.finalText;
-      announcedLength.current = state.finalText.length;
-      setAnnouncement(state.finalText);
-    }
-  }, [state.finalText, state.status]);
+    if (state.status !== 'requesting') return;
+    lastAt.current = Date.now();
+    announcedLength.current = 0;
+  }, [state.status]);
 
   useEffect(() => {
     if (state.status !== 'streaming' || !state.streamedText) return;
@@ -42,10 +24,17 @@ export function useSceneAnnouncements(state: RemoteSceneState): string {
       if (!segment) return;
       announcedLength.current = state.streamedText.length;
       lastAt.current = Date.now();
-      setAnnouncement(segment);
+      setStreamAnnouncement(segment);
     }, dueIn);
     return () => clearTimeout(timer);
   }, [state.status, state.streamedText]);
 
-  return announcement;
+  if (state.status === 'requesting') return 'Die Szenenbeschreibung wird angefordert.';
+  if (state.status === 'terminal_waiting_for_eof') {
+    return 'Die Antwort wurde empfangen und wird sicher abgeschlossen.';
+  }
+  if (state.status === 'cancelled') return 'Der Vorgang wurde abgebrochen.';
+  if (state.status === 'complete') return state.finalText ?? '';
+  if (state.status === 'streaming') return streamAnnouncement;
+  return '';
 }
