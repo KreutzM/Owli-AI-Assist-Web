@@ -9,16 +9,19 @@ import {
 } from '@/core/image/sceneImageInspection';
 
 describe('scene source inspection', () => {
-  it.each([1, 2, 3, 4, 5, 6, 7, 8] as const)('reads JPEG EXIF orientation %s', async (orientation) => {
-    await expect(
-      inspectSceneSource(new Blob([jpeg(640, 480, orientation)], { type: 'image/jpeg' })),
-    ).resolves.toMatchObject({
-      mimeType: 'image/jpeg',
-      width: 640,
-      height: 480,
-      orientation,
-    });
-  });
+  it.each([1, 2, 3, 4, 5, 6, 7, 8] as const)(
+    'reads JPEG EXIF orientation %s',
+    async (orientation) => {
+      await expect(
+        inspectSceneSource(new Blob([jpeg(640, 480, orientation)], { type: 'image/jpeg' })),
+      ).resolves.toMatchObject({
+        mimeType: 'image/jpeg',
+        width: 640,
+        height: 480,
+        orientation,
+      });
+    },
+  );
 
   it('inspects PNG and WebP dimensions before decode', async () => {
     await expect(

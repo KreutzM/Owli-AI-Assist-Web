@@ -122,10 +122,8 @@ export function applyOrientationTransform(
   outputWidth: number,
   outputHeight: number,
 ): void {
-  const horizontal =
-    orientation >= 5 ? outputWidth / sourceHeight : outputWidth / sourceWidth;
-  const vertical =
-    orientation >= 5 ? outputHeight / sourceWidth : outputHeight / sourceHeight;
+  const horizontal = orientation >= 5 ? outputWidth / sourceHeight : outputWidth / sourceWidth;
+  const vertical = orientation >= 5 ? outputHeight / sourceWidth : outputHeight / sourceHeight;
   switch (orientation) {
     case 1:
       context.setTransform(horizontal, 0, 0, vertical, 0, 0);

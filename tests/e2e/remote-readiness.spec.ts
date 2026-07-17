@@ -27,9 +27,9 @@ test.describe('remote camera and streaming scene', () => {
     await expect(page.getByLabel('Oder ein Bild auswählen')).toBeEnabled();
 
     await page.setViewportSize({ width: 320, height: 800 });
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
-      true,
-    );
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
     const accessibility = await new AxeBuilder({ page }).analyze();
     expect(accessibility.violations).toEqual([]);
   });

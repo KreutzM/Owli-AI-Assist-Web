@@ -19,9 +19,7 @@ describe('remote capability isolation', () => {
 
   it('keeps the shared client route allowlist exact', async () => {
     const source = await readFile('src/core/api/remoteAssistClient.ts', 'utf8');
-    const routes = [...source.matchAll(/'\/(api\/v1\/[^']+)'/gu)].map(
-      (match) => `/${match[1]}`,
-    );
+    const routes = [...source.matchAll(/'\/(api\/v1\/[^']+)'/gu)].map((match) => `/${match[1]}`);
     expect(new Set(routes)).toEqual(
       new Set([
         '/api/v1/config',

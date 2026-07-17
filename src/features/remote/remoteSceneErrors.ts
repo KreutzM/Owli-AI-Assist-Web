@@ -25,7 +25,9 @@ export function remoteSceneErrorStatus(error: unknown): RemoteSceneStatus {
 }
 
 export function imageErrorIsContract(error: unknown): boolean {
-  return error instanceof SceneImageError && ['MIME_MISMATCH', 'MALFORMED_IMAGE'].includes(error.code);
+  return (
+    error instanceof SceneImageError && ['MIME_MISMATCH', 'MALFORMED_IMAGE'].includes(error.code)
+  );
 }
 
 export function readinessMessage(error: unknown): string {
@@ -37,9 +39,12 @@ export function readinessMessage(error: unknown): string {
 export function cameraMessage(error: unknown): string {
   const code = error instanceof CameraError ? error.code : undefined;
   if (code === 'CAMERA_UNSUPPORTED') return 'Dieser Browser unterstützt keinen Kamerazugriff.';
-  if (code === 'CAMERA_DENIED') return 'Der Kamerazugriff wurde nicht erlaubt. Die Dateiauswahl bleibt verfügbar.';
-  if (code === 'CAMERA_MISSING') return 'Es wurde keine Kamera gefunden. Die Dateiauswahl bleibt verfügbar.';
-  if (code === 'CAMERA_BUSY') return 'Die Kamera wird gerade von einer anderen Anwendung verwendet.';
+  if (code === 'CAMERA_DENIED')
+    return 'Der Kamerazugriff wurde nicht erlaubt. Die Dateiauswahl bleibt verfügbar.';
+  if (code === 'CAMERA_MISSING')
+    return 'Es wurde keine Kamera gefunden. Die Dateiauswahl bleibt verfügbar.';
+  if (code === 'CAMERA_BUSY')
+    return 'Die Kamera wird gerade von einer anderen Anwendung verwendet.';
   if (code === 'CAMERA_NOT_READY') return 'Die Kamera ist noch nicht bereit.';
   return 'Die Kamera konnte nicht gestartet oder ausgelöst werden.';
 }

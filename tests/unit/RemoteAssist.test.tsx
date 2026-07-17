@@ -79,7 +79,9 @@ describe('RemoteAssist', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Szene beschreiben' }));
     await screen.findByText('Die Antwort wird sicher abgeschlossen …');
-    const visibleResult = screen.getByRole('heading', { name: 'Laufende Beschreibung' }).parentElement;
+    const visibleResult = screen.getByRole('heading', {
+      name: 'Laufende Beschreibung',
+    }).parentElement;
     expect(visibleResult).not.toHaveAttribute('aria-live');
     expect(screen.queryByRole('heading', { name: 'Szenenbeschreibung' })).not.toBeInTheDocument();
 
@@ -103,7 +105,9 @@ describe('RemoteAssist', () => {
           locale: 'de-DE',
         });
         return await new Promise<RemoteSceneResult>((_, reject) => {
-          signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+          signal?.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError')),
+          );
         });
       },
     );
@@ -145,12 +149,7 @@ function renderRemote(overrides: Partial<RemoteAssistClient> = {}) {
     })),
   } as unknown as BrowserSceneImageNormalizer;
   return render(
-    <RemoteAssist
-      client={client}
-      camera={camera}
-      normalizer={normalizer}
-      locale="de-DE"
-    />,
+    <RemoteAssist client={client} camera={camera} normalizer={normalizer} locale="de-DE" />,
   );
 }
 

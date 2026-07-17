@@ -111,9 +111,9 @@ describe('strict scene SSE consumer', () => {
 
   it('enforces the valid-event idle timeout', async () => {
     vi.useFakeTimers();
-    const pending = expect(
-      consumeSceneSse(heldStream(metadata), options()),
-    ).rejects.toMatchObject({ code: 'STREAM_IDLE_TIMEOUT' });
+    const pending = expect(consumeSceneSse(heldStream(metadata), options())).rejects.toMatchObject({
+      code: 'STREAM_IDLE_TIMEOUT',
+    });
     await vi.advanceTimersByTimeAsync(SCENE_IDLE_TIMEOUT_MS);
     await pending;
   });

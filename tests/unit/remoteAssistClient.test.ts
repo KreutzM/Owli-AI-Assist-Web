@@ -213,7 +213,9 @@ describe('RemoteAssistClient', () => {
       }
       return new Promise<Response>(() => undefined);
     });
-    const pending = expect(client(fetchImplementation).describeScene(input())).rejects.toMatchObject({
+    const pending = expect(
+      client(fetchImplementation).describeScene(input()),
+    ).rejects.toMatchObject({
       code: 'STREAM_RESPONSE_TIMEOUT',
     });
     await vi.advanceTimersByTimeAsync(15_000);

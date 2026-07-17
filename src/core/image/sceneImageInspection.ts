@@ -175,11 +175,7 @@ function inspectWebp(bytes: Uint8Array): Omit<SceneSourceInspection, 'mimeType' 
   return { width, height, orientation };
 }
 
-function parseTiffOrientation(
-  bytes: Uint8Array,
-  start: number,
-  length: number,
-): ExifOrientation {
+function parseTiffOrientation(bytes: Uint8Array, start: number, length: number): ExifOrientation {
   if (length < 8 || start + length > bytes.length) return 1;
   const order = ascii(bytes, start, 2);
   const little = order === 'II';
@@ -212,13 +208,7 @@ function validateBounds(width: number, height: number): void {
 }
 
 function isSofMarker(marker: number): boolean {
-  return (
-    marker >= 0xc0 &&
-    marker <= 0xcf &&
-    marker !== 0xc4 &&
-    marker !== 0xc8 &&
-    marker !== 0xcc
-  );
+  return marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
 }
 
 function readU16(bytes: Uint8Array, offset: number, little: boolean): number {

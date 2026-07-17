@@ -8,7 +8,9 @@ afterEach(() => {
 describe('RemoteCamera', () => {
   it('requests the rear camera without microphone and releases every track', async () => {
     const stop = vi.fn();
-    const getUserMedia = vi.fn(async () => ({ getTracks: () => [{ stop }] }) as unknown as MediaStream);
+    const getUserMedia = vi.fn(
+      async () => ({ getTracks: () => [{ stop }] }) as unknown as MediaStream,
+    );
     stubMediaDevices(getUserMedia);
     const video = document.createElement('video');
     const play = vi.spyOn(video, 'play').mockResolvedValue();
@@ -56,7 +58,9 @@ describe('RemoteCamera', () => {
 
   it('stops the stream immediately after frame capture', async () => {
     const stop = vi.fn();
-    const getUserMedia = vi.fn(async () => ({ getTracks: () => [{ stop }] }) as unknown as MediaStream);
+    const getUserMedia = vi.fn(
+      async () => ({ getTracks: () => [{ stop }] }) as unknown as MediaStream,
+    );
     stubMediaDevices(getUserMedia);
     const video = document.createElement('video');
     vi.spyOn(video, 'play').mockResolvedValue();

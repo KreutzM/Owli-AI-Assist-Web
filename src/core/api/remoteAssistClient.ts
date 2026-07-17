@@ -19,11 +19,7 @@ import {
   type RemoteSceneResult,
   type SceneStreamCallbacks,
 } from '@/core/api/remoteSceneContracts';
-import {
-  consumeSceneSse,
-  SCENE_RESPONSE_TIMEOUT_MS,
-  SceneStreamError,
-} from '@/core/api/sceneSse';
+import { consumeSceneSse, SCENE_RESPONSE_TIMEOUT_MS, SceneStreamError } from '@/core/api/sceneSse';
 import type { RuntimeConfig } from '@/core/config/runtimeConfig';
 import { SCENE_IMAGE_MAX_BYTES } from '@/core/image/sceneImageInspection';
 import { RemoteHttpError, RemoteSessionManager } from '@/core/session/remoteSessionManager';
@@ -106,26 +102,23 @@ export class RemoteAssistClient {
 
     let imageBase64: string | undefined = await blobToBase64(input.image, signal);
     try {
-      return await this.#sessions.withUnauthorizedRetry(
-        (sessionToken) => {
-          if (!imageBase64) throw new RemoteClientError('REQUEST_ABORTED');
-          return this.#describeAttempt(
-            {
-              sessionToken,
-              installationId: this.#installationId,
-              imageBase64,
-              imageMimeType: 'image/jpeg',
-              sceneMode: 'describe',
-              stream: true,
-              profileId: input.profileId,
-              locale: input.locale,
-            },
-            callbacks,
-            signal,
-          );
-        },
-        signal,
-      );
+      return await this.#sessions.withUnauthorizedRetry((sessionToken) => {
+        if (!imageBase64) throw new RemoteClientError('REQUEST_ABORTED');
+        return this.#describeAttempt(
+          {
+            sessionToken,
+            installationId: this.#installationId,
+            imageBase64,
+            imageMimeType: 'image/jpeg',
+            sceneMode: 'describe',
+            stream: true,
+            profileId: input.profileId,
+            locale: input.locale,
+          },
+          callbacks,
+          signal,
+        );
+      }, signal);
     } catch (error) {
       throw mapClientError(error, signal);
     } finally {
@@ -202,7 +195,8 @@ export class RemoteAssistClient {
     assertNotAborted(signal);
     if (!parsed.success) throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
     const expected = this.config.target === 'staging' ? 'staging' : 'prod';
-    if (parsed.data.environment !== expected) throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
+    if (parsed.data.environment !== expected)
+      throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
     return parsed.data;
   }
 

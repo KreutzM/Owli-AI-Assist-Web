@@ -14,7 +14,10 @@ export class BrowserOrientationDecoder {
   #bitmapSupportsRawOrientation: Promise<boolean> | undefined;
   #imageAutoOrients: Promise<boolean> | undefined;
 
-  async decode(blob: Blob, orientation: ExifOrientation): Promise<{
+  async decode(
+    blob: Blob,
+    orientation: ExifOrientation,
+  ): Promise<{
     surface: DecodedSceneSurface;
     effectiveOrientation: ExifOrientation;
   }> {
