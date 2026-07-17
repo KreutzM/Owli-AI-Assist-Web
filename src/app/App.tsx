@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
 import { createAppRuntime } from '@/app/runtime';
 import { AudioPostcardPanel } from '@/features/postcard/AudioPostcardPanel';
-import { RemoteCatalog } from '@/features/remote/RemoteCatalog';
+import { RemoteAssist } from '@/features/remote/RemoteAssist';
 import { SceneWorkspace } from '@/features/scene/SceneWorkspace';
 import { BrowserCamera } from '@/platform/camera/browserCamera';
+import { RemoteCamera } from '@/platform/camera/remoteCamera';
+import { BrowserSceneImageNormalizer } from '@/platform/image/browserSceneImageNormalizer';
 import { BrowserShare } from '@/platform/share/browserShare';
 import { BrowserSpeech } from '@/platform/speech/browserSpeech';
 import '@/app/app.css';
@@ -18,20 +20,22 @@ export function App() {
           <p className="brand-kicker">Owli-AI</p>
           <h1>Assist im Browser</h1>
           <p className="header-copy">
-            Szenen verstehen, Rückfragen stellen und Audio-Postcards erstellen – ohne App-Store.
+            {runtime.mode === 'remote'
+              ? 'Eine Szene aufnehmen oder auswählen und sicher beschreiben lassen.'
+              : 'Szenen verstehen, Rückfragen stellen und Audio-Postcards erstellen – ohne App-Store.'}
           </p>
         </div>
         <span className="mode-badge">
           {runtime.mode === 'mock'
             ? 'Demo-Modus'
             : runtime.mode === 'remote'
-              ? 'Online-Vorbereitung'
+              ? 'Sichere Online-Beschreibung'
               : 'Konfigurationsfehler'}
         </span>
       </header>
       <main id="main-content" className="app-shell">
         {runtime.mode === 'mock' && <MockApplication runtime={runtime} />}
-        {runtime.mode === 'remote' && <RemoteCatalog client={runtime.catalogClient} />}
+        {runtime.mode === 'remote' && <RemoteApplication runtime={runtime} />}
         {runtime.mode === 'invalid_configuration' && (
           <section className="panel" aria-labelledby="configuration-title">
             <p className="eyebrow">Sicher angehalten</p>
@@ -50,6 +54,16 @@ export function App() {
       </footer>
     </>
   );
+}
+
+function RemoteApplication({
+  runtime,
+}: {
+  runtime: Extract<ReturnType<typeof createAppRuntime>, { mode: 'remote' }>;
+}) {
+  const camera = useMemo(() => new RemoteCamera(), []);
+  const normalizer = useMemo(() => new BrowserSceneImageNormalizer(), []);
+  return <RemoteAssist client={runtime.assistClient} camera={camera} normalizer={normalizer} />;
 }
 
 function MockApplication({
