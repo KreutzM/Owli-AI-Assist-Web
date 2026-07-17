@@ -136,7 +136,7 @@ function inspectPng(bytes: Uint8Array): Omit<SceneSourceInspection, 'mimeType' |
 }
 
 function inspectWebp(bytes: Uint8Array): Omit<SceneSourceInspection, 'mimeType' | 'byteLength'> {
-  if (bytes.length < 20) malformed();
+  if (bytes.length < 20 || readU32(bytes, 4, true) + 8 !== bytes.length) malformed();
   let width: number | undefined;
   let height: number | undefined;
   let orientation: ExifOrientation = 1;

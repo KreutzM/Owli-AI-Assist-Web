@@ -220,10 +220,13 @@ export function useRemoteScene(
   );
 
   const capture = useCallback(async () => {
+    const id = attempt.current;
     try {
       const source = await camera.capture();
+      if (id !== attempt.current) return;
       await prepare(source);
     } catch (error) {
+      if (id !== attempt.current) return;
       setState((current) => ({
         ...current,
         status: 'recoverable_error',

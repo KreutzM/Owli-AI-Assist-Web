@@ -148,7 +148,9 @@ describe('strict scene SSE consumer', () => {
   });
 });
 
-function options(overrides: Record<string, unknown> = {}) {
+type SceneSseOptions = Parameters<typeof consumeSceneSse>[1];
+
+function options(overrides: Partial<SceneSseOptions> = {}): SceneSseOptions {
   return {
     profileId: 'brief',
     locale: 'de-DE',

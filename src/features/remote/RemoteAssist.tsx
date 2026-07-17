@@ -123,7 +123,6 @@ export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssis
                 id="scene-file"
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
-                capture="environment"
                 disabled={!readinessEnabled || active}
                 onChange={(event) => void selectFile(event)}
               />

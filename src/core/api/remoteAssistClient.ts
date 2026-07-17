@@ -319,7 +319,8 @@ function statusError(status: number): RemoteClientError {
 }
 
 function rateLimitError(response: Response): RemoteClientError {
-  const retryAfter = Number(response.headers.get('Retry-After'));
+  const header = response.headers.get('Retry-After');
+  const retryAfter = header === null ? Number.NaN : Number(header);
   return new RemoteClientError(
     'RATE_LIMITED',
     Number.isFinite(retryAfter) ? Date.now() + retryAfter * 1000 : undefined,
