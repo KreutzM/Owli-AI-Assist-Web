@@ -2,6 +2,11 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 const remoteUrl = 'http://127.0.0.1:5173';
+const corsHeaders = {
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Origin': '*',
+};
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGOs2HKHgYGBiYGBgYGBAQAYJgIMiYqd0gAAAABJRU5ErkJggg==',
   'base64',
@@ -39,9 +44,10 @@ test.describe('remote camera and streaming scene', () => {
     let body: Record<string, unknown> | undefined;
     let requestHeaders: Record<string, string> | undefined;
     await page.route('**/api/v1/scene/describe', async (route) => {
+      if (await fulfillPreflight(route)) return;
       body = route.request().postDataJSON() as Record<string, unknown>;
       requestHeaders = await route.request().allHeaders();
-      await route.fulfill(sse(sceneEvents()));
+      await fulfillSse(route, sceneEvents());
     });
     await page.goto(remoteUrl);
     await page.getByLabel('Oder ein Bild auswählen').setInputFiles({
@@ -94,12 +100,13 @@ test.describe('remote camera and streaming scene', () => {
     });
     let sceneCalls = 0;
     await page.route('**/api/v1/scene/describe', async (route) => {
+      if (await fulfillPreflight(route)) return;
       sceneCalls += 1;
       if (sceneCalls === 1) {
-        await route.fulfill({ status: 401 });
+        await route.fulfill({ status: 401, headers: corsHeaders });
         return;
       }
-      await route.fulfill(sse(sceneEvents()));
+      await fulfillSse(route, sceneEvents());
     });
     await page.goto(remoteUrl);
     await chooseFileAndDescribe(page);
@@ -118,16 +125,16 @@ test.describe('remote camera and streaming scene', () => {
     });
     let sceneCalls = 0;
     await page.route('**/api/v1/scene/describe', async (route) => {
+      if (await fulfillPreflight(route)) return;
       sceneCalls += 1;
-      await route.fulfill(
-        sse(
-          event('metadata', {
-            mode: 'describe',
-            modelAlias: 'scene-describe-v1',
-            profileId: 'brief',
-            locale: 'de-DE',
-          }) + event('unknown', {}),
-        ),
+      await fulfillSse(
+        route,
+        event('metadata', {
+          mode: 'describe',
+          modelAlias: 'scene-describe-v1',
+          profileId: 'brief',
+          locale: 'de-DE',
+        }) + event('unknown', {}),
       );
     });
     await page.goto(remoteUrl);
@@ -176,7 +183,10 @@ async function mockReadiness(page: Page, options: ReadinessOptions = {}): Promis
       profiles: { backendSupportedProfileIds: ['brief'] },
     }),
   );
-  await page.route('**/api/v1/session/bootstrap', (route) => json(route, bootstrapFactory()));
+  await page.route('**/api/v1/session/bootstrap', async (route) => {
+    if (await fulfillPreflight(route)) return;
+    await json(route, bootstrapFactory());
+  });
   await page.route('**/api/v1/profiles', (route) =>
     json(
       route,
@@ -250,12 +260,19 @@ function event(name: string, data: unknown): string {
   return `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
-function sse(body: string) {
-  return {
+async function fulfillPreflight(route: Route): Promise<boolean> {
+  if (route.request().method() !== 'OPTIONS') return false;
+  await route.fulfill({ status: 204, headers: corsHeaders });
+  return true;
+}
+
+async function fulfillSse(route: Route, body: string): Promise<void> {
+  await route.fulfill({
     status: 200,
     contentType: 'text/event-stream; charset=utf-8',
+    headers: corsHeaders,
     body,
-  };
+  });
 }
 
 async function json(
@@ -266,7 +283,7 @@ async function json(
   await route.fulfill({
     status: 200,
     contentType: 'application/json',
-    headers,
+    headers: { ...corsHeaders, ...headers },
     body: JSON.stringify(body),
   });
 }
