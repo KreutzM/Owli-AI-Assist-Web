@@ -3,6 +3,16 @@ import type { RemoteSceneState } from '@/features/remote/useRemoteScene';
 
 const ANNOUNCEMENT_INTERVAL_MS = 2_000;
 const SENTENCE_BOUNDARY = /[.!?…][”"')\]]?\s*$/u;
+const RESET_ANNOUNCEMENT_STATUSES = new Set([
+  'readiness_loading',
+  'readiness_unavailable',
+  'ready_idle',
+  'camera_starting',
+  'camera_ready',
+  'normalizing',
+  'prepared',
+  'requesting',
+]);
 
 export function useSceneAnnouncements(state: RemoteSceneState): string {
   const [streamAnnouncement, setStreamAnnouncement] = useState('');
@@ -10,9 +20,12 @@ export function useSceneAnnouncements(state: RemoteSceneState): string {
   const announcedLength = useRef(0);
 
   useEffect(() => {
-    if (state.status !== 'requesting') return;
-    lastAt.current = Date.now();
-    announcedLength.current = 0;
+    if (!RESET_ANNOUNCEMENT_STATUSES.has(state.status)) return;
+    setStreamAnnouncement('');
+    if (state.status === 'requesting') {
+      lastAt.current = Date.now();
+      announcedLength.current = 0;
+    }
   }, [state.status]);
 
   useEffect(() => {
