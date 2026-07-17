@@ -75,7 +75,7 @@ export class RemoteAssistClient {
   ) {
     this.#installationId = options.installationId ?? createMemoryInstallationId();
     if (!this.#installationId.trim()) throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
-    this.#fetchImplementation = options.fetch ?? fetch;
+    this.#fetchImplementation = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.#sessions = new RemoteSessionManager((signal) => this.#bootstrap(signal));
   }
 
