@@ -4,14 +4,21 @@ import {
   type RemoteAssistClient,
   type RemoteReadiness,
 } from '@/core/api/remoteAssistClient';
-import { SceneStreamError } from '@/core/api/sceneSse';
-import { SceneImageError } from '@/core/image/sceneImageInspection';
-import { CameraError, type RemoteCamera } from '@/platform/camera/remoteCamera';
+import type { RemoteCamera } from '@/platform/camera/remoteCamera';
 import {
   revokeNormalizedSceneImage,
   type BrowserSceneImageNormalizer,
   type NormalizedSceneImage,
 } from '@/platform/image/browserSceneImageNormalizer';
+import {
+  cameraMessage,
+  imageErrorIsContract,
+  imageMessage,
+  isRemoteSceneAbort,
+  readinessMessage,
+  remoteSceneErrorStatus,
+  sceneMessage,
+} from '@/features/remote/remoteSceneErrors';
 
 export type RemoteSceneStatus =
   | 'readiness_loading'
@@ -50,6 +57,7 @@ export function useRemoteScene(
   client: RemoteAssistClient,
   camera: RemoteCamera,
   normalizer: BrowserSceneImageNormalizer,
+  locale: string,
 ) {
   const [state, setState] = useState<RemoteSceneState>(INITIAL_STATE);
   const activeController = useRef<AbortController | undefined>(undefined);
@@ -91,13 +99,16 @@ export function useRemoteScene(
         const fallback = next.catalog.profiles.find((profile) => profile.supportsStreaming);
         selectedProfileId.current = preferred?.id ?? fallback?.id;
         setState({
-          status: next.sceneDescribeEnabled && selectedProfileId.current ? 'ready_idle' : 'readiness_unavailable',
+          status:
+            next.sceneDescribeEnabled && selectedProfileId.current
+              ? 'ready_idle'
+              : 'readiness_unavailable',
           readiness: next,
           ...(selectedProfileId.current ? { selectedProfileId: selectedProfileId.current } : {}),
           streamedText: '',
         });
       } catch (error) {
-        if (id !== attempt.current || isAbort(error)) return;
+        if (id !== attempt.current || isRemoteSceneAbort(error)) return;
         setState({
           status: 'readiness_unavailable',
           streamedText: '',
@@ -193,7 +204,7 @@ export function useRemoteScene(
           streamedText: '',
         });
       } catch (error) {
-        if (id !== attempt.current || isAbort(error)) return;
+        if (id !== attempt.current || isRemoteSceneAbort(error)) return;
         setState({
           status: imageErrorIsContract(error) ? 'contract_error' : 'recoverable_error',
           readiness: currentReadiness,
@@ -239,10 +250,12 @@ export function useRemoteScene(
     });
     try {
       const result = await client.describeScene(
-        { image: currentImage.blob, profileId, locale: navigator.language || 'de-DE' },
+        { image: currentImage.blob, profileId, locale },
         {
           onMetadata: () => {
-            if (id === attempt.current) setState((current) => ({ ...current, status: 'streaming' }));
+            if (id === attempt.current) {
+              setState((current) => ({ ...current, status: 'streaming' }));
+            }
           },
           onDelta: (textDelta) => {
             if (id === attempt.current) {
@@ -269,10 +282,10 @@ export function useRemoteScene(
         streamedText: result.answerText,
       }));
     } catch (error) {
-      if (id !== attempt.current || isAbort(error)) return;
+      if (id !== attempt.current || isRemoteSceneAbort(error)) return;
       setState((current) => ({
         ...current,
-        status: errorStatus(error),
+        status: remoteSceneErrorStatus(error),
         errorMessage: sceneMessage(error),
         ...(error instanceof RemoteClientError && error.retryAt !== undefined
           ? { retryAt: error.retryAt }
@@ -281,7 +294,7 @@ export function useRemoteScene(
     } finally {
       if (activeController.current === controller) activeController.current = undefined;
     }
-  }, [clearAttempt, client]);
+  }, [clearAttempt, client, locale]);
 
   const cancel = useCallback(() => {
     const currentImage = image.current;
@@ -300,7 +313,10 @@ export function useRemoteScene(
     const currentReadiness = readiness.current;
     const profileId = selectedProfileId.current;
     setState({
-      status: currentReadiness?.sceneDescribeEnabled && profileId ? 'ready_idle' : 'readiness_unavailable',
+      status:
+        currentReadiness?.sceneDescribeEnabled && profileId
+          ? 'ready_idle'
+          : 'readiness_unavailable',
       ...(currentReadiness ? { readiness: currentReadiness } : {}),
       ...(profileId ? { selectedProfileId: profileId } : {}),
       streamedText: '',
@@ -318,76 +334,4 @@ export function useRemoteScene(
     cancel,
     reset,
   };
-}
-
-function isAbort(error: unknown): boolean {
-  return (
-    (error instanceof RemoteClientError && error.code === 'REQUEST_ABORTED') ||
-    (error instanceof SceneStreamError && error.code === 'REQUEST_ABORTED') ||
-    (error instanceof SceneImageError && error.code === 'REQUEST_ABORTED') ||
-    (error instanceof DOMException && error.name === 'AbortError')
-  );
-}
-
-function errorStatus(error: unknown): RemoteSceneStatus {
-  if (error instanceof RemoteClientError && error.code === 'RATE_LIMITED') return 'rate_limited';
-  if (error instanceof SceneStreamError && error.code === 'STREAM_CONTRACT_INVALID') {
-    return 'contract_error';
-  }
-  if (error instanceof RemoteClientError && error.code === 'REMOTE_CONTRACT_INVALID') {
-    return 'contract_error';
-  }
-  return 'recoverable_error';
-}
-
-function imageErrorIsContract(error: unknown): boolean {
-  return error instanceof SceneImageError && ['MIME_MISMATCH', 'MALFORMED_IMAGE'].includes(error.code);
-}
-
-function readinessMessage(error: unknown): string {
-  return error instanceof RemoteClientError && error.code === 'RATE_LIMITED'
-    ? 'Der Dienst ist vorübergehend ausgelastet.'
-    : 'Die Online-Vorbereitung ist derzeit nicht verfügbar.';
-}
-
-function cameraMessage(error: unknown): string {
-  const code = error instanceof CameraError ? error.code : undefined;
-  if (code === 'CAMERA_UNSUPPORTED') return 'Dieser Browser unterstützt keinen Kamerazugriff.';
-  if (code === 'CAMERA_DENIED') return 'Der Kamerazugriff wurde nicht erlaubt. Die Dateiauswahl bleibt verfügbar.';
-  if (code === 'CAMERA_MISSING') return 'Es wurde keine Kamera gefunden. Die Dateiauswahl bleibt verfügbar.';
-  if (code === 'CAMERA_BUSY') return 'Die Kamera wird gerade von einer anderen Anwendung verwendet.';
-  if (code === 'CAMERA_NOT_READY') return 'Die Kamera ist noch nicht bereit.';
-  return 'Die Kamera konnte nicht gestartet oder ausgelöst werden.';
-}
-
-function imageMessage(error: unknown): string {
-  const code = error instanceof SceneImageError ? error.code : undefined;
-  if (code === 'SOURCE_TOO_LARGE') return 'Die Quelldatei ist größer als 20 MiB.';
-  if (code === 'DIMENSIONS_TOO_LARGE' || code === 'PIXEL_LIMIT_EXCEEDED') {
-    return 'Das Bild überschreitet die lokalen Abmessungsgrenzen.';
-  }
-  if (code === 'IMAGE_TOO_LARGE') return 'Das Bild konnte nicht unter 4 MiB normalisiert werden.';
-  if (code === 'UNSUPPORTED_IMAGE' || code === 'MIME_MISMATCH') {
-    return 'Bitte wähle ein gültiges JPEG-, PNG- oder WebP-Bild.';
-  }
-  return 'Das Bild konnte lokal nicht verarbeitet werden.';
-}
-
-function sceneMessage(error: unknown): string {
-  if (error instanceof RemoteClientError && error.code === 'RATE_LIMITED') {
-    return 'Der Dienst ist vorübergehend ausgelastet. Bitte versuche es später erneut.';
-  }
-  if (error instanceof RemoteClientError && error.code === 'FORBIDDEN') {
-    return 'Diese Anfrage ist derzeit nicht freigegeben.';
-  }
-  if (error instanceof SceneStreamError && error.code === 'REMOTE_STREAM_ERROR') {
-    return error.payload?.message ?? 'Die Szenenbeschreibung ist fehlgeschlagen.';
-  }
-  if (error instanceof SceneStreamError && error.code.includes('TIMEOUT')) {
-    return 'Die Szenenbeschreibung hat das Zeitlimit überschritten.';
-  }
-  if (errorStatus(error) === 'contract_error') {
-    return 'Die Streaming-Antwort entsprach nicht dem freigegebenen Vertrag.';
-  }
-  return 'Die Szenenbeschreibung konnte nicht abgeschlossen werden.';
 }
