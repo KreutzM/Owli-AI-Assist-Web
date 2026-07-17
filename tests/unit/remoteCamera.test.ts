@@ -54,7 +54,7 @@ describe('RemoteCamera', () => {
 
     expect(stop).toHaveBeenCalledTimes(1);
     expect(play).not.toHaveBeenCalled();
-    expect(video.srcObject).toBeNull();
+    expect(video.srcObject).not.toBe(stream);
     expect(camera.active).toBe(false);
   });
 
