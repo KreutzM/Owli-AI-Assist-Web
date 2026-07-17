@@ -47,8 +47,8 @@ export class BrowserSceneImageNormalizer {
       for (const attempt of SCENE_ENCODING_ATTEMPTS) {
         assertNotAborted(signal);
         const dimensions = fitOrientedDimensions(
-          inspection.width,
-          inspection.height,
+          surface.width,
+          surface.height,
           decoded.effectiveOrientation,
           attempt.maxSide,
         );
@@ -60,8 +60,8 @@ export class BrowserSceneImageNormalizer {
         applyOrientationTransform(
           context,
           decoded.effectiveOrientation,
-          inspection.width,
-          inspection.height,
+          surface.width,
+          surface.height,
           dimensions.width,
           dimensions.height,
         );
@@ -122,8 +122,10 @@ export function applyOrientationTransform(
   outputWidth: number,
   outputHeight: number,
 ): void {
-  const horizontal = orientation >= 5 ? outputWidth / sourceHeight : outputWidth / sourceWidth;
-  const vertical = orientation >= 5 ? outputHeight / sourceWidth : outputHeight / sourceHeight;
+  const horizontal =
+    orientation >= 5 ? outputWidth / sourceHeight : outputWidth / sourceWidth;
+  const vertical =
+    orientation >= 5 ? outputHeight / sourceWidth : outputHeight / sourceHeight;
   switch (orientation) {
     case 1:
       context.setTransform(horizontal, 0, 0, vertical, 0, 0);
@@ -169,8 +171,11 @@ async function encodeJpeg(canvas: HTMLCanvasElement, quality: number): Promise<B
   return await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
-        if (!blob || blob.type !== 'image/jpeg') reject(new SceneImageError('ENCODE_FAILED'));
-        else resolve(blob);
+        if (!blob || blob.type !== 'image/jpeg') {
+          reject(new SceneImageError('ENCODE_FAILED'));
+        } else {
+          resolve(blob);
+        }
       },
       'image/jpeg',
       quality,
