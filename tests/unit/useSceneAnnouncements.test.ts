@@ -8,7 +8,7 @@ afterEach(() => {
 });
 
 describe('useSceneAnnouncements', () => {
-  it('does not replay the previous stream segment in a consecutive attempt', () => {
+  it('does not replay the previous stream segment in a consecutive attempt', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-17T12:00:00.000Z'));
     const { result, rerender } = renderHook(
@@ -17,7 +17,7 @@ describe('useSceneAnnouncements', () => {
     );
 
     rerender({ state: sceneState('streaming', 'Erster Satz.', 1) });
-    act(() => vi.advanceTimersByTime(2_000));
+    await act(() => vi.advanceTimersByTimeAsync(2_000));
     expect(result.current).toBe('Erster Satz.');
 
     rerender({ state: sceneState('requesting', '', 2) });
