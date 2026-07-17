@@ -1,6 +1,10 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RemoteAssistClient, RemoteReadiness } from '@/core/api/remoteAssistClient';
+import {
+  RemoteClientError,
+  type RemoteAssistClient,
+  type RemoteReadiness,
+} from '@/core/api/remoteAssistClient';
 import type {
   NormalizedSceneInput,
   RemoteSceneResult,
@@ -125,6 +129,37 @@ describe('RemoteAssist', () => {
     expect(retry).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Rückkamera öffnen' })).toHaveFocus();
   });
+
+  it('retains the normalized image and unlocks explicit retry after Retry-After', async () => {
+    let firstImage: Blob | undefined;
+    const describeScene = vi
+      .fn()
+      .mockImplementationOnce(async (input: NormalizedSceneInput) => {
+        firstImage = input.image;
+        throw new RemoteClientError('RATE_LIMITED', Date.now() + 50, 429);
+      })
+      .mockImplementationOnce(async (input: NormalizedSceneInput) => {
+        expect(input.image).toBe(firstImage);
+        return sceneResult();
+      });
+    renderRemote({ describeScene });
+
+    fireEvent.change(await screen.findByLabelText('Oder ein Bild auswählen'), {
+      target: { files: [new File([new Uint8Array([1])], 'scene.png', { type: 'image/png' })] },
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Szene beschreiben' }));
+
+    const retry = await screen.findByRole('button', {
+      name: 'Erneut versuchen, sobald freigegeben',
+    });
+    expect(retry).toBeDisabled();
+    expect(screen.getByRole('status')).toHaveTextContent('Erneut möglich');
+    await waitFor(() => expect(retry).toBeEnabled(), { timeout: 1_000 });
+    fireEvent.click(retry);
+
+    await screen.findByRole('heading', { name: 'Szenenbeschreibung' });
+    expect(describeScene).toHaveBeenCalledTimes(2);
+  });
 });
 
 function renderRemote(overrides: Partial<RemoteAssistClient> = {}) {
@@ -140,9 +175,10 @@ function renderRemote(overrides: Partial<RemoteAssistClient> = {}) {
     capture: vi.fn(async () => new Blob([], { type: 'image/jpeg' })),
     stop: vi.fn(),
   } as unknown as RemoteCamera;
+  const normalizedBlob = new Blob([new Uint8Array([1])], { type: 'image/jpeg' });
   const normalizer = {
     normalize: vi.fn(async () => ({
-      blob: new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
+      blob: normalizedBlob,
       width: 640,
       height: 480,
       byteLength: 1,
