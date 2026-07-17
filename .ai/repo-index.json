@@ -345,7 +345,7 @@
     },
     {
       "path": "tests/unit/remoteCamera.test.ts",
-      "bytes": 4506,
+      "bytes": 4512,
       "area": "tests"
     },
     {
@@ -397,7 +397,7 @@
     { "path": "tests/unit/sceneSse.test.ts", "bytes": 5972, "area": "tests" },
     {
       "path": "tests/unit/useSceneAnnouncements.test.ts",
-      "bytes": 1324,
+      "bytes": 1341,
       "area": "tests"
     },
     { "path": "tools/build-web.mjs", "bytes": 2177, "area": "tools" },
