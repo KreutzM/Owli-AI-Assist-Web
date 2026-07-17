@@ -1,0 +1,90 @@
+name: Slice staging smoke
+
+on:
+  pull_request:
+
+jobs:
+  staging-smoke:
+    if: github.head_ref == 'pwa-mvp/camera-streaming-scene'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run synthetic staging SSE smoke
+        env:
+          EXPECTED_STAGING_VERSION: 72f01e14-54b2-48b1-ac39-bf5151be1c4f
+        run: |
+          node <<'NODE' | tee staging-smoke-output.txt
+          const base = 'https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev/';
+          const installationId = crypto.randomUUID();
+          const imageBase64 = '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCABAAEADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD6poorwqunD4f219bWObE4n2FtL3PdaK8Koro/s/8Avfh/wTl/tH+7+P8AwD3WivCqKP7P/vfh/wAEP7R/u/j/AMA91orwqvZ9A/5AWnf9e0f/AKCKwr4b2KTvc6MPivbtq1rF6vCq91rwqt8v+18v1OfMfs/P9Ap8cTyfcUn3ogTzJVT1NayqEUKowB2rhzrOv7PtTpq83rrskbZVlX1285u0VppvcypIJIxl1IHr1qOtogEEEZBrLuohFMQv3SMis8lz14+To1Y2lvpsy80yhYOKqU3ePnuiGvZ9A/5AWnf9e0f/AKCK8Yr2fQP+QFp3/XtH/wCgivUx/wAKOTL/AIpF6vCq91rwqpy/7Xy/UrMfs/P9CS3cRzKx6A81rAgjIOQaxamhuJIhhSCvoa83Pcllj3GrRfvLTXqjpyjNI4NOnUXuvX5mrWXeSCSbK8gDGfWiW6kkXacAHrjvUFZ5Hkc8FN16797ZJdP6/ryvNs2hioKlSWm7bCvZ9A/5AWnf9e0f/oIrxivZ9A/5AWnf9e0f/oIr2Mf8KOHL/ikXq8Kr3WqP9j6Z/wBA6y/78L/hXNhq6o3utzqxWHde1nax4xRXs/8AY+mf9A6y/wC/C/4Uf2Ppn/QOsv8Avwv+FdP1+PY5f7Pl/MeMUV7P/Y+mf9A6y/78L/hR/Y+mf9A6y/78L/hR9fj2D+z5fzHjFez6B/yAtO/69o//AEEUf2Ppn/QOsv8Avwv+FXY0WONUjVURQFVVGAAOwFc+IxCrJJI6cNhnRbbZ/9k=';
+          const getJson = async (path, init = {}) => {
+            const response = await fetch(new URL(path, base), init);
+            if (!response.ok) throw new Error(`${path} HTTP ${response.status}: ${await response.text()}`);
+            return { response, json: await response.json() };
+          };
+          const config = await getJson('/api/v1/config', { headers: { Accept: 'application/json' } });
+          if (config.json.environment !== 'staging' || config.json.features?.sceneDescribe !== true) {
+            throw new Error(`unexpected config ${JSON.stringify(config.json)}`);
+          }
+          const bootstrap = await getJson('/api/v1/session/bootstrap', {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ appVersion: '0.1.0', versionCode: 1, platform: 'web', locale: 'de-DE', installationId }),
+          });
+          const profiles = await getJson('/api/v1/profiles', { headers: { Accept: 'application/json' } });
+          const allowed = new Set(config.json.profiles.backendSupportedProfileIds);
+          const profile = profiles.json.profiles.find((candidate) =>
+            allowed.has(candidate.id) && candidate.transports?.backend?.available === true && candidate.transports.backend.supportsStreaming === true
+          );
+          if (!profile) throw new Error('no streaming backend profile');
+          const response = await fetch(new URL('/api/v1/scene/describe', base), {
+            method: 'POST',
+            headers: { Accept: 'text/event-stream', 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionToken: bootstrap.json.sessionToken,
+              installationId,
+              imageBase64,
+              imageMimeType: 'image/jpeg',
+              sceneMode: 'describe',
+              stream: true,
+              profileId: profile.id,
+              locale: 'de-DE',
+            }),
+          });
+          const contentType = response.headers.get('content-type') ?? '';
+          if (!response.ok || !contentType.toLowerCase().startsWith('text/event-stream')) {
+            throw new Error(`scene HTTP ${response.status} ${contentType}: ${await response.text()}`);
+          }
+          const body = await response.text();
+          const events = body.split(/\n\n+/u).map((block) => {
+            const name = block.split('\n').find((line) => line.startsWith('event: '))?.slice(7);
+            const data = block.split('\n').filter((line) => line.startsWith('data: ')).map((line) => line.slice(6)).join('\n');
+            return name ? { name, data: data ? JSON.parse(data) : null } : null;
+          }).filter(Boolean);
+          const names = events.map((event) => event.name);
+          if (!names.includes('metadata') || !names.includes('done') || names.includes('error')) {
+            throw new Error(`unexpected SSE events ${JSON.stringify(names)} body=${body}`);
+          }
+          const done = events.find((event) => event.name === 'done')?.data;
+          if (!done?.answerText || !done?.requestId || done.profileId !== profile.id) {
+            throw new Error(`invalid done event ${JSON.stringify(done)}`);
+          }
+          const versionHeaders = Object.fromEntries([...response.headers].filter(([name]) => /version|deployment|cf-ray/u.test(name)));
+          console.log(JSON.stringify({
+            expectedStagingVersion: process.env.EXPECTED_STAGING_VERSION,
+            environment: config.json.environment,
+            profileId: profile.id,
+            eventNames: names,
+            cleanEof: true,
+            answerLength: done.answerText.length,
+            versionHeaders,
+            userContent: false,
+            syntheticImageBytes: 1208,
+          }, null, 2));
+          NODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: slice-staging-smoke
+          path: staging-smoke-output.txt
+          retention-days: 7
