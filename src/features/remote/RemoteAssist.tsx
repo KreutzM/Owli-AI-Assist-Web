@@ -20,6 +20,7 @@ export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssis
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraButtonRef = useRef<HTMLButtonElement>(null);
   const [videoReady, setVideoReady] = useState(false);
+  const [retryClock, setRetryClock] = useState(() => Date.now());
 
   const readinessEnabled =
     state.readiness?.sceneDescribeEnabled === true && state.selectedProfileId !== undefined;
@@ -31,9 +32,27 @@ export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssis
     'terminal_waiting_for_eof',
   ].includes(state.status);
   const cameraVisible = state.status === 'camera_starting' || state.status === 'camera_ready';
-  const canDescribe =
+  const retrySeconds =
+    state.status === 'rate_limited' && state.retryAt !== undefined
+      ? Math.max(0, Math.ceil((state.retryAt - retryClock) / 1000))
+      : 0;
+  const retryReady =
+    state.status !== 'rate_limited' || state.retryAt === undefined || retryClock >= state.retryAt;
+  const retryableImage =
     state.image !== undefined &&
-    ['prepared', 'cancelled', 'recoverable_error'].includes(state.status);
+    ['prepared', 'cancelled', 'recoverable_error', 'rate_limited'].includes(state.status);
+  const canDescribe = retryableImage && retryReady;
+
+  useEffect(() => {
+    if (state.status !== 'rate_limited' || state.retryAt === undefined) return;
+    setRetryClock(Date.now());
+    const timer = window.setInterval(() => {
+      const current = Date.now();
+      setRetryClock(current);
+      if (current >= state.retryAt!) window.clearInterval(timer);
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, [state.retryAt, state.status]);
 
   useEffect(() => {
     if (
@@ -220,14 +239,20 @@ export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssis
           <p className="live-status" role="alert">
             {state.errorMessage}
           </p>
+          {state.status === 'rate_limited' && retrySeconds > 0 && (
+            <p role="status">Erneut möglich in {retrySeconds} Sekunden.</p>
+          )}
           <div className="scene-actions">
-            {canDescribe && (
+            {retryableImage && (
               <button
                 className="button button--primary"
                 type="button"
+                disabled={!canDescribe}
                 onClick={() => void workflow.describe()}
               >
-                Mit dem vorbereiteten Bild erneut versuchen
+                {state.status === 'rate_limited' && !retryReady
+                  ? 'Erneut versuchen, sobald freigegeben'
+                  : 'Mit dem vorbereiteten Bild erneut versuchen'}
               </button>
             )}
             <button className="button button--secondary" type="button" onClick={workflow.reset}>
