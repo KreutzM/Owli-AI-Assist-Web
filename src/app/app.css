@@ -288,6 +288,19 @@ audio {
   padding: 2rem;
 }
 
+@media (max-width: 32rem) {
+  .site-header {
+    flex-direction: column;
+    gap: 1rem;
+    padding-top: 1.5rem;
+  }
+
+  .mode-badge,
+  .status-chip {
+    white-space: normal;
+  }
+}
+
 @media (min-width: 900px) {
   .workspace-grid {
     grid-template-columns: 1fr 1fr;
