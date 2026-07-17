@@ -1,0 +1,27 @@
+name: Slice matrix lint
+
+on:
+  pull_request:
+
+jobs:
+  lint:
+    if: github.head_ref == 'pwa-mvp/camera-streaming-scene'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Capture lint output
+        run: pnpm lint > matrix-lint.txt 2>&1 || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: matrix-lint
+          path: matrix-lint.txt
+          retention-days: 1
