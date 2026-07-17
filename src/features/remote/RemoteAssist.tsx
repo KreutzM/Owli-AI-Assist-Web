@@ -44,12 +44,12 @@ export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssis
   const canDescribe = retryableImage && retryReady;
 
   useEffect(() => {
-    if (state.status !== 'rate_limited' || state.retryAt === undefined) return;
-    setRetryClock(Date.now());
+    const unlockAt = state.retryAt;
+    if (state.status !== 'rate_limited' || unlockAt === undefined) return;
     const timer = window.setInterval(() => {
       const current = Date.now();
       setRetryClock(current);
-      if (current >= state.retryAt!) window.clearInterval(timer);
+      if (current >= unlockAt) window.clearInterval(timer);
     }, 250);
     return () => window.clearInterval(timer);
   }, [state.retryAt, state.status]);
