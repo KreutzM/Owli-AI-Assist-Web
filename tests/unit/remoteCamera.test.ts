@@ -76,11 +76,7 @@ describe('RemoteCamera', () => {
         callback(new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' }));
       }),
     } as unknown as HTMLCanvasElement;
-    const createElement = document.createElement.bind(document);
-    vi.spyOn(document, 'createElement').mockImplementation(((tagName: string) => {
-      if (tagName === 'canvas') return canvas;
-      return createElement(tagName);
-    }) as typeof document.createElement);
+    vi.spyOn(document, 'createElement').mockReturnValue(canvas);
 
     const camera = new RemoteCamera();
     await camera.start(video);

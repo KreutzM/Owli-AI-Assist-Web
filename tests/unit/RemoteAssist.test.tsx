@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RemoteAssistClient, RemoteReadiness } from '@/core/api/remoteAssistClient';
 import type {
@@ -50,11 +50,7 @@ describe('RemoteAssist', () => {
   it('keeps visible deltas quiet and completes only after clean EOF resolution', async () => {
     let resolveStream: ((value: RemoteSceneResult) => void) | undefined;
     const describeScene = vi.fn(
-      async (
-        _input: NormalizedSceneInput,
-        callbacks: SceneStreamCallbacks,
-        _signal?: AbortSignal,
-      ) => {
+      async (_input: NormalizedSceneInput, callbacks: SceneStreamCallbacks) => {
         callbacks.onMetadata?.({
           mode: 'describe',
           modelAlias: 'scene-describe-v1',

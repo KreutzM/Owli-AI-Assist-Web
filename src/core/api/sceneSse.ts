@@ -154,7 +154,6 @@ export async function consumeSceneSse(
       }
 
       if (!result.done) continue;
-      if (!terminalSeen) contractFailure();
       if (pendingError) throw new SceneStreamError('REMOTE_STREAM_ERROR', pendingError);
       if (!pendingDone) contractFailure();
       return pendingDone;
