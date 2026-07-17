@@ -119,7 +119,7 @@
     },
     {
       "path": "playwright.staging.config.ts",
-      "bytes": 1193,
+      "bytes": 1239,
       "area": "playwright.staging.config.ts"
     },
     {
@@ -325,7 +325,7 @@
     },
     {
       "path": "tests/e2e/remote-staging.spec.ts",
-      "bytes": 25851,
+      "bytes": 25374,
       "area": "tests"
     },
     {
