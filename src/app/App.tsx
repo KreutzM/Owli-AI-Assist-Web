@@ -63,7 +63,14 @@ function RemoteApplication({
 }) {
   const camera = useMemo(() => new RemoteCamera(), []);
   const normalizer = useMemo(() => new BrowserSceneImageNormalizer(), []);
-  return <RemoteAssist client={runtime.assistClient} camera={camera} normalizer={normalizer} />;
+  return (
+    <RemoteAssist
+      client={runtime.assistClient}
+      camera={camera}
+      normalizer={normalizer}
+      locale={runtime.defaultLocale}
+    />
+  );
 }
 
 function MockApplication({
