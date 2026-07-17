@@ -315,7 +315,7 @@
     { "path": "tests/e2e/app.spec.ts", "bytes": 727, "area": "tests" },
     {
       "path": "tests/e2e/remote-readiness.spec.ts",
-      "bytes": 9527,
+      "bytes": 9570,
       "area": "tests"
     },
     {
