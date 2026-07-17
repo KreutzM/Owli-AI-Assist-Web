@@ -46,6 +46,7 @@ export interface RemoteSceneState {
   finalText?: string;
   errorMessage?: string;
   retryAt?: number;
+  announcementRun?: number;
 }
 
 const INITIAL_STATE: RemoteSceneState = {
@@ -257,6 +258,7 @@ export function useRemoteScene(
       selectedProfileId: profileId,
       image: currentImage,
       streamedText: '',
+      announcementRun: id,
     });
     try {
       const result = await client.describeScene(
