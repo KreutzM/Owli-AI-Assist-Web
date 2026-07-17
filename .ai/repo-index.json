@@ -95,6 +95,7 @@
       "area": "docs"
     },
     { "path": "docs/REMOTE-SLICE-2.md", "bytes": 879, "area": "docs" },
+    { "path": "docs/REMOTE-SLICE-3.md", "bytes": 4601, "area": "docs" },
     { "path": "docs/REPO_MAP.md", "bytes": 1482, "area": "docs" },
     { "path": "docs/TESTING.md", "bytes": 1506, "area": "docs" },
     { "path": "docs/WORKSPACE-INTEGRATION.md", "bytes": 925, "area": "docs" },
@@ -147,16 +148,16 @@
     { "path": "scripts/validate-local.ps1", "bytes": 175, "area": "scripts" },
     { "path": "scripts/validate-local.sh", "bytes": 175, "area": "scripts" },
     { "path": "src/app/App.test.tsx", "bytes": 563, "area": "src" },
-    { "path": "src/app/App.tsx", "bytes": 3164, "area": "src" },
+    { "path": "src/app/App.tsx", "bytes": 3875, "area": "src" },
     { "path": "src/app/AppErrorBoundary.tsx", "bytes": 947, "area": "src" },
     { "path": "src/app/app.css", "bytes": 5247, "area": "src" },
-    { "path": "src/app/runtime.ts", "bytes": 1009, "area": "src" },
+    { "path": "src/app/runtime.ts", "bytes": 1003, "area": "src" },
     { "path": "src/core/api/contracts.ts", "bytes": 2108, "area": "src" },
     { "path": "src/core/api/mockOwliApi.ts", "bytes": 3433, "area": "src" },
     { "path": "src/core/api/owliApi.ts", "bytes": 580, "area": "src" },
     {
-      "path": "src/core/api/remoteCatalogClient.ts",
-      "bytes": 7553,
+      "path": "src/core/api/remoteAssistClient.ts",
+      "bytes": 12343,
       "area": "src"
     },
     {
@@ -164,7 +165,18 @@
       "bytes": 2695,
       "area": "src"
     },
+    {
+      "path": "src/core/api/remoteClientSupport.ts",
+      "bytes": 1063,
+      "area": "src"
+    },
     { "path": "src/core/api/remoteOwliApi.ts", "bytes": 1988, "area": "src" },
+    {
+      "path": "src/core/api/remoteSceneContracts.ts",
+      "bytes": 2061,
+      "area": "src"
+    },
+    { "path": "src/core/api/sceneSse.ts", "bytes": 8119, "area": "src" },
     { "path": "src/core/api/sse.test.ts", "bytes": 796, "area": "src" },
     { "path": "src/core/api/sse.ts", "bytes": 1442, "area": "src" },
     {
@@ -180,6 +192,11 @@
     {
       "path": "src/core/identity/installationId.ts",
       "bytes": 380,
+      "area": "src"
+    },
+    {
+      "path": "src/core/image/sceneImageInspection.ts",
+      "bytes": 8803,
       "area": "src"
     },
     {
@@ -204,10 +221,26 @@
       "bytes": 4603,
       "area": "src"
     },
-    { "path": "src/features/remote/README.md", "bytes": 252, "area": "src" },
+    { "path": "src/features/remote/README.md", "bytes": 730, "area": "src" },
     {
-      "path": "src/features/remote/RemoteCatalog.tsx",
-      "bytes": 5951,
+      "path": "src/features/remote/RemoteAssist.tsx",
+      "bytes": 9558,
+      "area": "src"
+    },
+    { "path": "src/features/remote/remote.css", "bytes": 1392, "area": "src" },
+    {
+      "path": "src/features/remote/remoteSceneErrors.ts",
+      "bytes": 3879,
+      "area": "src"
+    },
+    {
+      "path": "src/features/remote/useRemoteScene.ts",
+      "bytes": 10764,
+      "area": "src"
+    },
+    {
+      "path": "src/features/remote/useSceneAnnouncements.ts",
+      "bytes": 1634,
       "area": "src"
     },
     {
@@ -236,7 +269,22 @@
       "bytes": 2132,
       "area": "src"
     },
+    {
+      "path": "src/platform/camera/remoteCamera.ts",
+      "bytes": 3346,
+      "area": "src"
+    },
     { "path": "src/platform/camera/types.ts", "bytes": 128, "area": "src" },
+    {
+      "path": "src/platform/image/browserOrientation.ts",
+      "bytes": 4117,
+      "area": "src"
+    },
+    {
+      "path": "src/platform/image/browserSceneImageNormalizer.ts",
+      "bytes": 6155,
+      "area": "src"
+    },
     {
       "path": "src/platform/share/browserShare.ts",
       "bytes": 404,
@@ -267,12 +315,12 @@
     { "path": "tests/e2e/app.spec.ts", "bytes": 727, "area": "tests" },
     {
       "path": "tests/e2e/remote-readiness.spec.ts",
-      "bytes": 10653,
+      "bytes": 8825,
       "area": "tests"
     },
     {
-      "path": "tests/unit/RemoteCatalog.test.tsx",
-      "bytes": 4016,
+      "path": "tests/unit/RemoteAssist.test.tsx",
+      "bytes": 6098,
       "area": "tests"
     },
     {
@@ -287,7 +335,17 @@
     },
     {
       "path": "tests/unit/remoteArchitecture.test.ts",
-      "bytes": 1205,
+      "bytes": 1935,
+      "area": "tests"
+    },
+    {
+      "path": "tests/unit/remoteAssistClient.test.ts",
+      "bytes": 9940,
+      "area": "tests"
+    },
+    {
+      "path": "tests/unit/remoteCamera.test.ts",
+      "bytes": 3635,
       "area": "tests"
     },
     {
@@ -297,13 +355,13 @@
     },
     {
       "path": "tests/unit/remoteCatalogProjection.test.ts",
-      "bytes": 3327,
+      "bytes": 3316,
       "area": "tests"
     },
-    { "path": "tests/unit/remoteEtag.test.ts", "bytes": 4393, "area": "tests" },
+    { "path": "tests/unit/remoteEtag.test.ts", "bytes": 4402, "area": "tests" },
     {
       "path": "tests/unit/remoteNoLoop.test.ts",
-      "bytes": 3249,
+      "bytes": 1686,
       "area": "tests"
     },
     {
@@ -318,7 +376,7 @@
     },
     {
       "path": "tests/unit/remoteStoragePrivacy.test.ts",
-      "bytes": 599,
+      "bytes": 1363,
       "area": "tests"
     },
     {
@@ -326,6 +384,17 @@
       "bytes": 1787,
       "area": "tests"
     },
+    {
+      "path": "tests/unit/sceneImageInspection.test.ts",
+      "bytes": 4457,
+      "area": "tests"
+    },
+    {
+      "path": "tests/unit/sceneImageNormalization.test.ts",
+      "bytes": 2596,
+      "area": "tests"
+    },
+    { "path": "tests/unit/sceneSse.test.ts", "bytes": 5972, "area": "tests" },
     { "path": "tools/build-web.mjs", "bytes": 2177, "area": "tools" },
     { "path": "tools/check-architecture.mjs", "bytes": 2643, "area": "tools" },
     {
