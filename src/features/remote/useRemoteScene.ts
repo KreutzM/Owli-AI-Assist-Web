@@ -65,6 +65,7 @@ export function useRemoteScene(
   const readiness = useRef<RemoteReadiness | undefined>(undefined);
   const selectedProfileId = useRef<string | undefined>(undefined);
   const image = useRef<NormalizedSceneImage | undefined>(undefined);
+  const retryAt = useRef<number | undefined>(undefined);
 
   const clearAttempt = useCallback(
     (retainImage: boolean) => {
@@ -83,6 +84,7 @@ export function useRemoteScene(
   const loadReadiness = useCallback(
     async (refresh = false) => {
       clearAttempt(false);
+      retryAt.current = undefined;
       const id = attempt.current;
       const controller = new AbortController();
       activeController.current = controller;
@@ -134,6 +136,7 @@ export function useRemoteScene(
       cleanup();
       readiness.current = undefined;
       selectedProfileId.current = undefined;
+      retryAt.current = undefined;
     };
   }, [clearAttempt, loadReadiness]);
 
@@ -151,6 +154,7 @@ export function useRemoteScene(
       const currentReadiness = readiness.current;
       if (!currentReadiness?.sceneDescribeEnabled || !selectedProfileId.current) return;
       clearAttempt(false);
+      retryAt.current = undefined;
       const id = attempt.current;
       setState({
         status: 'camera_starting',
@@ -180,6 +184,7 @@ export function useRemoteScene(
       const profileId = selectedProfileId.current;
       if (!currentReadiness?.sceneDescribeEnabled || !profileId) return;
       clearAttempt(false);
+      retryAt.current = undefined;
       const id = attempt.current;
       const controller = new AbortController();
       activeController.current = controller;
@@ -240,6 +245,8 @@ export function useRemoteScene(
     const currentReadiness = readiness.current;
     const profileId = selectedProfileId.current;
     if (!currentImage || !currentReadiness?.sceneDescribeEnabled || !profileId) return;
+    if (retryAt.current !== undefined && Date.now() < retryAt.current) return;
+    retryAt.current = undefined;
     clearAttempt(true);
     const id = attempt.current;
     const controller = new AbortController();
@@ -278,6 +285,7 @@ export function useRemoteScene(
         controller.signal,
       );
       if (id !== attempt.current || controller.signal.aborted) return;
+      retryAt.current = undefined;
       setState((current) => ({
         ...current,
         status: 'complete',
@@ -286,13 +294,16 @@ export function useRemoteScene(
       }));
     } catch (error) {
       if (id !== attempt.current || isRemoteSceneAbort(error)) return;
+      const nextRetryAt =
+        error instanceof RemoteClientError && error.code === 'RATE_LIMITED'
+          ? error.retryAt
+          : undefined;
+      retryAt.current = nextRetryAt;
       setState((current) => ({
         ...current,
         status: remoteSceneErrorStatus(error),
         errorMessage: sceneMessage(error),
-        ...(error instanceof RemoteClientError && error.retryAt !== undefined
-          ? { retryAt: error.retryAt }
-          : {}),
+        ...(nextRetryAt !== undefined ? { retryAt: nextRetryAt } : {}),
       }));
     } finally {
       if (activeController.current === controller) activeController.current = undefined;
@@ -301,6 +312,7 @@ export function useRemoteScene(
 
   const cancel = useCallback(() => {
     const currentImage = image.current;
+    retryAt.current = undefined;
     clearAttempt(true);
     setState((current) => ({
       status: 'cancelled',
@@ -312,6 +324,7 @@ export function useRemoteScene(
   }, [clearAttempt]);
 
   const reset = useCallback(() => {
+    retryAt.current = undefined;
     clearAttempt(false);
     const currentReadiness = readiness.current;
     const profileId = selectedProfileId.current;
