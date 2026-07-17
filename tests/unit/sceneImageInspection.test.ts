@@ -37,7 +37,7 @@ describe('scene source inspection', () => {
       inspectSceneSource(new Blob([png(2, 2)], { type: 'image/jpeg' })),
     ).rejects.toMatchObject({ code: 'MIME_MISMATCH' });
     await expect(
-      inspectSceneSource(new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' })),
+      inspectSceneSource(new Blob([new Uint8Array([1, 2, 3]).buffer], { type: 'image/jpeg' })),
     ).rejects.toMatchObject({ code: 'UNSUPPORTED_IMAGE' });
   });
 
@@ -48,7 +48,7 @@ describe('scene source inspection', () => {
     expect(SOURCE_MAX_PIXELS).toBe(16_000_000);
 
     await expect(
-      inspectSceneSource(new Blob([new Uint8Array(SOURCE_FILE_MAX_BYTES + 1)])),
+      inspectSceneSource(new Blob([new Uint8Array(SOURCE_FILE_MAX_BYTES + 1).buffer])),
     ).rejects.toMatchObject({ code: 'SOURCE_TOO_LARGE' });
     await expect(
       inspectSceneSource(new Blob([jpeg(SOURCE_MAX_SIDE_PX + 1, 2, 1)], { type: 'image/jpeg' })),
@@ -69,7 +69,7 @@ describe('scene source inspection', () => {
   });
 });
 
-function jpeg(width: number, height: number, orientation: number): Uint8Array {
+function jpeg(width: number, height: number, orientation: number): ArrayBuffer {
   return new Uint8Array([
     0xff,
     0xd8,
@@ -122,10 +122,10 @@ function jpeg(width: number, height: number, orientation: number): Uint8Array {
     0x01,
     0x11,
     0x00,
-  ]);
+  ]).buffer;
 }
 
-function png(width: number, height: number): Uint8Array {
+function png(width: number, height: number): ArrayBuffer {
   return new Uint8Array([
     0x89,
     0x50,
@@ -172,16 +172,16 @@ function png(width: number, height: number): Uint8Array {
     0,
     0,
     0,
-  ]);
+  ]).buffer;
 }
 
-function webp(width: number, height: number): Uint8Array {
+function webp(width: number, height: number): ArrayBuffer {
   const bytes = new Uint8Array(30);
   bytes.set([0x52, 0x49, 0x46, 0x46, 22, 0, 0, 0, 0x57, 0x45, 0x42, 0x50]);
   bytes.set([0x56, 0x50, 0x38, 0x58, 10, 0, 0, 0], 12);
   writeU24(bytes, 24, width - 1);
   writeU24(bytes, 27, height - 1);
-  return bytes;
+  return bytes.buffer;
 }
 
 function writeU24(bytes: Uint8Array, offset: number, value: number): void {

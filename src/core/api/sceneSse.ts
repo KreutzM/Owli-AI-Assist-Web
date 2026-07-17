@@ -138,7 +138,7 @@ export async function consumeSceneSse(
         requestStartedAt: options.requestStartedAt,
         lastValidEventAt,
         metadataSeen,
-        terminalAt,
+        ...(terminalAt !== undefined ? { terminalAt } : {}),
       });
       const result = await readWithTimeout(reader, timeout.delay, timeout.code);
       buffer += decoder.decode(result.value, { stream: !result.done });
