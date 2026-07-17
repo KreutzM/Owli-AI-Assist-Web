@@ -30,9 +30,10 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         serviceWorkers: 'allow',
-        ...(localChromiumExecutable
-          ? { launchOptions: { executablePath: localChromiumExecutable } }
-          : {}),
+        launchOptions: {
+          args: ['--allow-insecure-localhost', '--ignore-certificate-errors'],
+          ...(localChromiumExecutable ? { executablePath: localChromiumExecutable } : {}),
+        },
       },
     },
     {
