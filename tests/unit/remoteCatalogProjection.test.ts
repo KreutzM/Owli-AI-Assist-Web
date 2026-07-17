@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { RemoteCatalogClient } from '@/core/api/remoteCatalogClient';
+import { RemoteAssistClient } from '@/core/api/remoteAssistClient';
 import { PROFILE_REGISTRY_SCHEMA_VERSION } from '@/core/api/remoteCatalogContracts';
 
 const config = {
@@ -29,68 +29,66 @@ const bootstrap = {
   },
 };
 
-describe('RemoteCatalogClient', () => {
+describe('RemoteAssistClient catalog projection', () => {
   it('uses config, bootstrap and public profiles in order with dual opt-in', async () => {
     const requests: string[] = [];
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
-        const url = String(input);
-        requests.push(new URL(url).pathname);
-        if (url.endsWith('/config')) {
-          return Response.json({
-            environment: 'staging',
-            features: { sceneDescribe: false, followup: false },
-            profiles: { backendSupportedProfileIds: ['allowed'] },
-          });
-        }
-        if (url.endsWith('/session/bootstrap')) {
-          expect(JSON.parse(String(init?.body))).toMatchObject({
-            platform: 'web',
-            installationId: 'installation-test-id',
-          });
-          return Response.json(bootstrap);
-        }
-        expect(init?.cache).toBe('no-store');
-        const headers = new Headers(init?.headers);
-        expect(headers.get('Authorization')).toBeNull();
-        expect(headers.get('Accept')).toBe('application/json');
-        return Response.json(
-          {
-            schemaVersion: PROFILE_REGISTRY_SCHEMA_VERSION,
-            defaultProfileId: 'blocked',
-            profiles: [
-              {
-                id: 'allowed',
-                label: 'Allowed',
-                description: 'Allowed profile',
-                availability: 'backend',
-                transports: {
-                  backend: { available: true, supportsStreaming: true, supportsFollowup: false },
-                },
+    const fetchImplementation = vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
+      const url = String(input);
+      requests.push(new URL(url).pathname);
+      if (url.endsWith('/config')) {
+        return Response.json({
+          environment: 'staging',
+          features: { sceneDescribe: false, followup: false },
+          profiles: { backendSupportedProfileIds: ['allowed'] },
+        });
+      }
+      if (url.endsWith('/session/bootstrap')) {
+        expect(JSON.parse(String(init?.body))).toMatchObject({
+          platform: 'web',
+          installationId: 'installation-test-id',
+        });
+        return Response.json(bootstrap);
+      }
+      expect(init?.cache).toBe('no-store');
+      const headers = new Headers(init?.headers);
+      expect(headers.get('Authorization')).toBeNull();
+      expect(headers.get('Accept')).toBe('application/json');
+      return Response.json(
+        {
+          schemaVersion: PROFILE_REGISTRY_SCHEMA_VERSION,
+          defaultProfileId: 'blocked',
+          profiles: [
+            {
+              id: 'allowed',
+              label: 'Allowed',
+              description: 'Allowed profile',
+              availability: 'backend',
+              transports: {
+                backend: { available: true, supportsStreaming: true, supportsFollowup: false },
               },
-              {
-                id: 'blocked',
-                label: 'Blocked',
-                description: 'Blocked profile',
-                availability: 'backend',
-                transports: {
-                  backend: { available: false, supportsStreaming: true, supportsFollowup: false },
-                },
+            },
+            {
+              id: 'blocked',
+              label: 'Blocked',
+              description: 'Blocked profile',
+              availability: 'backend',
+              transports: {
+                backend: { available: false, supportsStreaming: true, supportsFollowup: false },
               },
-            ],
-          },
-          { headers: { ETag: '"catalog-1"' } },
-        );
-      }),
-    );
+            },
+          ],
+        },
+        { headers: { ETag: '"catalog-1"' } },
+      );
+    });
 
-    const catalog = await new RemoteCatalogClient(config, {
+    const readiness = await new RemoteAssistClient(config, {
       installationId: 'installation-test-id',
+      fetch: fetchImplementation,
     }).initialize();
     expect(requests).toEqual(['/api/v1/config', '/api/v1/session/bootstrap', '/api/v1/profiles']);
-    expect(catalog.profiles.map((profile) => profile.id)).toEqual(['allowed']);
-    expect(catalog.defaultProfileId).toBeUndefined();
-    vi.unstubAllGlobals();
+    expect(readiness.catalog.profiles.map((profile) => profile.id)).toEqual(['allowed']);
+    expect(readiness.catalog.defaultProfileId).toBeUndefined();
+    expect(readiness.sceneDescribeEnabled).toBe(false);
   });
 });

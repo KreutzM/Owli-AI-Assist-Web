@@ -80,10 +80,56 @@ jobs:
       - name: Verify agent index
         run: git diff --exit-code -- .ai/file-tree.md .ai/repo-index.json
 
-  browser:
-    name: Browser and accessibility matrix
-    runs-on: ubuntu-latest
+  windows-builds:
+    name: Windows mock, staging, and production builds
+    runs-on: windows-latest
     timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build mock PWA and verify headers
+        shell: pwsh
+        run: |
+          pnpm build
+          $headers = Get-Content dist/_headers -Raw
+          if ($headers.Contains('owli-ai-backend-staging') -or $headers.Contains('https://api.owli-ai.com')) { throw 'Mock headers contain a remote API origin.' }
+
+      - name: Build staging PWA and verify headers
+        shell: pwsh
+        run: |
+          pnpm build:staging
+          $headers = Get-Content dist/_headers -Raw
+          if (-not $headers.Contains('connect-src ''self'' https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev')) { throw 'Staging connect-src is missing.' }
+          if ($headers.Contains('https://api.owli-ai.com')) { throw 'Staging headers contain the production API origin.' }
+
+      - name: Build production PWA and verify headers
+        shell: pwsh
+        run: |
+          pnpm build:production
+          $headers = Get-Content dist/_headers -Raw
+          if (-not $headers.Contains('connect-src ''self'' https://api.owli-ai.com')) { throw 'Production connect-src is missing.' }
+          if ($headers.Contains('owli-ai-backend-staging')) { throw 'Production headers contain the staging API origin.' }
+
+  browser:
+    name: Browser, built staging, and accessibility matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     needs: validate
     steps:
       - name: Check out repository
@@ -107,8 +153,11 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium webkit
 
-      - name: Run Chromium and WebKit remote-state matrix
+      - name: Run isolated Chromium and WebKit remote-state matrix
         run: pnpm test:e2e
+
+      - name: Run built staging Chromium and WebKit matrix
+        run: pnpm test:e2e:staging
 
       - name: Upload Playwright report on failure
         if: failure()

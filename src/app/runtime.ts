@@ -1,5 +1,5 @@
 import { MockOwliApi } from '@/core/api/mockOwliApi';
-import { RemoteCatalogClient } from '@/core/api/remoteCatalogClient';
+import { RemoteAssistClient } from '@/core/api/remoteAssistClient';
 import { readRuntimeConfig, type RuntimeConfigurationErrorCode } from '@/core/config/runtimeConfig';
 
 export type AppRuntime =
@@ -7,7 +7,7 @@ export type AppRuntime =
   | {
       mode: 'remote';
       target: 'staging' | 'production';
-      catalogClient: RemoteCatalogClient;
+      assistClient: RemoteAssistClient;
       defaultLocale: string;
     }
   | { mode: 'invalid_configuration'; reason: RuntimeConfigurationErrorCode };
@@ -21,7 +21,7 @@ export function createAppRuntime(env: ImportMetaEnv = import.meta.env): AppRunti
   return {
     mode: 'remote',
     target: config.target,
-    catalogClient: new RemoteCatalogClient(config),
+    assistClient: new RemoteAssistClient(config),
     defaultLocale: config.defaultLocale,
   };
 }
