@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: web-ci-${{ github.ref }}
@@ -22,8 +22,6 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -39,128 +37,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Apply reviewed lifecycle fixes
-        if: github.event_name == 'pull_request' && github.head_ref == 'pwa-mvp/camera-streaming-scene'
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          def replace(path: str, old: str, new: str) -> None:
-              file = Path(path)
-              text = file.read_text()
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f"{path}: expected one match, found {count}")
-              file.write_text(text.replace(old, new))
-
-          replace(
-              "src/features/remote/useRemoteScene.ts",
-              """  const capture = useCallback(async () => {
-              try {
-                const source = await camera.capture();
-                await prepare(source);
-              } catch (error) {
-                setState((current) => ({
-                  ...current,
-                  status: 'recoverable_error',
-                  errorMessage: cameraMessage(error),
-                }));
-              }
-            }, [camera, prepare]);
-          """,
-              """  const capture = useCallback(async () => {
-              const id = attempt.current;
-              try {
-                const source = await camera.capture();
-                if (id !== attempt.current) return;
-                await prepare(source);
-              } catch (error) {
-                if (id !== attempt.current) return;
-                setState((current) => ({
-                  ...current,
-                  status: 'recoverable_error',
-                  errorMessage: cameraMessage(error),
-                }));
-              }
-            }, [camera, prepare]);
-          """,
-          )
-
-          replace(
-              "src/features/remote/RemoteAssist.tsx",
-              '                capture="environment"\n',
-              "",
-          )
-
-          replace(
-              "tests/unit/sceneSse.test.ts",
-              """function options(overrides: Record<string, unknown> = {}) {
-            return {
-          """,
-              """type SceneSseOptions = Parameters<typeof consumeSceneSse>[1];
-
-          function options(overrides: Partial<SceneSseOptions> = {}): SceneSseOptions {
-            return {
-          """,
-          )
-
-          replace(
-              "tests/unit/remoteCamera.test.ts",
-              """    vi.spyOn(document, 'createElement').mockImplementation(((tagName: string) => {
-                if (tagName === 'canvas') return canvas;
-                return document.createElement(tagName);
-              }) as typeof document.createElement);
-          """,
-              """    const createElement = document.createElement.bind(document);
-              vi.spyOn(document, 'createElement').mockImplementation(((tagName: string) => {
-                if (tagName === 'canvas') return canvas;
-                return createElement(tagName);
-              }) as typeof document.createElement);
-          """,
-          )
-
-          replace(
-              "src/core/api/remoteAssistClient.ts",
-              """function rateLimitError(response: Response): RemoteClientError {
-            const retryAfter = Number(response.headers.get('Retry-After'));
-            return new RemoteClientError(
-              'RATE_LIMITED',
-              Number.isFinite(retryAfter) ? Date.now() + retryAfter * 1000 : undefined,
-              429,
-            );
-          }
-          """,
-              """function rateLimitError(response: Response): RemoteClientError {
-            const header = response.headers.get('Retry-After');
-            const retryAfter = header === null ? Number.NaN : Number(header);
-            return new RemoteClientError(
-              'RATE_LIMITED',
-              Number.isFinite(retryAfter) ? Date.now() + retryAfter * 1000 : undefined,
-              429,
-            );
-          }
-          """,
-          )
-
-          replace(
-              "src/core/image/sceneImageInspection.ts",
-              """function inspectWebp(bytes: Uint8Array): Omit<SceneSourceInspection, 'mimeType' | 'byteLength'> {
-            if (bytes.length < 20) malformed();
-            let width: number | undefined;
-          """,
-              """function inspectWebp(bytes: Uint8Array): Omit<SceneSourceInspection, 'mimeType' | 'byteLength'> {
-            if (bytes.length < 20 || readU32(bytes, 4, true) + 8 !== bytes.length) malformed();
-            let width: number | undefined;
-          """,
-          )
-          PY
-          pnpm format
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add --all
-          git commit -m "fix: close camera and stream lifecycle gaps"
-          git push origin HEAD:${{ github.head_ref }}
 
       - name: Check formatting
         run: pnpm format:check
