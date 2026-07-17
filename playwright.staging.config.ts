@@ -14,7 +14,6 @@ export default defineConfig({
   use: {
     baseURL,
     ignoreHTTPSErrors: true,
-    serviceWorkers: 'allow',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -30,11 +29,15 @@ export default defineConfig({
       name: 'chromium-staging',
       use: {
         ...devices['Desktop Chrome'],
+        serviceWorkers: 'allow',
         ...(localChromiumExecutable
           ? { launchOptions: { executablePath: localChromiumExecutable } }
           : {}),
       },
     },
-    { name: 'webkit-staging', use: { ...devices['iPhone 15'] } },
+    {
+      name: 'webkit-staging',
+      use: { ...devices['iPhone 15'], serviceWorkers: 'block' },
+    },
   ],
 });
