@@ -63,7 +63,9 @@ test.describe('remote camera and streaming scene', () => {
     await expect(page.getByText(/Normalisiertes JPEG:/u)).toBeVisible();
     await page.getByRole('button', { name: 'Szene beschreiben' }).click();
     await expect(page.getByRole('heading', { name: 'Szenenbeschreibung' })).toBeVisible();
-    await expect(page.getByText('Eine helle Straße.')).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Szenenbeschreibung' }).getByText('Eine helle Straße.'),
+    ).toBeVisible();
 
     expect(Object.keys(body ?? {}).sort()).toEqual(
       [
