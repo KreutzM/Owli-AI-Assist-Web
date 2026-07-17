@@ -65,6 +65,11 @@
       "area": ".github"
     },
     { "path": ".github/workflows/ci.yml", "bytes": 2702, "area": ".github" },
+    {
+      "path": ".github/workflows/slice-index-refresh.yml",
+      "bytes": 940,
+      "area": ".github"
+    },
     { "path": ".gitignore", "bytes": 152, "area": ".gitignore" },
     { "path": ".nvmrc", "bytes": 3, "area": ".nvmrc" },
     { "path": ".prettierignore", "bytes": 111, "area": ".prettierignore" },
@@ -315,7 +320,7 @@
     { "path": "tests/e2e/app.spec.ts", "bytes": 727, "area": "tests" },
     {
       "path": "tests/e2e/remote-readiness.spec.ts",
-      "bytes": 8825,
+      "bytes": 9527,
       "area": "tests"
     },
     {
