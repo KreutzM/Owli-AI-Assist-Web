@@ -43,7 +43,8 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 }
 
 async function resolveFile(pathname) {
-  if (pathname.startsWith('/api/')) throw new NotFoundError('API routes are not served by the Web artifact.');
+  if (pathname.startsWith('/api/'))
+    throw new NotFoundError('API routes are not served by the Web artifact.');
   const relative = pathname === '/' ? 'index.html' : pathname.slice(1);
   const candidate = safeJoin(relative);
   if (await isFile(candidate)) return candidate;

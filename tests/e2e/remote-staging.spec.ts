@@ -16,13 +16,7 @@ const png = Buffer.from(
   'base64',
 );
 
-type HarnessScenario =
-  | 'states'
-  | 'cancel'
-  | 'rate-limit'
-  | 'recoverable'
-  | 'contract'
-  | 'live';
+type HarnessScenario = 'states' | 'cancel' | 'rate-limit' | 'recoverable' | 'contract' | 'live';
 
 interface HarnessOptions {
   configScene?: boolean;
@@ -44,7 +38,9 @@ interface HarnessSnapshot {
 }
 
 test.describe('built staging artifact and complete remote matrix', () => {
-  test('fails closed when readiness is disabled with the service worker active', async ({ page }) => {
+  test('fails closed when readiness is disabled with the service worker active', async ({
+    page,
+  }) => {
     const firstResponse = await openHarnessedStaging(page, 'states', { configScene: false });
 
     expect(firstResponse.headers()['content-security-policy']).toBe(EXPECTED_CSP);
@@ -156,8 +152,9 @@ test.describe('built staging artifact and complete remote matrix', () => {
     expect(snapshot.liveAnnouncements).toContain(
       'Die Antwort wurde empfangen und wird sicher abgeschlossen.',
     );
-    expect(snapshot.liveAnnouncements.some((text, index, all) => index > 0 && text === all[index - 1]))
-      .toBe(false);
+    expect(
+      snapshot.liveAnnouncements.some((text, index, all) => index > 0 && text === all[index - 1]),
+    ).toBe(false);
   });
 
   test('remains usable at narrow, landscape, and 200 percent equivalent zoom', async ({ page }) => {
@@ -177,7 +174,9 @@ test.describe('built staging artifact and complete remote matrix', () => {
     expect(accessibility.violations).toEqual([]);
   });
 
-  test('uses only approved routes and leaves API data outside service-worker caches', async ({ page }) => {
+  test('uses only approved routes and leaves API data outside service-worker caches', async ({
+    page,
+  }) => {
     const routeLog: string[] = [];
     const requestBodies: Record<string, unknown>[] = [];
     await installNetworkRoutes(page, routeLog, requestBodies);
@@ -268,7 +267,9 @@ async function activateServiceWorker(page: Page): Promise<void> {
   if (!(await page.evaluate(() => Boolean(navigator.serviceWorker.controller)))) {
     await page.reload();
   }
-  await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
+  await expect
+    .poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)))
+    .toBe(true);
   await expectServiceWorkerControl(page);
 }
 
@@ -297,7 +298,9 @@ function sceneFile() {
 async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   await expect
     .poll(() =>
-      page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
+      page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
     )
     .toBe(true);
 }
