@@ -65,11 +65,6 @@
       "area": ".github"
     },
     { "path": ".github/workflows/ci.yml", "bytes": 2702, "area": ".github" },
-    {
-      "path": ".github/workflows/slice-index-refresh.yml",
-      "bytes": 940,
-      "area": ".github"
-    },
     { "path": ".gitignore", "bytes": 152, "area": ".gitignore" },
     { "path": ".nvmrc", "bytes": 3, "area": ".nvmrc" },
     { "path": ".prettierignore", "bytes": 111, "area": ".prettierignore" },
