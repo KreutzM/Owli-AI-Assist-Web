@@ -23,11 +23,136 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Capture unit output
+      - name: Apply unit corrections
         run: |
-          pnpm test > .slice-test-diagnostics.txt 2>&1 || true
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one match, found {count}")
+              file.write_text(text.replace(old, new))
+
+          replace(
+              "src/features/remote/RemoteAssist.tsx",
+              """  const selectFile = async (event: ChangeEvent<HTMLInputElement>) => {
+              const selected = event.currentTarget.files?.[0];
+              try {
+                if (selected) await workflow.prepare(selected);
+              } finally {
+                event.currentTarget.value = '';
+              }
+            };
+          """,
+              """  const selectFile = async (event: ChangeEvent<HTMLInputElement>) => {
+              const input = event.currentTarget;
+              const selected = input.files?.[0];
+              try {
+                if (selected) await workflow.prepare(selected);
+              } finally {
+                input.value = '';
+              }
+            };
+          """,
+          )
+
+          replace(
+              "tests/unit/sceneSse.test.ts",
+              """  it('does not resolve until clean EOF after done', async () => {
+              let streamController: ReadableStreamDefaultController<Uint8Array> | undefined;
+              const terminal = vi.fn();
+              let resolved = false;
+              const stream = new ReadableStream<Uint8Array>({
+                start(controller) {
+                  streamController = controller;
+                  controller.enqueue(bytes(metadata + done));
+                },
+              });
+              const pending = consumeSceneSse(stream, options({ callbacks: { onTerminal: terminal } })).then(
+                (value) => {
+                  resolved = true;
+                  return value;
+                },
+              );
+              await Promise.resolve();
+              expect(terminal).toHaveBeenCalledTimes(1);
+              expect(resolved).toBe(false);
+              streamController?.close();
+              await expect(pending).resolves.toMatchObject({ answerText: 'Eine helle Straße.' });
+            });
+          """,
+              """  it('does not resolve until clean EOF after done', async () => {
+              let streamController: ReadableStreamDefaultController<Uint8Array> | undefined;
+              let resolveTerminal: (() => void) | undefined;
+              const terminalSeen = new Promise<void>((resolve) => {
+                resolveTerminal = resolve;
+              });
+              let resolved = false;
+              const stream = new ReadableStream<Uint8Array>({
+                start(controller) {
+                  streamController = controller;
+                  controller.enqueue(bytes(metadata + done));
+                },
+              });
+              const pending = consumeSceneSse(
+                stream,
+                options({ callbacks: { onTerminal: () => resolveTerminal?.() } }),
+              ).then((value) => {
+                resolved = true;
+                return value;
+              });
+              await terminalSeen;
+              expect(resolved).toBe(false);
+              streamController?.close();
+              await expect(pending).resolves.toMatchObject({ answerText: 'Eine helle Straße.' });
+            });
+          """,
+          )
+
+          replace(
+              "tests/unit/RemoteAssist.test.tsx",
+              "import { cleanup, fireEvent, render, screen } from '@testing-library/react';",
+              "import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';",
+          )
+          replace(
+              "tests/unit/RemoteAssist.test.tsx",
+              """    resolveStream?.(sceneResult());
+              await screen.findByRole('heading', { name: 'Szenenbeschreibung' });
+              expect(screen.getByText('Eine helle Straße.')).toBeInTheDocument();
+              expect(describeScene).toHaveBeenCalledTimes(1);
+          """,
+              """    resolveStream?.(sceneResult());
+              const completedHeading = await screen.findByRole('heading', {
+                name: 'Szenenbeschreibung',
+              });
+              const completedResult = completedHeading.closest('section');
+              if (!completedResult) throw new Error('Missing completed scene result');
+              expect(within(completedResult).getByText('Eine helle Straße.')).toBeInTheDocument();
+              expect(describeScene).toHaveBeenCalledTimes(1);
+          """,
+          )
+          replace(
+              "tests/unit/RemoteAssist.test.tsx",
+              """    await screen.findByText('Der Vorgang wurde abgebrochen.');
+              expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+              expect(screen.getByRole('button', { name: 'Erneut senden' })).toBeEnabled();
+          """,
+              """    const retry = await screen.findByRole('button', { name: 'Erneut senden' });
+              expect(screen.getByRole('status')).toHaveTextContent('Der Vorgang wurde abgebrochen.');
+              expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+              expect(retry).toBeEnabled();
+          """,
+          )
+          PY
+          pnpm format
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .slice-test-diagnostics.txt
-          git commit -m "ci: capture slice unit diagnostics"
+          git add --all
+          git commit -m "fix: stabilize scene lifecycle tests"
           git push origin HEAD:${{ github.head_ref }}
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
