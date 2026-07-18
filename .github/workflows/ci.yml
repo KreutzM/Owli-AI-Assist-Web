@@ -53,6 +53,9 @@ jobs:
       - name: Run unit tests
         run: pnpm test
 
+      - name: Check Safari diagnostics syntax
+        run: python3 -m py_compile tools/safari-smoke.py tools/safari-jpeg-diagnostic.py tools/safari-jpeg-diagnostic-v2.py
+
       - name: Build mock PWA
         run: pnpm build
 
@@ -64,6 +67,14 @@ jobs:
 
       - name: Build production PWA and headers
         run: pnpm build:production
+
+      - name: Build deterministic Safari JPEG harness
+        run: |
+          pnpm build:safari-jpeg-harness
+          if grep -qE 'owli-ai-backend-staging|https://api\.owli-ai\.com' dist/_headers; then
+            echo 'Safari JPEG harness headers contain a remote API origin.' >&2
+            exit 1
+          fi
 
       - name: Generate agent index
         run: pnpm ai:index
