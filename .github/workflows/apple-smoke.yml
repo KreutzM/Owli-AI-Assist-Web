@@ -30,7 +30,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: apple-smoke-${{ github.event.issue.number || github.ref }}
+  group: apple-smoke-${{ github.event.comment.id || github.actor }}
   cancel-in-progress: true
 
 jobs:
