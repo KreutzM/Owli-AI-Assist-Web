@@ -285,22 +285,26 @@ def main() -> int:
         source_png = fixture_dir / "source.png"
         jpeg_1mp = fixture_dir / "synthetic-1mp.jpg"
         jpeg_12mp = fixture_dir / "synthetic-12mp.jpg"
+        jpeg_24mp = fixture_dir / "synthetic-24mp.jpg"
         source_png.write_bytes(base64.b64decode(SMOKE.PNG_FIXTURE))
         SMOKE.create_jpeg_fixture(source_png, jpeg_1mp, width=1000, height=1000)
         SMOKE.create_jpeg_fixture(source_png, jpeg_12mp, width=4000, height=3000)
+        SMOKE.create_jpeg_fixture(source_png, jpeg_24mp, width=6000, height=4000)
 
-        for fixture in (jpeg_1mp, jpeg_12mp):
+        for fixture in (jpeg_1mp, jpeg_12mp, jpeg_24mp):
             shutil.copy2(fixture, args.artifacts / fixture.name)
 
         report["fixtureMetadata"] = {
             "jpeg1mp": fixture_metadata(jpeg_1mp),
             "jpeg12mp": fixture_metadata(jpeg_12mp),
+            "jpeg24mp": fixture_metadata(jpeg_24mp),
         }
 
         try:
             driver.start()
             report["cases"]["jpeg1mp"] = run_case(driver, target_url, jpeg_1mp)
             report["cases"]["jpeg12mp"] = run_case(driver, target_url, jpeg_12mp)
+            report["cases"]["jpeg24mp"] = run_case(driver, target_url, jpeg_24mp)
 
             one_mp_passed = (
                 report["cases"]["jpeg1mp"]["appOutcome"]["matchedText"]
@@ -310,7 +314,15 @@ def main() -> int:
                 report["cases"]["jpeg12mp"]["appOutcome"]["matchedText"]
                 == "Normalisiertes JPEG:"
             )
-            report["status"] = "PASS" if one_mp_passed and twelve_mp_passed else "FAIL"
+            twenty_four_mp_passed = (
+                report["cases"]["jpeg24mp"]["appOutcome"]["matchedText"]
+                == "Das Bild überschreitet die lokalen Abmessungsgrenzen."
+            )
+            report["status"] = (
+                "PASS"
+                if one_mp_passed and twelve_mp_passed and twenty_four_mp_passed
+                else "FAIL"
+            )
         except Exception as error:  # noqa: BLE001 - safe diagnostic summary
             report["fatal"] = {"type": type(error).__name__, "message": str(error)}
             try:
