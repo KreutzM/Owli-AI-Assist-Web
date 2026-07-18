@@ -7,11 +7,13 @@ import argparse
 import base64
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+import urllib.parse
 from pathlib import Path
 from typing import Any
 
@@ -254,8 +256,8 @@ def run_case(driver: Any, target_url: str, fixture: Path) -> dict[str, Any]:
             and snapshot.get("filePresent") is True
             and snapshot.get("fileDisabled") is False
         ),
-        "remote readiness controls",
-        timeout=90,
+        "local harness controls",
+        timeout=30,
     )
     driver.send_file("#scene-file", fixture)
     app_outcome = wait_for_app_outcome(driver)
@@ -269,16 +271,47 @@ def run_case(driver: Any, target_url: str, fixture: Path) -> dict[str, Any]:
     }
 
 
+def is_local_target(url: str) -> bool:
+    parsed = urllib.parse.urlparse(url)
+    try:
+        port = parsed.port
+    except ValueError:
+        return False
+    return (
+        parsed.scheme == "https"
+        and parsed.hostname in {"127.0.0.1", "localhost"}
+        and port is not None
+        and parsed.path in ("", "/")
+        and not parsed.params
+        and not parsed.query
+        and not parsed.fragment
+        and parsed.username is None
+        and parsed.password is None
+    )
+
+
+def validate_target(url: str) -> tuple[str, bool]:
+    if is_local_target(url):
+        return url.rstrip("/"), True
+    return SMOKE.validate_target(url), False
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--target-url", required=True)
     parser.add_argument("--artifacts", required=True, type=Path)
     args = parser.parse_args()
 
-    target_url = SMOKE.validate_target(args.target_url)
+    target_url, local_target = validate_target(args.target_url)
     args.artifacts.mkdir(parents=True, exist_ok=True)
-    driver = SMOKE.SafariDriver()
-    report: dict[str, Any] = {"targetUrl": target_url, "status": "FAIL", "cases": {}}
+    driver = SMOKE.SafariDriver(accept_insecure_certs=local_target)
+    report: dict[str, Any] = {
+        "targetUrl": target_url,
+        "targetKind": "local_harness" if local_target else "remote_staging",
+        "testedRevision": os.environ.get("TESTED_REVISION", "unknown"),
+        "status": "FAIL",
+        "cases": {},
+    }
 
     with tempfile.TemporaryDirectory(prefix="owli-safari-diagnostic-") as temp_dir:
         fixture_dir = Path(temp_dir)
