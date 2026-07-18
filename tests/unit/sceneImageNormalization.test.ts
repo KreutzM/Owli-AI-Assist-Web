@@ -63,7 +63,7 @@ describe('scene image normalization geometry', () => {
     const source = await readFile('src/platform/image/browserOrientation.ts', 'utf8');
     expect(source).toContain("createImageBitmap(blob, { imageOrientation: 'none' })");
     expect(source).toContain('bitmap.width === 2 && bitmap.height === 1');
-    expect(source).toContain('image.naturalWidth === 1 && image.naturalHeight === 2');
+    expect(source).toContain('loaded.image.naturalWidth === 1 && loaded.image.naturalHeight === 2');
     expect(source).toContain('Fall through to the WebKit-compatible HTML image path.');
   });
 });
