@@ -13,7 +13,7 @@ describe('snapshotSceneSource', () => {
   });
 
   it('starts FileReader synchronously and returns an independent blob', async () => {
-    let instance: MockFileReader | undefined;
+    const readAsArrayBuffer = vi.fn();
 
     class MockFileReader {
       result: string | ArrayBuffer | null = null;
@@ -21,16 +21,13 @@ describe('snapshotSceneSource', () => {
       onabort: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
       onerror: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
       onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
-      readAsArrayBuffer = vi.fn((file: Blob) => {
+      readAsArrayBuffer(file: Blob) {
+        readAsArrayBuffer(file);
         expect(file).toBe(source);
         this.result = new Uint8Array([0xff, 0xd8, 0xff]).buffer;
         queueMicrotask(() =>
           this.onload?.call(this as unknown as FileReader, new ProgressEvent('load')),
         );
-      });
-
-      constructor() {
-        instance = this;
       }
     }
 
@@ -38,7 +35,7 @@ describe('snapshotSceneSource', () => {
     const source = new File(['picker'], 'scene.jpg', { type: 'image/jpeg' });
     const snapshotPromise = snapshotSceneSource(source);
 
-    expect(instance?.readAsArrayBuffer).toHaveBeenCalledTimes(1);
+    expect(readAsArrayBuffer).toHaveBeenCalledTimes(1);
     const snapshot = await snapshotPromise;
     expect(snapshot).not.toBe(source);
     expect(snapshot.type).toBe('image/jpeg');
