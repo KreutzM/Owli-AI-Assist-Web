@@ -1,7 +1,7 @@
-name: Apple browser smoke (manual)
+name: Apple browser smoke
 
-# GitHub-hosted macOS minutes are substantially more expensive than Linux minutes.
-# Keep this workflow opt-in and choose the narrowest suite needed.
+# macOS runners are substantially more expensive than Linux runners.
+# Run automatically only for PRs that touch Apple/browser-sensitive paths.
 on:
   workflow_dispatch:
     inputs:
@@ -20,92 +20,107 @@ on:
         required: true
         default: https://assist-staging.owli-ai.com
         type: string
-  issue_comment:
+  pull_request:
     types:
-      - created
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths:
+      - src/core/image/**
+      - src/platform/camera/**
+      - src/platform/image/**
+      - src/features/scene/**
+      - tests/**
+      - tools/safari*.py
+      - playwright*.ts
+      - package.json
+      - pnpm-lock.yaml
 
 permissions:
   contents: read
-  issues: write
+  issues: read
   pull-requests: read
 
 concurrency:
-  group: apple-smoke-${{ github.event.comment.id || github.actor }}
+  group: apple-smoke-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   prepare:
-    name: Authorize and resolve Apple smoke request
+    name: Resolve exact PR preview
     runs-on: ubuntu-latest
     outputs:
-      authorized: ${{ steps.request.outputs.authorized }}
       suite: ${{ steps.request.outputs.suite }}
       target_url: ${{ steps.request.outputs.target_url }}
       checkout_ref: ${{ steps.request.outputs.checkout_ref }}
-      pr_number: ${{ steps.request.outputs.pr_number }}
     steps:
-      - name: Resolve manual dispatch or owner PR command
+      - name: Resolve manual target or exact PR preview
         id: request
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
           MANUAL_SUITE: ${{ inputs.suite }}
           MANUAL_TARGET_URL: ${{ inputs.target_url }}
-          COMMENT_BODY: ${{ github.event.comment.body }}
-          COMMENT_ASSOCIATION: ${{ github.event.comment.author_association }}
-          COMMENT_LOGIN: ${{ github.event.comment.user.login }}
-          REPOSITORY_OWNER: ${{ github.repository_owner }}
-          IS_PULL_REQUEST: ${{ github.event.issue.pull_request != null }}
-          PR_NUMBER: ${{ github.event.issue.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
-          authorized=false
-          suite=''
-          target_url=''
-          checkout_ref="$GITHUB_SHA"
-          pr_number=''
-
-          emit_outputs() {
-            printf 'authorized=%s\n' "$authorized" >> "$GITHUB_OUTPUT"
-            printf 'suite=%s\n' "$suite" >> "$GITHUB_OUTPUT"
-            printf 'target_url=%s\n' "$target_url" >> "$GITHUB_OUTPUT"
-            printf 'checkout_ref=%s\n' "$checkout_ref" >> "$GITHUB_OUTPUT"
-            printf 'pr_number=%s\n' "$pr_number" >> "$GITHUB_OUTPUT"
-          }
-
           if [[ "$EVENT_NAME" == 'workflow_dispatch' ]]; then
-            authorized=true
             suite="$MANUAL_SUITE"
             target_url="$MANUAL_TARGET_URL"
+            checkout_ref="$GITHUB_SHA"
           else
-            if [[ "$IS_PULL_REQUEST" != 'true' ]]; then
-              emit_outputs
-              exit 0
-            fi
-            if [[ "$COMMENT_ASSOCIATION" != 'OWNER' || "$COMMENT_LOGIN" != "$REPOSITORY_OWNER" ]]; then
-              emit_outputs
-              exit 0
-            fi
-            if [[ ! "$COMMENT_BODY" =~ ^/apple-smoke[[:space:]]+(all|webkit|safari|safari-jpeg)[[:space:]]+(https://[^[:space:]]+)[[:space:]]*$ ]]; then
-              emit_outputs
-              exit 0
+            if [[ "$PR_HEAD_REPOSITORY" != "$GITHUB_REPOSITORY" ]]; then
+              echo 'Apple smoke PR CI accepts same-repository branches only.' >&2
+              exit 1
             fi
 
-            suite="${BASH_REMATCH[1]}"
-            target_url="${BASH_REMATCH[2]}"
-            pr_number="$PR_NUMBER"
+            suite='all'
+            checkout_ref="$PR_HEAD_SHA"
+            short_head="${checkout_ref:0:7}"
+            target_url=''
 
-            pr_json="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
-            head_repository="$(jq -r '.head.repo.full_name' <<< "$pr_json")"
-            checkout_ref="$(jq -r '.head.sha' <<< "$pr_json")"
-            if [[ "$head_repository" != "$GITHUB_REPOSITORY" || ! "$checkout_ref" =~ ^[0-9a-f]{40}$ ]]; then
-              authorized=false
-              emit_outputs
-              exit 0
-            fi
-            authorized=true
+            for attempt in {1..60}; do
+              comments_file="$RUNNER_TEMP/pr-comments.json"
+              gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments?per_page=100" > "$comments_file"
+
+              target_url="$(python3 - "$comments_file" "$short_head" <<'PY'
+          import json
+          import re
+          import sys
+
+          comments_path, short_head = sys.argv[1:]
+          with open(comments_path, encoding='utf-8') as handle:
+              comments = json.load(handle)
+
+          pattern = re.compile(r'https://[0-9a-f]{8}\.owli-ai-assist-web\.pages\.dev')
+          for comment in reversed(comments):
+              user = comment.get('user') or {}
+              body = comment.get('body') or ''
+              if user.get('login') != 'cloudflare-workers-and-pages[bot]':
+                  continue
+              if short_head not in body or 'Deploy successful' not in body:
+                  continue
+              match = pattern.search(body)
+              if match:
+                  print(match.group(0))
+                  break
+          PY
+              )"
+
+              if [[ -n "$target_url" ]]; then
+                break
+              fi
+              if [[ "$attempt" == '60' ]]; then
+                echo "No successful Cloudflare Pages preview found for PR head $checkout_ref." >&2
+                exit 1
+              fi
+              sleep 10
+            done
           fi
 
           python3 - "$target_url" <<'PY'
@@ -132,40 +147,18 @@ jobs:
               raise SystemExit(f'Unsupported Apple smoke target: {url}')
           PY
 
-          emit_outputs
+          printf 'suite=%s\n' "$suite" >> "$GITHUB_OUTPUT"
+          printf 'target_url=%s\n' "$target_url" >> "$GITHUB_OUTPUT"
+          printf 'checkout_ref=%s\n' "$checkout_ref" >> "$GITHUB_OUTPUT"
 
-  acknowledge:
-    name: Publish accepted command
-    needs: prepare
-    if: ${{ github.event_name == 'issue_comment' && needs.prepare.outputs.authorized == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Comment with run identifier
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
-          SUITE: ${{ needs.prepare.outputs.suite }}
-          TARGET_URL: ${{ needs.prepare.outputs.target_url }}
-          CHECKOUT_REF: ${{ needs.prepare.outputs.checkout_ref }}
-        run: |
-          body="$(cat <<EOF
-          <!-- apple-smoke-run:${GITHUB_RUN_ID}:started -->
-          Apple smoke command accepted.
-
-          - Run ID: \`${GITHUB_RUN_ID}\`
-          - Suite: \`${SUITE}\`
-          - Exact checkout: \`${CHECKOUT_REF}\`
-          - Target: \`${TARGET_URL}\`
-          - Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
-          EOF
-          )"
-          gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="$body" > /dev/null
+          echo "Suite: $suite"
+          echo "Exact checkout: $checkout_ref"
+          echo "Target: $target_url"
 
   webkit:
     name: macOS Playwright WebKit
     needs: prepare
-    if: ${{ needs.prepare.outputs.authorized == 'true' && (needs.prepare.outputs.suite == 'all' || needs.prepare.outputs.suite == 'webkit') }}
+    if: ${{ needs.prepare.outputs.suite == 'all' || needs.prepare.outputs.suite == 'webkit' }}
     runs-on: macos-15
     timeout-minutes: 35
     env:
@@ -175,34 +168,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
-
-      - name: Validate staging target
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          import os
-          from urllib.parse import urlparse
-
-          url = os.environ['TARGET_URL']
-          parsed = urlparse(url)
-          host = parsed.hostname or ''
-          allowed = (
-              parsed.scheme == 'https'
-              and parsed.path in ('', '/')
-              and not parsed.query
-              and not parsed.fragment
-              and parsed.username is None
-              and parsed.password is None
-              and parsed.port is None
-              and (
-                  host == 'assist-staging.owli-ai.com'
-                  or host.endswith('.owli-ai-assist-web.pages.dev')
-              )
-          )
-          if not allowed:
-              raise SystemExit(f'Unsupported Apple smoke target: {url}')
-          print(f'Approved target: {url}')
-          PY
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -239,9 +204,9 @@ jobs:
   safari:
     name: macOS desktop Safari
     needs: prepare
-    if: ${{ needs.prepare.outputs.authorized == 'true' && (needs.prepare.outputs.suite == 'all' || needs.prepare.outputs.suite == 'safari' || needs.prepare.outputs.suite == 'safari-jpeg') }}
+    if: ${{ needs.prepare.outputs.suite == 'all' || needs.prepare.outputs.suite == 'safari' || needs.prepare.outputs.suite == 'safari-jpeg' }}
     runs-on: macos-15
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
       TARGET_URL: ${{ needs.prepare.outputs.target_url }}
       SUITE: ${{ needs.prepare.outputs.suite }}
@@ -274,18 +239,25 @@ jobs:
           cat "$RUNNER_TEMP/apple-safari/safaridriver.log"
           exit 1
 
-      - name: Run selected real desktop Safari suite
+      - name: Run real desktop Safari smoke
+        if: ${{ env.SUITE != 'safari-jpeg' }}
         shell: bash
         run: |
-          if [[ "$SUITE" == 'safari-jpeg' ]]; then
-            test -f tools/safari-jpeg-diagnostic-v2.py
+          python3 tools/safari-smoke.py \
+            --target-url "$TARGET_URL" \
+            --artifacts "$RUNNER_TEMP/apple-safari"
+
+      - name: Run Safari JPEG diagnostic when available
+        if: ${{ env.SUITE == 'safari-jpeg' || env.SUITE == 'all' }}
+        shell: bash
+        run: |
+          if [[ -f tools/safari-jpeg-diagnostic-v2.py ]]; then
             python3 tools/safari-jpeg-diagnostic-v2.py \
               --target-url "$TARGET_URL" \
               --artifacts "$RUNNER_TEMP/apple-safari"
-          else
-            python3 tools/safari-smoke.py \
-              --target-url "$TARGET_URL" \
-              --artifacts "$RUNNER_TEMP/apple-safari"
+          elif [[ "$SUITE" == 'safari-jpeg' ]]; then
+            echo 'Requested Safari JPEG diagnostic is not present in this revision.' >&2
+            exit 1
           fi
 
       - name: Stop SafariDriver
@@ -303,54 +275,3 @@ jobs:
           name: apple-safari-diagnostics-${{ github.run_id }}
           path: ${{ runner.temp }}/apple-safari/
           retention-days: 7
-
-  report:
-    name: Publish Apple smoke result
-    needs:
-      - prepare
-      - webkit
-      - safari
-    if: ${{ always() && github.event_name == 'issue_comment' && needs.prepare.outputs.authorized == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Comment with final result
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
-          SUITE: ${{ needs.prepare.outputs.suite }}
-          TARGET_URL: ${{ needs.prepare.outputs.target_url }}
-          CHECKOUT_REF: ${{ needs.prepare.outputs.checkout_ref }}
-          WEBKIT_RESULT: ${{ needs.webkit.result }}
-          SAFARI_RESULT: ${{ needs.safari.result }}
-        run: |
-          overall='PASS'
-          case "$SUITE" in
-            webkit)
-              [[ "$WEBKIT_RESULT" == 'success' ]] || overall='FAIL'
-              ;;
-            safari|safari-jpeg)
-              [[ "$SAFARI_RESULT" == 'success' ]] || overall='FAIL'
-              ;;
-            all)
-              [[ "$WEBKIT_RESULT" == 'success' && "$SAFARI_RESULT" == 'success' ]] || overall='FAIL'
-              ;;
-            *)
-              overall='FAIL'
-              ;;
-          esac
-
-          body="$(cat <<EOF
-          <!-- apple-smoke-run:${GITHUB_RUN_ID}:completed -->
-          Apple smoke result: **${overall}**
-
-          - Run ID: \`${GITHUB_RUN_ID}\`
-          - Suite: \`${SUITE}\`
-          - Exact checkout: \`${CHECKOUT_REF}\`
-          - Target: \`${TARGET_URL}\`
-          - WebKit job: \`${WEBKIT_RESULT}\`
-          - Safari job: \`${SAFARI_RESULT}\`
-          - Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
-          EOF
-          )"
-          gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="$body" > /dev/null
