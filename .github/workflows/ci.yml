@@ -54,7 +54,9 @@ jobs:
         run: pnpm test
 
       - name: Check Safari diagnostics syntax
-        run: python3 -m py_compile tools/safari-smoke.py tools/safari-jpeg-diagnostic.py tools/safari-jpeg-diagnostic-v2.py
+        run: |
+          python3 -m py_compile tools/safari-smoke.py tools/safari-jpeg-diagnostic.py tools/safari-jpeg-diagnostic-v2.py
+          rm -rf tools/__pycache__
 
       - name: Build mock PWA
         run: pnpm build
