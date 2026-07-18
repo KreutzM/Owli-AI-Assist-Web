@@ -10,6 +10,8 @@ describe('BrowserOrientationDecoder HTML image fallback', () => {
     const createdUrls = ['blob:probe', 'blob:source'];
     const createObjectURL = vi.fn(() => createdUrls.shift() ?? 'blob:unexpected');
     const revokeObjectURL = vi.fn();
+    const createDescriptor = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
+    const revokeDescriptor = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
 
     class MockImage {
       onload: (() => void) | null = null;
@@ -36,21 +38,47 @@ describe('BrowserOrientationDecoder HTML image fallback', () => {
       }
     }
 
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      writable: true,
+      value: createObjectURL,
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      writable: true,
+      value: revokeObjectURL,
+    });
     vi.stubGlobal('createImageBitmap', undefined);
     vi.stubGlobal('Image', MockImage);
-    vi.stubGlobal('URL', { createObjectURL, revokeObjectURL });
 
-    const decoder = new BrowserOrientationDecoder();
-    const decoded = await decoder.decode(new Blob(['jpeg'], { type: 'image/jpeg' }), 1);
+    try {
+      const decoder = new BrowserOrientationDecoder();
+      const decoded = await decoder.decode(new Blob(['jpeg'], { type: 'image/jpeg' }), 1);
 
-    expect(decoded.surface.width).toBe(4000);
-    expect(decoded.surface.height).toBe(3000);
-    expect(revokeObjectURL).toHaveBeenCalledTimes(1);
-    expect(revokeObjectURL).toHaveBeenCalledWith('blob:probe');
+      expect(decoded.surface.width).toBe(4000);
+      expect(decoded.surface.height).toBe(3000);
+      expect(revokeObjectURL).toHaveBeenCalledTimes(1);
+      expect(revokeObjectURL).toHaveBeenCalledWith('blob:probe');
 
-    decoded.surface.close();
+      decoded.surface.close();
 
-    expect(revokeObjectURL).toHaveBeenCalledTimes(2);
-    expect(revokeObjectURL).toHaveBeenLastCalledWith('blob:source');
+      expect(revokeObjectURL).toHaveBeenCalledTimes(2);
+      expect(revokeObjectURL).toHaveBeenLastCalledWith('blob:source');
+    } finally {
+      restoreProperty(URL, 'createObjectURL', createDescriptor);
+      restoreProperty(URL, 'revokeObjectURL', revokeDescriptor);
+    }
   });
 });
+
+function restoreProperty(
+  target: typeof URL,
+  key: 'createObjectURL' | 'revokeObjectURL',
+  descriptor: PropertyDescriptor | undefined,
+): void {
+  if (descriptor) {
+    Object.defineProperty(target, key, descriptor);
+  } else {
+    Reflect.deleteProperty(target, key);
+  }
+}
