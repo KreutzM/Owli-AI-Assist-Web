@@ -8,6 +8,7 @@ export type ExifOrientation = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 export type SceneImageErrorCode =
   | 'SOURCE_TOO_LARGE'
+  | 'SOURCE_READ_FAILED'
   | 'UNSUPPORTED_IMAGE'
   | 'MIME_MISMATCH'
   | 'MALFORMED_IMAGE'
