@@ -1,7 +1,4 @@
-import {
-  SOURCE_FILE_MAX_BYTES,
-  SceneImageError,
-} from '@/core/image/sceneImageInspection';
+import { SOURCE_FILE_MAX_BYTES, SceneImageError } from '@/core/image/sceneImageInspection';
 
 /**
  * Copies picker-backed Files while the original change event still owns a readable handle.
