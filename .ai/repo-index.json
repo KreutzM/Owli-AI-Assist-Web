@@ -69,7 +69,7 @@
       "bytes": 14318,
       "area": ".github"
     },
-    { "path": ".github/workflows/ci.yml", "bytes": 5068, "area": ".github" },
+    { "path": ".github/workflows/ci.yml", "bytes": 5115, "area": ".github" },
     { "path": ".gitignore", "bytes": 152, "area": ".gitignore" },
     { "path": ".nvmrc", "bytes": 3, "area": ".nvmrc" },
     { "path": ".prettierignore", "bytes": 111, "area": ".prettierignore" },
@@ -188,7 +188,7 @@
     },
     { "path": "src/core/api/sceneSse.ts", "bytes": 8119, "area": "src" },
     { "path": "src/core/api/sse.test.ts", "bytes": 796, "area": "src" },
-    { "path": "src/core/api/sse.tsb, "bytes": 1442, "area": "src" },
+    { "path": "src/core/api/sse.ts", "bytes": 1442, "area": "src" },
     {
       "path": "src/core/config/runtimeConfig.ts",
       "bytes": 3259,
@@ -439,21 +439,6 @@
       "path": "tests/unit/useSceneAnnouncements.test.ts",
       "bytes": 1341,
       "area": "tests"
-    },
-    {
-      "path": "tools/__pycache__/safari-jpeg-diagnostic-v2.cpython-312.pyc",
-      "bytes": 4614,
-      "area": "tools"
-    },
-    {
-      "path": "tools/__pycache__/safari-jpeg-diagnostic.cpython-312.pyc",
-      "bytes": 16489,
-      "area": "tools"
-    },
-    {
-      "path": "tools/__pycache__/safari-smoke.cpython-312.pyc",
-      "bytes": 21105,
-      "area": "tools"
     },
     { "path": "tools/build-web.mjs", "bytes": 2601, "area": "tools" },
     { "path": "tools/check-architecture.mjs", "bytes": 2643, "area": "tools" },
