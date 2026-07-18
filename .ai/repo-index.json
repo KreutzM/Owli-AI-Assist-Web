@@ -450,7 +450,7 @@
     },
     {
       "path": "tools/safari-jpeg-diagnostic.py",
-      "bytes": 11581,
+      "bytes": 12155,
       "area": "tools"
     },
     { "path": "tools/safari-smoke.py", "bytes": 13303, "area": "tools" },
