@@ -66,7 +66,7 @@
     },
     {
       "path": ".github/workflows/apple-smoke.yml",
-      "bytes": 4515,
+      "bytes": 9007,
       "area": ".github"
     },
     { "path": ".github/workflows/ci.yml", "bytes": 4580, "area": ".github" },
