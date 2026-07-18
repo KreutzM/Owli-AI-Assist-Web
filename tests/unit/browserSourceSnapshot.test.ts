@@ -26,7 +26,10 @@ describe('snapshotSceneSource', () => {
         expect(file).toBe(source);
         this.result = new Uint8Array([0xff, 0xd8, 0xff]).buffer;
         queueMicrotask(() =>
-          this.onload?.call(this as unknown as FileReader, new ProgressEvent<FileReader>('load')),
+          this.onload?.call(
+            this as unknown as FileReader,
+            new ProgressEvent('load') as ProgressEvent<FileReader>,
+          ),
         );
       }
     }
@@ -51,7 +54,10 @@ describe('snapshotSceneSource', () => {
       onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
       readAsArrayBuffer() {
         queueMicrotask(() =>
-          this.onerror?.call(this as unknown as FileReader, new ProgressEvent<FileReader>('error')),
+          this.onerror?.call(
+            this as unknown as FileReader,
+            new ProgressEvent('error') as ProgressEvent<FileReader>,
+          ),
         );
       }
     }
