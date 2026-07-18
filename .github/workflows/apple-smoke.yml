@@ -129,10 +129,10 @@ jobs:
           cat "$RUNNER_TEMP/apple-safari/safaridriver.log"
           exit 1
 
-      - name: Run fail-fast Safari JPEG diagnostic
+      - name: Run capture-preserving Safari JPEG diagnostic
         shell: bash
         run: |
-          python3 tools/safari-jpeg-diagnostic.py \
+          python3 tools/safari-jpeg-diagnostic-v2.py \
             --target-url "$TARGET_URL" \
             --artifacts "$RUNNER_TEMP/apple-safari"
 
