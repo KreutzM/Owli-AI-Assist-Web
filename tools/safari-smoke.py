@@ -22,30 +22,48 @@ PNG_FIXTURE = (
     "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGOs2HKHgYGBiYGBgYGBAQAYJgIMiYqd0gAAAABJRU5ErkJggg=="
 )
 PAGES_HOST = re.compile(r"^[a-z0-9-]+\.owli-ai-assist-web\.pages\.dev$")
+REMOTE_READINESS_MESSAGES = (
+    "Die Online-Vorbereitung ist derzeit nicht verfügbar.",
+    "Die Szenenbeschreibung ist in dieser Bereitstellung nicht freigegeben.",
+    "Der Dienst ist vorübergehend ausgelastet.",
+)
 
 
 class WebDriverError(RuntimeError):
     """Raised when SafariDriver returns a WebDriver protocol error."""
 
 
+class RemoteReadinessUnavailable(RuntimeError):
+    """Raised only for an explicit, known remote-readiness UI state."""
+
+    def __init__(self, message: str, snapshot: dict[str, Any]) -> None:
+        super().__init__(message)
+        self.snapshot = snapshot
+
+
 class SafariDriver:
-    def __init__(self, endpoint: str = WEBDRIVER_URL) -> None:
+    def __init__(
+        self,
+        endpoint: str = WEBDRIVER_URL,
+        *,
+        accept_insecure_certs: bool = False,
+    ) -> None:
         self.endpoint = endpoint.rstrip("/")
+        self.accept_insecure_certs = accept_insecure_certs
         self.session_id: str | None = None
 
     def start(self) -> None:
+        always_match: dict[str, Any] = {
+            "browserName": "safari",
+            "safari:automaticInspection": False,
+            "safari:automaticProfiling": False,
+        }
+        if self.accept_insecure_certs:
+            always_match["acceptInsecureCerts"] = True
         response = self._request(
             "POST",
             "/session",
-            {
-                "capabilities": {
-                    "alwaysMatch": {
-                        "browserName": "safari",
-                        "safari:automaticInspection": False,
-                        "safari:automaticProfiling": False,
-                    }
-                }
-            },
+            {"capabilities": {"alwaysMatch": always_match}},
         )
         value = response.get("value")
         if not isinstance(value, dict) or not isinstance(value.get("sessionId"), str):
@@ -148,6 +166,9 @@ def validate_target(url: str) -> str:
         or parsed.params
         or parsed.query
         or parsed.fragment
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.port is not None
     ):
         raise ValueError(f"Unsupported Safari smoke target: {url}")
     return url.rstrip("/")
@@ -252,6 +273,29 @@ def storage_snapshot(driver: SafariDriver) -> dict[str, Any]:
     return value
 
 
+def wait_for_remote_readiness(driver: SafariDriver) -> dict[str, Any]:
+    try:
+        return wait_until(
+            lambda: page_snapshot(driver),
+            lambda snapshot: (
+                snapshot.get("readyState") == "complete"
+                and snapshot.get("cameraPresent") is True
+                and snapshot.get("cameraDisabled") is False
+                and snapshot.get("filePresent") is True
+                and snapshot.get("fileDisabled") is False
+            ),
+            "remote readiness controls",
+            timeout=90,
+        )
+    except TimeoutError:
+        snapshot = page_snapshot(driver)
+        body = str(snapshot.get("bodyText", ""))
+        matched = next((message for message in REMOTE_READINESS_MESSAGES if message in body), None)
+        if matched:
+            raise RemoteReadinessUnavailable(matched, snapshot) from None
+        raise
+
+
 def run_smoke(target_url: str, artifacts: Path) -> dict[str, Any]:
     artifacts.mkdir(parents=True, exist_ok=True)
     driver = SafariDriver()
@@ -270,18 +314,7 @@ def run_smoke(target_url: str, artifacts: Path) -> dict[str, Any]:
             driver.start()
             driver.navigate(target_url)
 
-            readiness = wait_until(
-                lambda: page_snapshot(driver),
-                lambda snapshot: (
-                    snapshot.get("readyState") == "complete"
-                    and snapshot.get("cameraPresent") is True
-                    and snapshot.get("cameraDisabled") is False
-                    and snapshot.get("filePresent") is True
-                    and snapshot.get("fileDisabled") is False
-                ),
-                "remote readiness controls",
-                timeout=90,
-            )
+            readiness = wait_for_remote_readiness(driver)
             if readiness.get("hasManifest") is not True:
                 raise AssertionError("Manifest link is missing.")
             checks["readiness"] = "PASS"
@@ -301,7 +334,8 @@ def run_smoke(target_url: str, artifacts: Path) -> dict[str, Any]:
             click_button(driver, "Bild verwerfen")
             wait_until(
                 lambda: page_snapshot(driver),
-                lambda snapshot: "Normalisiertes JPEG:" not in str(snapshot.get("bodyText", "")),
+                lambda snapshot: "Normalisiertes JPEG:"
+                not in str(snapshot.get("bodyText", "")),
                 "prepared-image reset",
             )
 
@@ -359,12 +393,24 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--target-url", required=True)
     parser.add_argument("--artifacts", required=True, type=Path)
+    parser.add_argument("--allow-inconclusive-remote-readiness", action="store_true")
     args = parser.parse_args()
 
     target_url = validate_target(args.target_url)
     result_path = args.artifacts / "result.json"
     try:
         result = run_smoke(target_url, args.artifacts)
+    except RemoteReadinessUnavailable as error:
+        inconclusive = {
+            "targetUrl": target_url,
+            "status": "INCONCLUSIVE_REMOTE_READINESS",
+            "reason": str(error),
+            "snapshot": error.snapshot,
+        }
+        args.artifacts.mkdir(parents=True, exist_ok=True)
+        result_path.write_text(json.dumps(inconclusive, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps(inconclusive, indent=2))
+        return 0 if args.allow_inconclusive_remote_readiness else 1
     except Exception as error:  # noqa: BLE001 - emit a safe top-level failure report
         failure = {
             "targetUrl": target_url,
