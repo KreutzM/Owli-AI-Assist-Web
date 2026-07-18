@@ -44,18 +44,6 @@ jobs:
       - name: Run lint
         run: pnpm lint
 
-      - name: Materialize ESLint report for Safari fix
-        if: failure()
-        run: pnpm exec eslint . --format json --output-file lint-report.json || true
-
-      - name: Upload ESLint report for Safari fix
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: safari-fix-eslint-report
-          path: lint-report.json
-          retention-days: 1
-
       - name: Run typecheck
         run: pnpm typecheck
 
