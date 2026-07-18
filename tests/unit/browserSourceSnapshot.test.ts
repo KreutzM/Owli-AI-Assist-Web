@@ -42,11 +42,7 @@ describe('snapshotSceneSource', () => {
     const snapshot = await snapshotPromise;
     expect(snapshot).not.toBe(source);
     expect(snapshot.type).toBe('image/jpeg');
-    expect(Array.from(new Uint8Array(await snapshot.arrayBuffer()))).toEqual([
-      0xff,
-      0xd8,
-      0xff,
-    ]);
+    expect(Array.from(new Uint8Array(await snapshot.arrayBuffer()))).toEqual([0xff, 0xd8, 0xff]);
   });
 
   it('maps FileReader failures to a recoverable source-read error', async () => {
