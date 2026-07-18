@@ -47,18 +47,6 @@ jobs:
       - name: Run typecheck
         run: pnpm typecheck
 
-      - name: Materialize TypeScript report for Safari fix
-        if: failure()
-        run: pnpm typecheck > typecheck-report.txt 2>&1 || true
-
-      - name: Upload TypeScript report for Safari fix
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: safari-fix-typecheck-report
-          path: typecheck-report.txt
-          retention-days: 1
-
       - name: Run architecture guardrails
         run: pnpm guardrails
 
