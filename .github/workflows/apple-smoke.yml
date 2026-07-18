@@ -1,0 +1,153 @@
+name: Apple browser smoke (manual)
+
+# GitHub-hosted macOS minutes are substantially more expensive than Linux minutes.
+# Keep this workflow manual-only and choose the narrowest suite needed.
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Apple test suite to run
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - webkit
+          - safari
+      target_url:
+        description: Approved staging custom domain or Cloudflare Pages preview URL
+        required: true
+        default: https://assist-staging.owli-ai.com
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apple-smoke-${{ github.ref }}-${{ inputs.suite }}
+  cancel-in-progress: true
+
+env:
+  TARGET_URL: ${{ inputs.target_url }}
+
+jobs:
+  webkit:
+    name: macOS Playwright WebKit
+    if: ${{ inputs.suite == 'all' || inputs.suite == 'webkit' }}
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate staging target
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          from urllib.parse import urlparse
+
+          url = os.environ['TARGET_URL']
+          parsed = urlparse(url)
+          host = parsed.hostname or ''
+          allowed = (
+              parsed.scheme == 'https'
+              and parsed.path in ('', '/')
+              and not parsed.query
+              and not parsed.fragment
+              and (
+                  host == 'assist-staging.owli-ai.com'
+                  or host.endswith('.owli-ai-assist-web.pages.dev')
+              )
+          )
+          if not allowed:
+              raise SystemExit(f'Unsupported Apple smoke target: {url}')
+          print(f'Approved target: {url}')
+          PY
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright WebKit only
+        run: pnpm exec playwright install webkit
+
+      - name: Run iPhone-profile WebKit matrix on macOS
+        run: pnpm exec playwright test --project=webkit
+
+      - name: Run built-staging WebKit matrix on macOS
+        run: pnpm exec playwright test --config=playwright.staging.config.ts --project=webkit-staging
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-webkit-report-${{ github.run_id }}
+          path: playwright-report/
+          retention-days: 7
+
+  safari:
+    name: macOS desktop Safari staging smoke
+    if: ${{ inputs.suite == 'all' || inputs.suite == 'safari' }}
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Show Apple runner versions
+        shell: bash
+        run: |
+          sw_vers
+          safaridriver --version
+          python3 --version
+
+      - name: Enable and start SafariDriver
+        shell: bash
+        run: |
+          sudo safaridriver --enable
+          mkdir -p "$RUNNER_TEMP/apple-safari"
+          safaridriver -p 4444 > "$RUNNER_TEMP/apple-safari/safaridriver.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/apple-safari/safaridriver.pid"
+          for attempt in {1..30}; do
+            if curl --silent --fail http://127.0.0.1:4444/status > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/apple-safari/safaridriver.log"
+          exit 1
+
+      - name: Run real desktop Safari smoke
+        shell: bash
+        run: |
+          python3 tools/safari-smoke.py \
+            --target-url "$TARGET_URL" \
+            --artifacts "$RUNNER_TEMP/apple-safari"
+
+      - name: Stop SafariDriver
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/apple-safari/safaridriver.pid" ]]; then
+            kill "$(cat "$RUNNER_TEMP/apple-safari/safaridriver.pid")" || true
+          fi
+
+      - name: Upload Safari diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-safari-diagnostics-${{ github.run_id }}
+          path: ${{ runner.temp }}/apple-safari/
+          retention-days: 7
