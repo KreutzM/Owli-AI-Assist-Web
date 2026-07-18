@@ -20,9 +20,11 @@ on:
         required: true
         default: https://assist-staging.owli-ai.com
         type: string
-  issue_comment:
-    types:
-      - created
+  push:
+    branches:
+      - ci/apple-smoke-requests
+    paths:
+      - .github/apple-smoke-request.json
 
 permissions:
   contents: read
@@ -30,7 +32,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: apple-smoke-${{ github.event.comment.id || github.actor }}
+  group: apple-smoke-${{ github.event_name }}-${{ github.actor }}
   cancel-in-progress: true
 
 jobs:
@@ -44,19 +46,19 @@ jobs:
       checkout_ref: ${{ steps.request.outputs.checkout_ref }}
       pr_number: ${{ steps.request.outputs.pr_number }}
     steps:
-      - name: Resolve manual dispatch or owner PR command
+      - name: Check out connector request
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/checkout@v4
+
+      - name: Resolve manual dispatch or connector request
         id: request
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
           MANUAL_SUITE: ${{ inputs.suite }}
           MANUAL_TARGET_URL: ${{ inputs.target_url }}
-          COMMENT_BODY: ${{ github.event.comment.body }}
-          COMMENT_ASSOCIATION: ${{ github.event.comment.author_association }}
-          COMMENT_LOGIN: ${{ github.event.comment.user.login }}
-          REPOSITORY_OWNER: ${{ github.repository_owner }}
-          IS_PULL_REQUEST: ${{ github.event.issue.pull_request != null }}
-          PR_NUMBER: ${{ github.event.issue.number }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -80,30 +82,34 @@ jobs:
             suite="$MANUAL_SUITE"
             target_url="$MANUAL_TARGET_URL"
           else
-            if [[ "$IS_PULL_REQUEST" != 'true' ]]; then
-              emit_outputs
-              exit 0
-            fi
-            if [[ "$COMMENT_ASSOCIATION" != 'OWNER' || "$COMMENT_LOGIN" != "$REPOSITORY_OWNER" ]]; then
-              emit_outputs
-              exit 0
-            fi
-            if [[ ! "$COMMENT_BODY" =~ ^/apple-smoke[[:space:]]+(all|webkit|safari|safari-jpeg)[[:space:]]+(https://[^[:space:]]+)[[:space:]]*$ ]]; then
+            if [[ "$ACTOR" != "$REPOSITORY_OWNER" ]]; then
               emit_outputs
               exit 0
             fi
 
-            suite="${BASH_REMATCH[1]}"
-            target_url="${BASH_REMATCH[2]}"
-            pr_number="$PR_NUMBER"
+            request_file='.github/apple-smoke-request.json'
+            test -f "$request_file"
+            suite="$(jq -er '.suite' "$request_file")"
+            target_url="$(jq -er '.targetUrl' "$request_file")"
+            pr_number="$(jq -er '.prNumber | tostring' "$request_file")"
+            expected_head="$(jq -er '.expectedHead' "$request_file")"
 
-            pr_json="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
+            if [[ ! "$suite" =~ ^(all|webkit|safari|safari-jpeg)$ ]]; then
+              raise='Unsupported Apple smoke suite'
+              echo "$raise: $suite" >&2
+              exit 1
+            fi
+            if [[ ! "$pr_number" =~ ^[0-9]+$ || ! "$expected_head" =~ ^[0-9a-f]{40}$ ]]; then
+              echo 'Invalid PR number or expected head in Apple smoke request.' >&2
+              exit 1
+            fi
+
+            pr_json="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}")"
             head_repository="$(jq -r '.head.repo.full_name' <<< "$pr_json")"
             checkout_ref="$(jq -r '.head.sha' <<< "$pr_json")"
-            if [[ "$head_repository" != "$GITHUB_REPOSITORY" || ! "$checkout_ref" =~ ^[0-9a-f]{40}$ ]]; then
-              authorized=false
-              emit_outputs
-              exit 0
+            if [[ "$head_repository" != "$GITHUB_REPOSITORY" || "$checkout_ref" != "$expected_head" ]]; then
+              echo 'Apple smoke request does not match the current same-repository PR head.' >&2
+              exit 1
             fi
             authorized=true
           fi
@@ -135,9 +141,9 @@ jobs:
           emit_outputs
 
   acknowledge:
-    name: Publish accepted command
+    name: Publish accepted connector request
     needs: prepare
-    if: ${{ github.event_name == 'issue_comment' && needs.prepare.outputs.authorized == 'true' }}
+    if: ${{ github.event_name == 'push' && needs.prepare.outputs.authorized == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Comment with run identifier
@@ -151,7 +157,7 @@ jobs:
         run: |
           body="$(cat <<EOF
           <!-- apple-smoke-run:${GITHUB_RUN_ID}:started -->
-          Apple smoke command accepted.
+          Apple smoke connector request accepted.
 
           - Run ID: \`${GITHUB_RUN_ID}\`
           - Suite: \`${SUITE}\`
@@ -310,7 +316,7 @@ jobs:
       - prepare
       - webkit
       - safari
-    if: ${{ always() && github.event_name == 'issue_comment' && needs.prepare.outputs.authorized == 'true' }}
+    if: ${{ always() && github.event_name == 'push' && needs.prepare.outputs.authorized == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Comment with final result
