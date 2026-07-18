@@ -83,7 +83,7 @@ jobs:
 
           # Keep this single-character switch at 0 while preparing the branch. The final
           # enabling commit flips it to 1 without changing the generated repository index.
-          macos_enabled='1'
+          macos_enabled='0'
 
           if [[ "$EVENT_NAME" == 'workflow_dispatch' ]]; then
             suite="$MANUAL_SUITE"
