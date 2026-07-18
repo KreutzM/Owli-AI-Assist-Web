@@ -24,7 +24,9 @@ describe('snapshotSceneSource', () => {
       readAsArrayBuffer = vi.fn((file: Blob) => {
         expect(file).toBe(source);
         this.result = new Uint8Array([0xff, 0xd8, 0xff]).buffer;
-        queueMicrotask(() => this.onload?.call(this as unknown as FileReader, new ProgressEvent('load')));
+        queueMicrotask(() =>
+          this.onload?.call(this as unknown as FileReader, new ProgressEvent('load')),
+        );
       });
 
       constructor() {
@@ -40,7 +42,11 @@ describe('snapshotSceneSource', () => {
     const snapshot = await snapshotPromise;
     expect(snapshot).not.toBe(source);
     expect(snapshot.type).toBe('image/jpeg');
-    expect(Array.from(new Uint8Array(await snapshot.arrayBuffer()))).toEqual([0xff, 0xd8, 0xff]);
+    expect(Array.from(new Uint8Array(await snapshot.arrayBuffer()))).toEqual([
+      0xff,
+      0xd8,
+      0xff,
+    ]);
   });
 
   it('maps FileReader failures to a recoverable source-read error', async () => {
