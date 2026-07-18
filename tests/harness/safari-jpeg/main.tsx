@@ -22,20 +22,17 @@ const readiness: RemoteReadiness = {
 };
 
 const localClient = {
-  initialize: async () => readiness,
-  refreshCatalog: async () => readiness,
-  describeScene: async () => {
-    throw new Error('Scene requests are disabled in the local Safari JPEG harness.');
-  },
+  initialize: () => Promise.resolve(readiness),
+  refreshCatalog: () => Promise.resolve(readiness),
+  describeScene: () =>
+    Promise.reject(new Error('Scene requests are disabled in the local Safari JPEG harness.')),
 } as unknown as RemoteAssistClient;
 
 const disabledCamera = {
-  start: async () => {
-    throw new Error('Camera access is disabled in the local Safari JPEG harness.');
-  },
-  capture: async () => {
-    throw new Error('Camera capture is disabled in the local Safari JPEG harness.');
-  },
+  start: () =>
+    Promise.reject(new Error('Camera access is disabled in the local Safari JPEG harness.')),
+  capture: () =>
+    Promise.reject(new Error('Camera capture is disabled in the local Safari JPEG harness.')),
   stop: () => undefined,
 } as unknown as RemoteCamera;
 
