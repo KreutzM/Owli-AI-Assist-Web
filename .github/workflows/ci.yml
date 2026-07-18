@@ -41,29 +41,6 @@ jobs:
       - name: Check formatting
         run: pnpm format:check
 
-      - name: Materialize Prettier output for Safari fix files
-        if: failure()
-        run: |
-          pnpm exec prettier --write \
-            src/core/image/sceneImageInspection.ts \
-            src/features/remote/remoteSceneErrors.ts \
-            src/platform/image/browserSceneImageNormalizer.ts \
-            src/platform/image/browserSourceSnapshot.ts \
-            tests/unit/browserSourceSnapshot.test.ts
-
-      - name: Upload formatted Safari fix files
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: formatted-safari-fix-files
-          path: |
-            src/core/image/sceneImageInspection.ts
-            src/features/remote/remoteSceneErrors.ts
-            src/platform/image/browserSceneImageNormalizer.ts
-            src/platform/image/browserSourceSnapshot.ts
-            tests/unit/browserSourceSnapshot.test.ts
-          retention-days: 1
-
       - name: Run lint
         run: pnpm lint
 
