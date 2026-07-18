@@ -1,7 +1,7 @@
 name: Apple browser smoke
 
 # macOS runners are substantially more expensive than Linux runners.
-# Run automatically only for PRs that touch Apple/browser-sensitive paths.
+# Run automatically only for PRs that touch Apple/browser-sensitive paths, and gate them on Web CI.
 on:
   workflow_dispatch:
     inputs:
@@ -27,17 +27,26 @@ on:
       - reopened
       - ready_for_review
     paths:
+      - .github/workflows/apple-smoke.yml
+      - .github/workflows/ci.yml
+      - src/app/**
+      - src/core/api/**
       - src/core/image/**
+      - src/features/remote/**
+      - src/features/scene/**
       - src/platform/camera/**
       - src/platform/image/**
-      - src/features/scene/**
       - tests/**
+      - tools/build-web.mjs
       - tools/safari*.py
+      - tools/serve-built-web.mjs
       - playwright*.ts
+      - vite.safari-jpeg.config.mjs
       - package.json
       - pnpm-lock.yaml
 
 permissions:
+  actions: read
   contents: read
   issues: read
   pull-requests: read
@@ -48,14 +57,17 @@ concurrency:
 
 jobs:
   prepare:
-    name: Resolve exact PR preview
+    name: Gate exact PR revision
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     outputs:
       suite: ${{ steps.request.outputs.suite }}
       target_url: ${{ steps.request.outputs.target_url }}
       checkout_ref: ${{ steps.request.outputs.checkout_ref }}
+      web_ci_run_id: ${{ steps.request.outputs.web_ci_run_id }}
+      macos_enabled: ${{ steps.request.outputs.macos_enabled }}
     steps:
-      - name: Resolve manual target or exact PR preview
+      - name: Gate free CI and resolve optional live target
         id: request
         shell: bash
         env:
@@ -69,26 +81,80 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Keep this single-character switch at 0 while preparing the branch. The final
+          # enabling commit flips it to 1 without changing the generated repository index.
+          macos_enabled='0'
+
           if [[ "$EVENT_NAME" == 'workflow_dispatch' ]]; then
             suite="$MANUAL_SUITE"
             target_url="$MANUAL_TARGET_URL"
             checkout_ref="$GITHUB_SHA"
+            web_ci_run_id='manual'
           else
             if [[ "$PR_HEAD_REPOSITORY" != "$GITHUB_REPOSITORY" ]]; then
-              echo 'Apple smoke PR CI accepts same-repository branches only.' >&2
+              echo 'Apple PR CI accepts same-repository branches only.' >&2
               exit 1
             fi
 
             suite='all'
-            checkout_ref="$PR_HEAD_SHA"
-            short_head="${checkout_ref:0:7}"
             target_url=''
+            checkout_ref="$PR_HEAD_SHA"
+            web_ci_run_id=''
 
-            for attempt in {1..60}; do
-              comments_file="$RUNNER_TEMP/pr-comments.json"
-              gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments?per_page=100" > "$comments_file"
+            if [[ "$macos_enabled" != '1' ]]; then
+              printf 'suite=%s\n' "$suite" >> "$GITHUB_OUTPUT"
+              printf 'target_url=%s\n' "$target_url" >> "$GITHUB_OUTPUT"
+              printf 'checkout_ref=%s\n' "$checkout_ref" >> "$GITHUB_OUTPUT"
+              printf 'web_ci_run_id=%s\n' "$web_ci_run_id" >> "$GITHUB_OUTPUT"
+              printf 'macos_enabled=%s\n' "$macos_enabled" >> "$GITHUB_OUTPUT"
+              echo 'macOS jobs remain intentionally disabled while free CI is being prepared.'
+              exit 0
+            fi
 
-              target_url="$(python3 - "$comments_file" "$short_head" <<'PY'
+            runs_file="$RUNNER_TEMP/web-ci-runs.json"
+            for attempt in {1..120}; do
+              gh api \
+                -H 'Accept: application/vnd.github+json' \
+                "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${checkout_ref}&event=pull_request&per_page=100" \
+                > "$runs_file"
+
+              read -r web_ci_run_id web_ci_status web_ci_conclusion < <(
+                python3 - "$runs_file" "$checkout_ref" <<'PY'
+          import json
+          import sys
+
+          runs_path, expected_head = sys.argv[1:]
+          with open(runs_path, encoding='utf-8') as handle:
+              runs = json.load(handle).get('workflow_runs', [])
+          matches = [
+              run
+              for run in runs
+              if run.get('name') == 'Web CI' and run.get('head_sha') == expected_head
+          ]
+          matches.sort(key=lambda run: run.get('created_at', ''), reverse=True)
+          run = matches[0] if matches else {}
+          print(run.get('id', ''), run.get('status', ''), run.get('conclusion', ''))
+          PY
+              )
+
+              if [[ "$web_ci_status" == 'completed' && "$web_ci_conclusion" == 'success' ]]; then
+                break
+              fi
+              if [[ "$web_ci_status" == 'completed' && -n "$web_ci_conclusion" ]]; then
+                echo "Web CI run ${web_ci_run_id:-unknown} concluded ${web_ci_conclusion}; macOS jobs will not start." >&2
+                exit 1
+              fi
+              if [[ "$attempt" == '120' ]]; then
+                echo "Timed out waiting for successful Web CI on exact head $checkout_ref." >&2
+                exit 1
+              fi
+              sleep 15
+            done
+
+            short_head="${checkout_ref:0:7}"
+            comments_file="$RUNNER_TEMP/pr-comments.json"
+            gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments?per_page=100" > "$comments_file"
+            target_url="$(python3 - "$comments_file" "$short_head" <<'PY'
           import json
           import re
           import sys
@@ -110,20 +176,11 @@ jobs:
                   print(match.group(0))
                   break
           PY
-              )"
-
-              if [[ -n "$target_url" ]]; then
-                break
-              fi
-              if [[ "$attempt" == '60' ]]; then
-                echo "No successful Cloudflare Pages preview found for PR head $checkout_ref." >&2
-                exit 1
-              fi
-              sleep 10
-            done
+            )"
           fi
 
-          python3 - "$target_url" <<'PY'
+          if [[ -n "$target_url" ]]; then
+            python3 - "$target_url" <<'PY'
           import sys
           from urllib.parse import urlparse
 
@@ -146,23 +203,27 @@ jobs:
           if not allowed:
               raise SystemExit(f'Unsupported Apple smoke target: {url}')
           PY
+          fi
 
           printf 'suite=%s\n' "$suite" >> "$GITHUB_OUTPUT"
           printf 'target_url=%s\n' "$target_url" >> "$GITHUB_OUTPUT"
           printf 'checkout_ref=%s\n' "$checkout_ref" >> "$GITHUB_OUTPUT"
+          printf 'web_ci_run_id=%s\n' "$web_ci_run_id" >> "$GITHUB_OUTPUT"
+          printf 'macos_enabled=%s\n' "$macos_enabled" >> "$GITHUB_OUTPUT"
 
           echo "Suite: $suite"
           echo "Exact checkout: $checkout_ref"
-          echo "Target: $target_url"
+          echo "Free Web CI run: $web_ci_run_id"
+          echo "Optional live target: ${target_url:-not available}"
 
   webkit:
     name: macOS Playwright WebKit
     needs: prepare
-    if: ${{ needs.prepare.outputs.suite == 'all' || needs.prepare.outputs.suite == 'webkit' }}
+    if: >-
+      ${{ needs.prepare.outputs.macos_enabled == '1' &&
+          (needs.prepare.outputs.suite == 'all' || needs.prepare.outputs.suite == 'webkit') }}
     runs-on: macos-15
     timeout-minutes: 35
-    env:
-      TARGET_URL: ${{ needs.prepare.outputs.target_url }}
     steps:
       - name: Check out exact requested revision
         uses: actions/checkout@v4
@@ -204,9 +265,13 @@ jobs:
   safari:
     name: macOS desktop Safari
     needs: prepare
-    if: ${{ needs.prepare.outputs.suite == 'all' || needs.prepare.outputs.suite == 'safari' || needs.prepare.outputs.suite == 'safari-jpeg' }}
+    if: >-
+      ${{ needs.prepare.outputs.macos_enabled == '1' &&
+          (needs.prepare.outputs.suite == 'all' ||
+           needs.prepare.outputs.suite == 'safari' ||
+           needs.prepare.outputs.suite == 'safari-jpeg') }}
     runs-on: macos-15
-    timeout-minutes: 25
+    timeout-minutes: 35
     env:
       TARGET_URL: ${{ needs.prepare.outputs.target_url }}
       SUITE: ${{ needs.prepare.outputs.suite }}
@@ -216,19 +281,58 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Show Apple runner versions
         shell: bash
         run: |
           sw_vers
           safaridriver --version
           python3 --version
+          node --version
+
+      - name: Build deterministic Safari JPEG harness
+        if: ${{ env.SUITE == 'safari-jpeg' || env.SUITE == 'all' }}
+        run: pnpm build:safari-jpeg-harness
+
+      - name: Start local HTTPS harness
+        if: ${{ env.SUITE == 'safari-jpeg' || env.SUITE == 'all' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/apple-safari/jpeg" "$RUNNER_TEMP/apple-safari/live"
+          node tools/serve-built-web.mjs --https --port 4180 \
+            > "$RUNNER_TEMP/apple-safari/jpeg/local-https-server.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/apple-safari/local-https-server.pid"
+          for attempt in {1..30}; do
+            if curl --silent --fail --insecure https://127.0.0.1:4180/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/apple-safari/jpeg/local-https-server.log"
+          exit 1
 
       - name: Enable and start SafariDriver
         shell: bash
         run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/apple-safari/jpeg" "$RUNNER_TEMP/apple-safari/live"
           sudo safaridriver --enable
-          mkdir -p "$RUNNER_TEMP/apple-safari"
-          safaridriver -p 4444 > "$RUNNER_TEMP/apple-safari/safaridriver.log" 2>&1 &
+          safaridriver -p 4444 > "$RUNNER_TEMP/apple-safari/jpeg/safaridriver.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/apple-safari/safaridriver.pid"
           for attempt in {1..30}; do
             if curl --silent --fail http://127.0.0.1:4444/status > /dev/null; then
@@ -236,42 +340,65 @@ jobs:
             fi
             sleep 1
           done
-          cat "$RUNNER_TEMP/apple-safari/safaridriver.log"
+          cat "$RUNNER_TEMP/apple-safari/jpeg/safaridriver.log"
           exit 1
 
-      - name: Run real desktop Safari smoke
-        if: ${{ env.SUITE != 'safari-jpeg' }}
-        shell: bash
-        run: |
-          python3 tools/safari-smoke.py \
-            --target-url "$TARGET_URL" \
-            --artifacts "$RUNNER_TEMP/apple-safari"
-
-      - name: Run Safari JPEG diagnostic when available
+      - name: Run deterministic local Safari JPEG gate
         if: ${{ env.SUITE == 'safari-jpeg' || env.SUITE == 'all' }}
         shell: bash
+        env:
+          TESTED_REVISION: ${{ needs.prepare.outputs.checkout_ref }}
         run: |
-          if [[ -f tools/safari-jpeg-diagnostic-v2.py ]]; then
-            python3 tools/safari-jpeg-diagnostic-v2.py \
-              --target-url "$TARGET_URL" \
-              --artifacts "$RUNNER_TEMP/apple-safari"
-          elif [[ "$SUITE" == 'safari-jpeg' ]]; then
-            echo 'Requested Safari JPEG diagnostic is not present in this revision.' >&2
-            exit 1
-          fi
+          python3 tools/safari-jpeg-diagnostic-v2.py \
+            --target-url https://127.0.0.1:4180 \
+            --artifacts "$RUNNER_TEMP/apple-safari/jpeg"
 
-      - name: Stop SafariDriver
+      - name: Run optional live Safari smoke
+        if: ${{ always() && (env.SUITE == 'safari' || env.SUITE == 'all') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/apple-safari/live"
+          if [[ -z "$TARGET_URL" ]]; then
+            cat > "$RUNNER_TEMP/apple-safari/live/result.json" <<'JSON'
+          {
+            "status": "INCONCLUSIVE_REMOTE_READINESS",
+            "reason": "No immutable Cloudflare Pages preview was available for the exact PR head."
+          }
+          JSON
+            cat "$RUNNER_TEMP/apple-safari/live/result.json"
+            exit 0
+          fi
+          python3 tools/safari-smoke.py \
+            --target-url "$TARGET_URL" \
+            --artifacts "$RUNNER_TEMP/apple-safari/live" \
+            --allow-inconclusive-remote-readiness
+
+      - name: Stop local browser services
         if: always()
         shell: bash
         run: |
           if [[ -f "$RUNNER_TEMP/apple-safari/safaridriver.pid" ]]; then
             kill "$(cat "$RUNNER_TEMP/apple-safari/safaridriver.pid")" || true
           fi
+          if [[ -f "$RUNNER_TEMP/apple-safari/local-https-server.pid" ]]; then
+            kill "$(cat "$RUNNER_TEMP/apple-safari/local-https-server.pid")" || true
+          fi
 
-      - name: Upload Safari diagnostics
+      - name: Upload deterministic Safari JPEG diagnostic
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: apple-safari-diagnostics-${{ github.run_id }}
-          path: ${{ runner.temp }}/apple-safari/
+          name: apple-safari-jpeg-diagnostic-${{ github.run_id }}
+          path: ${{ runner.temp }}/apple-safari/jpeg/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload optional live Safari smoke
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-safari-live-smoke-${{ github.run_id }}
+          path: ${{ runner.temp }}/apple-safari/live/
+          if-no-files-found: warn
           retention-days: 7
