@@ -1,16 +1,18 @@
 name: PR 32 cleanup
 
 on:
-  push:
-    branches:
-      - agent/remove-legacy-safari-diagnostic
+  pull_request:
+    types:
+      - synchronize
+    paths:
+      - .github/workflows/pr32-cleanup.yml
 
 permissions:
   contents: write
 
 jobs:
   cleanup:
-    if: github.actor != 'github-actions[bot]'
+    if: github.head_ref == 'agent/remove-legacy-safari-diagnostic'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -38,56 +40,119 @@ jobs:
       - name: Apply requested cleanup
         shell: bash
         run: |
+          set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
 
           canonical = Path('tools/safari-jpeg-diagnostic.py')
           source = canonical.read_text(encoding='utf-8')
-          padding_marker = '\n# Compatibility note:'
-          if padding_marker not in source:
+          marker = '\n# Compatibility note:'
+          if marker not in source:
               raise SystemExit('Expected byte-size padding marker was not found.')
-          canonical.write_text(source.split(padding_marker, 1)[0].rstrip() + '\n', encoding='utf-8')
+          canonical.write_text(source.split(marker, 1)[0].rstrip() + '\n', encoding='utf-8')
 
           duplicate = Path('tools/safari-jpeg-diagnostic-v2.py')
           if not duplicate.is_file():
               raise SystemExit('Expected duplicate Safari diagnostic was not found.')
           duplicate.unlink()
 
-          ci = Path('.github/workflows/ci.yml')
-          ci_source = ci.read_text(encoding='utf-8')
-          old_ci = 'python3 -m py_compile tools/safari-smoke.py tools/safari-jpeg-diagnostic.py tools/safari-jpeg-diagnostic-v2.py'
-          new_ci = 'python3 -m py_compile tools/safari-smoke.py tools/safari-jpeg-diagnostic.py'
-          if old_ci not in ci_source:
-              raise SystemExit('Expected CI diagnostic command was not found.')
-          ci.write_text(ci_source.replace(old_ci, new_ci), encoding='utf-8')
-
           apple = Path('.github/workflows/apple-smoke.yml')
           apple_source = apple.read_text(encoding='utf-8')
-          old_apple = 'python3 tools/safari-jpeg-diagnostic-v2.py \\\'
-          new_apple = 'python3 tools/safari-jpeg-diagnostic.py \\\'
-          if old_apple not in apple_source:
-              raise SystemExit('Expected Apple diagnostic command was not found.')
-          apple.write_text(apple_source.replace(old_apple, new_apple), encoding='utf-8')
+          if apple_source.count('safari-jpeg-diagnostic-v2.py') != 1:
+              raise SystemExit('Expected exactly one Apple v2 reference.')
+          apple.write_text(
+              apple_source.replace('safari-jpeg-diagnostic-v2.py', 'safari-jpeg-diagnostic.py'),
+              encoding='utf-8',
+          )
+
+          ci = Path('.github/workflows/ci.yml')
+          ci_source = ci.read_text(encoding='utf-8')
+          begin = '\n  # BEGIN ONE-OFF PR32 CLEANUP\n'
+          end = '\n  # END ONE-OFF PR32 CLEANUP\n'
+          if begin not in ci_source or end not in ci_source:
+              raise SystemExit('Expected one-off cleanup markers were not found.')
+          before, remainder = ci_source.split(begin, 1)
+          _, after = remainder.split(end, 1)
+          ci_source = before.rstrip() + '\n' + after.lstrip()
+          old = 'python3 -m py_compile tools/safari-smoke.py tools/safari-jpeg-diagnostic.py tools/safari-jpeg-diagnostic-v2.py'
+          new = 'python3 -m py_compile tools/safari-smoke.py tools/safari-jpeg-diagnostic.py'
+          if old not in ci_source:
+              raise SystemExit('Expected CI v2 reference was not found.')
+          ci.write_text(ci_source.replace(old, new), encoding='utf-8')
 
           Path('.github/workflows/pr32-cleanup.yml').unlink()
           PY
-
-      - name: Regenerate repository index
-        run: pnpm ai:index
-
-      - name: Validate cleanup
-        shell: bash
-        run: |
+          pnpm ai:index
           python3 -m py_compile tools/safari-smoke.py tools/safari-jpeg-diagnostic.py
           test ! -e tools/safari-jpeg-diagnostic-v2.py
           ! grep -R --line-number --fixed-strings 'safari-jpeg-diagnostic-v2.py' .github tools .ai
           git diff --check
 
-      - name: Commit cleanup
+      - name: Commit atomically through Git database API
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
-          git commit -m 'fix(safari): remove duplicate diagnostic entry'
-          git push origin HEAD:agent/remove-legacy-safari-diagnostic
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          repo = os.environ['GITHUB_REPOSITORY']
+          branch = 'agent/remove-legacy-safari-diagnostic'
+
+          def gh(method, endpoint, payload=None):
+              command = ['gh', 'api', '--method', method, endpoint]
+              if payload is not None:
+                  command += ['--input', '-']
+              result = subprocess.run(
+                  command,
+                  input=json.dumps(payload) if payload is not None else None,
+                  text=True,
+                  check=True,
+                  capture_output=True,
+              )
+              return json.loads(result.stdout) if result.stdout.strip() else {}
+
+          ref = gh('GET', f'repos/{repo}/git/ref/heads/{branch}')
+          parent = ref['object']['sha']
+          commit = gh('GET', f'repos/{repo}/git/commits/{parent}')
+          entries = []
+          for path in (
+              'tools/safari-jpeg-diagnostic.py',
+              '.github/workflows/apple-smoke.yml',
+              '.github/workflows/ci.yml',
+              '.ai/file-tree.md',
+              '.ai/repo-index.json',
+          ):
+              content = base64.b64encode(Path(path).read_bytes()).decode('ascii')
+              blob = gh('POST', f'repos/{repo}/git/blobs', {'content': content, 'encoding': 'base64'})
+              entries.append({'path': path, 'mode': '100644', 'type': 'blob', 'sha': blob['sha']})
+          entries.extend((
+              {'path': 'tools/safari-jpeg-diagnostic-v2.py', 'mode': '100644', 'type': 'blob', 'sha': None},
+              {'path': '.github/workflows/pr32-cleanup.yml', 'mode': '100644', 'type': 'blob', 'sha': None},
+          ))
+          tree = gh(
+              'POST',
+              f'repos/{repo}/git/trees',
+              {'base_tree': commit['tree']['sha'], 'tree': entries},
+          )
+          new_commit = gh(
+              'POST',
+              f'repos/{repo}/git/commits',
+              {
+                  'message': 'fix(safari): remove duplicate diagnostic entry',
+                  'tree': tree['sha'],
+                  'parents': [parent],
+              },
+          )
+          gh(
+              'PATCH',
+              f'repos/{repo}/git/refs/heads/{branch}',
+              {'sha': new_commit['sha'], 'force': False},
+          )
+          print(new_commit['sha'])
+          PY
