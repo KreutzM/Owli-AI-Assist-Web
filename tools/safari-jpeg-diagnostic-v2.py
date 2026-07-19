@@ -21,6 +21,19 @@ def load_diagnostic_module() -> Any:
 
 
 DIAGNOSTIC = load_diagnostic_module()
+ORIGINAL_TEMPORARY_DIRECTORY = DIAGNOSTIC.tempfile.TemporaryDirectory
+
+
+def safari_fixture_directory(*args: Any, **kwargs: Any) -> Any:
+    downloads = Path.home() / "Downloads"
+    downloads.mkdir(parents=True, exist_ok=True)
+    kwargs.setdefault("dir", downloads)
+    directory = ORIGINAL_TEMPORARY_DIRECTORY(*args, **kwargs)
+    Path(directory.name).chmod(0o755)
+    return directory
+
+
+DIAGNOSTIC.tempfile.TemporaryDirectory = safari_fixture_directory
 
 
 def install_file_capture(driver: Any) -> None:
