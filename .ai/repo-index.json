@@ -297,7 +297,7 @@
     },
     {
       "path": "src/platform/image/browserSourceSnapshot.ts",
-      "bytes": 1135,
+      "bytes": 1360,
       "area": "src"
     },
     {
@@ -360,7 +360,7 @@
     },
     {
       "path": "tests/unit/browserSourceSnapshot.test.ts",
-      "bytes": 2890,
+      "bytes": 3138,
       "area": "tests"
     },
     {
