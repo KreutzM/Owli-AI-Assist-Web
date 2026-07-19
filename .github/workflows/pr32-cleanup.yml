@@ -20,7 +20,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: agent/remove-legacy-safari-diagnostic
-          fetch-depth: 0
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -37,7 +36,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Apply requested cleanup
+      - name: Generate final cleanup files
         shell: bash
         run: |
           set -euo pipefail
@@ -88,12 +87,11 @@ jobs:
           ! grep -R --line-number --fixed-strings 'safari-jpeg-diagnostic-v2.py' .github tools .ai
           git diff --check
 
-      - name: Commit atomically through Git database API
+      - name: Create final Git blobs
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
           python3 - <<'PY'
           import base64
           import json
@@ -102,25 +100,7 @@ jobs:
           from pathlib import Path
 
           repo = os.environ['GITHUB_REPOSITORY']
-          branch = 'agent/remove-legacy-safari-diagnostic'
-
-          def gh(method, endpoint, payload=None):
-              command = ['gh', 'api', '--method', method, endpoint]
-              if payload is not None:
-                  command += ['--input', '-']
-              result = subprocess.run(
-                  command,
-                  input=json.dumps(payload) if payload is not None else None,
-                  text=True,
-                  check=True,
-                  capture_output=True,
-              )
-              return json.loads(result.stdout) if result.stdout.strip() else {}
-
-          ref = gh('GET', f'repos/{repo}/git/ref/heads/{branch}')
-          parent = ref['object']['sha']
-          commit = gh('GET', f'repos/{repo}/git/commits/{parent}')
-          entries = []
+          result = {}
           for path in (
               'tools/safari-jpeg-diagnostic.py',
               '.github/workflows/apple-smoke.yml',
@@ -128,31 +108,26 @@ jobs:
               '.ai/file-tree.md',
               '.ai/repo-index.json',
           ):
-              content = base64.b64encode(Path(path).read_bytes()).decode('ascii')
-              blob = gh('POST', f'repos/{repo}/git/blobs', {'content': content, 'encoding': 'base64'})
-              entries.append({'path': path, 'mode': '100644', 'type': 'blob', 'sha': blob['sha']})
-          entries.extend((
-              {'path': 'tools/safari-jpeg-diagnostic-v2.py', 'mode': '100644', 'type': 'blob', 'sha': None},
-              {'path': '.github/workflows/pr32-cleanup.yml', 'mode': '100644', 'type': 'blob', 'sha': None},
-          ))
-          tree = gh(
-              'POST',
-              f'repos/{repo}/git/trees',
-              {'base_tree': commit['tree']['sha'], 'tree': entries},
-          )
-          new_commit = gh(
-              'POST',
-              f'repos/{repo}/git/commits',
-              {
-                  'message': 'fix(safari): remove duplicate diagnostic entry',
-                  'tree': tree['sha'],
-                  'parents': [parent],
-              },
-          )
-          gh(
-              'PATCH',
-              f'repos/{repo}/git/refs/heads/{branch}',
-              {'sha': new_commit['sha'], 'force': False},
-          )
-          print(new_commit['sha'])
+              payload = {
+                  'content': base64.b64encode(Path(path).read_bytes()).decode('ascii'),
+                  'encoding': 'base64',
+              }
+              response = subprocess.run(
+                  ['gh', 'api', '--method', 'POST', f'repos/{repo}/git/blobs', '--input', '-'],
+                  input=json.dumps(payload),
+                  text=True,
+                  check=True,
+                  capture_output=True,
+              )
+              result[path] = json.loads(response.stdout)['sha']
+          Path('blob-shas.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
+          print(json.dumps(result, indent=2))
           PY
+
+      - name: Upload blob references
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr32-final-blob-shas-${{ github.run_id }}
+          path: blob-shas.json
+          retention-days: 1
+          if-no-files-found: error
