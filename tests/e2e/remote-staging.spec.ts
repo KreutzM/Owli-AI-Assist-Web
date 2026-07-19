@@ -137,7 +137,7 @@ test.describe('built staging artifact and complete remote matrix', () => {
     await fileInput.focus();
     await fileInput.setInputFiles(sceneFile());
     await expect(page.getByRole('button', { name: 'Szene beschreiben' })).toBeEnabled();
-    await page.keyboard.press('Tab');
+    await pressNextInteractiveControl(page);
     await expect(page.getByRole('button', { name: 'Szene beschreiben' })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { name: 'Szenenbeschreibung' })).toBeVisible();
@@ -289,6 +289,10 @@ async function chooseFileAndDescribe(page: Page): Promise<void> {
 
 function sceneFile() {
   return { name: 'scene.png', mimeType: 'image/png', buffer: png };
+}
+
+async function pressNextInteractiveControl(page: Page): Promise<void> {
+  await page.keyboard.press(process.platform === 'darwin' ? 'Alt+Tab' : 'Tab');
 }
 
 async function expectNoHorizontalOverflow(page: Page): Promise<void> {

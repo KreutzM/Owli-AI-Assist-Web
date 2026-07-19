@@ -52,6 +52,8 @@ export function cameraMessage(error: unknown): string {
 export function imageMessage(error: unknown): string {
   const code = error instanceof SceneImageError ? error.code : undefined;
   if (code === 'SOURCE_TOO_LARGE') return 'Die Quelldatei ist größer als 20 MiB.';
+  if (code === 'SOURCE_READ_FAILED')
+    return 'Die ausgewählte Bilddatei konnte nicht gelesen werden.';
   if (code === 'DIMENSIONS_TOO_LARGE' || code === 'PIXEL_LIMIT_EXCEEDED') {
     return 'Das Bild überschreitet die lokalen Abmessungsgrenzen.';
   }

@@ -9,6 +9,7 @@ import {
   BrowserOrientationDecoder,
   type DecodedSceneSurface,
 } from '@/platform/image/browserOrientation';
+import { snapshotSceneSource } from '@/platform/image/browserSourceSnapshot';
 
 export interface NormalizedSceneImage {
   blob: Blob;
@@ -31,14 +32,16 @@ export class BrowserSceneImageNormalizer {
 
   async normalize(source: Blob, signal?: AbortSignal): Promise<NormalizedSceneImage> {
     assertNotAborted(signal);
-    const inspection = await inspectSceneSource(source);
+    const ownedSource = await snapshotSceneSource(source);
+    assertNotAborted(signal);
+    const inspection = await inspectSceneSource(ownedSource, source.type);
     assertNotAborted(signal);
 
     let surface: DecodedSceneSurface | undefined;
     const canvas = document.createElement('canvas');
     let previewUrl: string | undefined;
     try {
-      const decoded = await this.decoder.decode(source, inspection.orientation);
+      const decoded = await this.decoder.decode(ownedSource, inspection.orientation);
       surface = decoded.surface;
       assertDecodedDimensions(surface, inspection, decoded.effectiveOrientation);
       const context = canvas.getContext('2d', { alpha: false });

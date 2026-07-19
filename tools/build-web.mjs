@@ -24,18 +24,27 @@ const targetConfig = {
     VITE_OWLI_VERSION_CODE: '1',
     VITE_OWLI_DEFAULT_LOCALE: 'de-DE',
   },
+  'safari-jpeg-harness': {
+    VITE_OWLI_API_MODE: 'mock',
+    VITE_OWLI_APP_VERSION: '0.1.0',
+    VITE_OWLI_VERSION_CODE: '1',
+    VITE_OWLI_DEFAULT_LOCALE: 'de-DE',
+  },
 };
 
 if (!target || !Object.hasOwn(targetConfig, target)) {
-  throw new Error('Build target must be exactly mock, staging, or production.');
+  throw new Error(
+    'Build target must be exactly mock, staging, production, or safari-jpeg-harness.',
+  );
 }
 
+const headerTarget = target === 'safari-jpeg-harness' ? 'mock' : target;
 const environment = { ...process.env };
 for (const key of Object.keys(environment)) {
   if (key.startsWith('VITE_OWLI_')) delete environment[key];
 }
 Object.assign(environment, targetConfig[target], {
-  OWLI_WEB_DEPLOY_TARGET: target,
+  OWLI_WEB_DEPLOY_TARGET: headerTarget,
 });
 
 if (printConfigOnly) {
@@ -47,8 +56,12 @@ if (printConfigOnly) {
   console.log(JSON.stringify(runtimeEnvironment));
 } else {
   await run('pnpm', ['exec', 'tsc', '-b'], environment);
-  await run('pnpm', ['exec', 'vite', 'build'], environment);
-  await run(process.execPath, ['tools/generate-cloudflare-headers.mjs', target], environment);
+  const viteArgs = ['exec', 'vite', 'build'];
+  if (target === 'safari-jpeg-harness') {
+    viteArgs.push('--config', 'vite.safari-jpeg.config.mjs');
+  }
+  await run('pnpm', viteArgs, environment);
+  await run(process.execPath, ['tools/generate-cloudflare-headers.mjs', headerTarget], environment);
 }
 
 function run(command, args, env) {

@@ -66,10 +66,10 @@
     },
     {
       "path": ".github/workflows/apple-smoke.yml",
-      "bytes": 9007,
+      "bytes": 14318,
       "area": ".github"
     },
-    { "path": ".github/workflows/ci.yml", "bytes": 4580, "area": ".github" },
+    { "path": ".github/workflows/ci.yml", "bytes": 5115, "area": ".github" },
     { "path": ".gitignore", "bytes": 152, "area": ".gitignore" },
     { "path": ".nvmrc", "bytes": 3, "area": ".nvmrc" },
     { "path": ".prettierignore", "bytes": 111, "area": ".prettierignore" },
@@ -116,7 +116,7 @@
     },
     { "path": "eslint.config.js", "bytes": 1798, "area": "eslint.config.js" },
     { "path": "index.html", "bytes": 744, "area": "index.html" },
-    { "path": "package.json", "bytes": 2319, "area": "package.json" },
+    { "path": "package.json", "bytes": 2400, "area": "package.json" },
     {
       "path": "playwright.config.ts",
       "bytes": 2024,
@@ -206,7 +206,7 @@
     },
     {
       "path": "src/core/image/sceneImageInspection.ts",
-      "bytes": 8803,
+      "bytes": 8828,
       "area": "src"
     },
     {
@@ -240,7 +240,7 @@
     { "path": "src/features/remote/remote.css", "bytes": 1392, "area": "src" },
     {
       "path": "src/features/remote/remoteSceneErrors.ts",
-      "bytes": 3879,
+      "bytes": 3986,
       "area": "src"
     },
     {
@@ -287,12 +287,17 @@
     { "path": "src/platform/camera/types.ts", "bytes": 128, "area": "src" },
     {
       "path": "src/platform/image/browserOrientation.ts",
-      "bytes": 4117,
+      "bytes": 4432,
       "area": "src"
     },
     {
       "path": "src/platform/image/browserSceneImageNormalizer.ts",
-      "bytes": 6155,
+      "bytes": 6345,
+      "area": "src"
+    },
+    {
+      "path": "src/platform/image/browserSourceSnapshot.ts",
+      "bytes": 1360,
       "area": "src"
     },
     {
@@ -330,12 +335,32 @@
     },
     {
       "path": "tests/e2e/remote-staging.spec.ts",
-      "bytes": 25374,
+      "bytes": 25536,
+      "area": "tests"
+    },
+    {
+      "path": "tests/harness/safari-jpeg/index.html",
+      "bytes": 307,
+      "area": "tests"
+    },
+    {
+      "path": "tests/harness/safari-jpeg/main.tsx",
+      "bytes": 1643,
       "area": "tests"
     },
     {
       "path": "tests/unit/RemoteAssist.test.tsx",
       "bytes": 7470,
+      "area": "tests"
+    },
+    {
+      "path": "tests/unit/browserOrientation.test.ts",
+      "bytes": 2636,
+      "area": "tests"
+    },
+    {
+      "path": "tests/unit/browserSourceSnapshot.test.ts",
+      "bytes": 3138,
       "area": "tests"
     },
     {
@@ -406,7 +431,7 @@
     },
     {
       "path": "tests/unit/sceneImageNormalization.test.ts",
-      "bytes": 2596,
+      "bytes": 2610,
       "area": "tests"
     },
     { "path": "tests/unit/sceneSse.test.ts", "bytes": 5972, "area": "tests" },
@@ -415,7 +440,7 @@
       "bytes": 1341,
       "area": "tests"
     },
-    { "path": "tools/build-web.mjs", "bytes": 2177, "area": "tools" },
+    { "path": "tools/build-web.mjs", "bytes": 2601, "area": "tools" },
     { "path": "tools/check-architecture.mjs", "bytes": 2643, "area": "tools" },
     {
       "path": "tools/check-vite-port-policy.mjs",
@@ -428,7 +453,17 @@
       "area": "tools"
     },
     { "path": "tools/generate-repo-index.mjs", "bytes": 3003, "area": "tools" },
-    { "path": "tools/safari-smoke.py", "bytes": 13303, "area": "tools" },
+    {
+      "path": "tools/safari-jpeg-diagnostic-v2.py",
+      "bytes": 6225,
+      "area": "tools"
+    },
+    {
+      "path": "tools/safari-jpeg-diagnostic.py",
+      "bytes": 13068,
+      "area": "tools"
+    },
+    { "path": "tools/safari-smoke.py", "bytes": 15096, "area": "tools" },
     { "path": "tools/serve-built-web.mjs", "bytes": 5352, "area": "tools" },
     { "path": "tsconfig.app.json", "bytes": 808, "area": "tsconfig.app.json" },
     { "path": "tsconfig.json", "bytes": 107, "area": "tsconfig.json" },
@@ -438,6 +473,11 @@
       "area": "tsconfig.node.json"
     },
     { "path": "vite.config.ts", "bytes": 1544, "area": "vite.config.ts" },
+    {
+      "path": "vite.safari-jpeg.config.mjs",
+      "bytes": 412,
+      "area": "vite.safari-jpeg.config.mjs"
+    },
     { "path": "vitest.config.ts", "bytes": 620, "area": "vitest.config.ts" }
   ]
 }

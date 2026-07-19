@@ -13,6 +13,7 @@
     "build": "node tools/build-web.mjs mock",
     "build:staging": "node tools/build-web.mjs staging",
     "build:production": "node tools/build-web.mjs production",
+    "build:safari-jpeg-harness": "node tools/build-web.mjs safari-jpeg-harness",
     "preview": "vite preview --host 127.0.0.1",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint . --max-warnings 0",

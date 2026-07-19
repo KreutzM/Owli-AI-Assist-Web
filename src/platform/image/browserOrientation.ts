@@ -1,13 +1,18 @@
 import type { ExifOrientation } from '@/core/image/sceneImageInspection';
 
 const ORIENTATION_PROBE_JPEG =
-  '/9j/4AAQSkZJRgABAQAAAQABAAD/4QAiRXhpZgAATU0AKgAAAAgAAQESAAMAAAABAAYAAAAAAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAABAAIDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD4H8Q/8h/Uv+vmX/0M0UUV/ptkP/Ipwn/XuH/pKPAzr/kZ4r/r5P8A9KZ//9k=';
+  '/9j/4AAQSkZJRgABAQAAAQABAAD/4QAiRXhpZgAATU0AKgAAAAgAAQESAAMAAAABAAYAAAAAAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAABAAIDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD4H8Q/8h/Uv+vmX/0M0UUV/ptkP/Ipwn/XuH/pKPAzr/kZ4r/r5P8A9KZ//9k=';
 
 export interface DecodedSceneSurface {
   width: number;
   height: number;
   draw(context: CanvasRenderingContext2D): void;
   close(): void;
+}
+
+interface LoadedHtmlImage {
+  image: HTMLImageElement;
+  objectUrl: string;
 }
 
 export class BrowserOrientationDecoder {
@@ -34,9 +39,9 @@ export class BrowserOrientationDecoder {
     }
 
     const autoOrients = await this.#probeHtmlImage();
-    const image = await loadImage(blob);
+    const loaded = await loadImage(blob);
     return {
-      surface: imageSurface(image),
+      surface: imageSurface(loaded),
       effectiveOrientation: autoOrients ? 1 : orientation,
     };
   }
@@ -60,11 +65,11 @@ export class BrowserOrientationDecoder {
   async #probeHtmlImage(): Promise<boolean> {
     this.#imageAutoOrients ??= (async () => {
       try {
-        const image = await loadImage(probeBlob());
+        const loaded = await loadImage(probeBlob());
         try {
-          return image.naturalWidth === 1 && image.naturalHeight === 2;
+          return loaded.image.naturalWidth === 1 && loaded.image.naturalHeight === 2;
         } finally {
-          image.src = '';
+          closeHtmlImage(loaded);
         }
       } catch {
         return false;
@@ -83,30 +88,35 @@ function bitmapSurface(bitmap: ImageBitmap): DecodedSceneSurface {
   };
 }
 
-function imageSurface(image: HTMLImageElement): DecodedSceneSurface {
+function imageSurface(loaded: LoadedHtmlImage): DecodedSceneSurface {
   return {
-    width: image.naturalWidth,
-    height: image.naturalHeight,
-    draw: (context) => context.drawImage(image, 0, 0),
-    close: () => {
-      image.src = '';
-    },
+    width: loaded.image.naturalWidth,
+    height: loaded.image.naturalHeight,
+    draw: (context) => context.drawImage(loaded.image, 0, 0),
+    close: () => closeHtmlImage(loaded),
   };
 }
 
-async function loadImage(blob: Blob): Promise<HTMLImageElement> {
-  const url = URL.createObjectURL(blob);
+async function loadImage(blob: Blob): Promise<LoadedHtmlImage> {
+  const objectUrl = URL.createObjectURL(blob);
   const image = new Image();
   try {
     await new Promise<void>((resolve, reject) => {
       image.onload = () => resolve();
       image.onerror = () => reject(new Error('Image decode failed'));
-      image.src = url;
+      image.src = objectUrl;
     });
-    return image;
-  } finally {
-    URL.revokeObjectURL(url);
+    return { image, objectUrl };
+  } catch (error) {
+    image.src = '';
+    URL.revokeObjectURL(objectUrl);
+    throw error;
   }
+}
+
+function closeHtmlImage(loaded: LoadedHtmlImage): void {
+  loaded.image.src = '';
+  URL.revokeObjectURL(loaded.objectUrl);
 }
 
 function probeBlob(): Blob {
