@@ -1,0 +1,93 @@
+name: PR 32 cleanup
+
+on:
+  push:
+    branches:
+      - agent/remove-legacy-safari-diagnostic
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out cleanup branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/remove-legacy-safari-diagnostic
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply requested cleanup
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          canonical = Path('tools/safari-jpeg-diagnostic.py')
+          source = canonical.read_text(encoding='utf-8')
+          padding_marker = '\n# Compatibility note:'
+          if padding_marker not in source:
+              raise SystemExit('Expected byte-size padding marker was not found.')
+          canonical.write_text(source.split(padding_marker, 1)[0].rstrip() + '\n', encoding='utf-8')
+
+          duplicate = Path('tools/safari-jpeg-diagnostic-v2.py')
+          if not duplicate.is_file():
+              raise SystemExit('Expected duplicate Safari diagnostic was not found.')
+          duplicate.unlink()
+
+          ci = Path('.github/workflows/ci.yml')
+          ci_source = ci.read_text(encoding='utf-8')
+          old_ci = 'python3 -m py_compile tools/safari-smoke.py tools/safari-jpeg-diagnostic.py tools/safari-jpeg-diagnostic-v2.py'
+          new_ci = 'python3 -m py_compile tools/safari-smoke.py tools/safari-jpeg-diagnostic.py'
+          if old_ci not in ci_source:
+              raise SystemExit('Expected CI diagnostic command was not found.')
+          ci.write_text(ci_source.replace(old_ci, new_ci), encoding='utf-8')
+
+          apple = Path('.github/workflows/apple-smoke.yml')
+          apple_source = apple.read_text(encoding='utf-8')
+          old_apple = 'python3 tools/safari-jpeg-diagnostic-v2.py \\\'
+          new_apple = 'python3 tools/safari-jpeg-diagnostic.py \\\'
+          if old_apple not in apple_source:
+              raise SystemExit('Expected Apple diagnostic command was not found.')
+          apple.write_text(apple_source.replace(old_apple, new_apple), encoding='utf-8')
+
+          Path('.github/workflows/pr32-cleanup.yml').unlink()
+          PY
+
+      - name: Regenerate repository index
+        run: pnpm ai:index
+
+      - name: Validate cleanup
+        shell: bash
+        run: |
+          python3 -m py_compile tools/safari-smoke.py tools/safari-jpeg-diagnostic.py
+          test ! -e tools/safari-jpeg-diagnostic-v2.py
+          ! grep -R --line-number --fixed-strings 'safari-jpeg-diagnostic-v2.py' .github tools .ai
+          git diff --check
+
+      - name: Commit cleanup
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix(safari): remove duplicate diagnostic entry'
+          git push origin HEAD:agent/remove-legacy-safari-diagnostic
