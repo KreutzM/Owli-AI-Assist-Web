@@ -186,8 +186,6 @@ jobs:
     if: github.event_name == 'pull_request' && github.head_ref == 'agent/remove-legacy-safari-diagnostic'
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    permissions:
-      contents: write
     steps:
       - name: Check out cleanup branch
         uses: actions/checkout@v4
@@ -255,6 +253,10 @@ jobs:
           temporary_workflow = Path('.github/workflows/pr32-cleanup.yml')
           if temporary_workflow.exists():
               temporary_workflow.unlink()
+          Path('pr32-cleanup-deletions.txt').write_text(
+              'tools/safari-jpeg-diagnostic-v2.py\n.github/workflows/pr32-cleanup.yml\n',
+              encoding='utf-8',
+          )
           PY
 
       - name: Regenerate repository index
@@ -268,12 +270,17 @@ jobs:
           ! grep -R --line-number --fixed-strings 'safari-jpeg-diagnostic-v2.py' .github tools .ai
           git diff --check
 
-      - name: Commit cleanup
-        shell: bash
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
-          git commit -m 'fix(safari): remove duplicate diagnostic entry'
-          git push origin HEAD:agent/remove-legacy-safari-diagnostic
+      - name: Upload cleanup result
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr32-cleanup-result-${{ github.run_id }}
+          path: |
+            tools/safari-jpeg-diagnostic.py
+            .github/workflows/apple-smoke.yml
+            .github/workflows/ci.yml
+            .ai/file-tree.md
+            .ai/repo-index.json
+            pr32-cleanup-deletions.txt
+          retention-days: 1
+          if-no-files-found: error
   # END ONE-OFF PR32 CLEANUP
