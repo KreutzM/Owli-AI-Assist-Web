@@ -343,14 +343,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-# Compatibility note: the canonical diagnostic intentionally preserves the previous
-# generated-index byte size in this focused cleanup. The retained space is comments
-# only and may disappear the next time the repository index is regenerated.
-#                                                                            
-#                                                                            
-#                                                                            
-#                                                                            
-#                                                                            
-#                                                                            
-#       

@@ -349,7 +349,7 @@ jobs:
         env:
           TESTED_REVISION: ${{ needs.prepare.outputs.checkout_ref }}
         run: |
-          python3 tools/safari-jpeg-diagnostic-v2.py \
+          python3 tools/safari-jpeg-diagnostic.py \
             --target-url https://127.0.0.1:4180 \
             --artifacts "$RUNNER_TEMP/apple-safari/jpeg"
 
