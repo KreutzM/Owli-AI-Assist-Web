@@ -12,6 +12,10 @@ export function snapshotSceneSource(source: Blob): Promise<Blob> {
     return Promise.resolve(source);
   }
 
+  // Pin a distinct Blob registry entry synchronously. WebKit may retire the picker-backed
+  // File resource while its JavaScript File object is still reachable.
+  const pinnedSource = source.slice(0, source.size, source.type);
+
   return new Promise<Blob>((resolve, reject) => {
     const reader = new FileReader();
     const fail = () => reject(new SceneImageError('SOURCE_READ_FAILED'));
@@ -24,7 +28,7 @@ export function snapshotSceneSource(source: Blob): Promise<Blob> {
       }
       resolve(new Blob([reader.result], { type: source.type }));
     };
-    // readAsArrayBuffer is intentionally invoked synchronously in the caller's change-event turn.
-    reader.readAsArrayBuffer(source);
+    // Both the Blob pin and FileReader start happen in the caller's change-event turn.
+    reader.readAsArrayBuffer(pinnedSource);
   });
 }
