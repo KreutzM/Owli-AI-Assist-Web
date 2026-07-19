@@ -160,6 +160,7 @@ def run_case(driver: Any, target_url: str, fixture: Path) -> dict[str, Any]:
     select_in_memory_file(driver, fixture)
     app_outcome = DIAGNOSTIC.wait_for_app_outcome(driver)
     return {
+        "fixtureTransport": "in_memory_file",
         "readiness": {
             "hasManifest": readiness.get("hasManifest"),
             "readyState": readiness.get("readyState"),
