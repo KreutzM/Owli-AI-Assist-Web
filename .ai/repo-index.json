@@ -455,7 +455,7 @@
     { "path": "tools/generate-repo-index.mjs", "bytes": 3003, "area": "tools" },
     {
       "path": "tools/safari-jpeg-diagnostic-v2.py",
-      "bytes": 3161,
+      "bytes": 6225,
       "area": "tools"
     },
     {
