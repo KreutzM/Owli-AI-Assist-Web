@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import base64
 import importlib.util
 import sys
 from pathlib import Path
@@ -21,19 +22,6 @@ def load_diagnostic_module() -> Any:
 
 
 DIAGNOSTIC = load_diagnostic_module()
-ORIGINAL_TEMPORARY_DIRECTORY = DIAGNOSTIC.tempfile.TemporaryDirectory
-
-
-def safari_fixture_directory(*args: Any, **kwargs: Any) -> Any:
-    downloads = Path.home() / "Downloads"
-    downloads.mkdir(parents=True, exist_ok=True)
-    kwargs.setdefault("dir", downloads)
-    directory = ORIGINAL_TEMPORARY_DIRECTORY(*args, **kwargs)
-    Path(directory.name).chmod(0o755)
-    return directory
-
-
-DIAGNOSTIC.tempfile.TemporaryDirectory = safari_fixture_directory
 
 
 def install_file_capture(driver: Any) -> None:
@@ -129,6 +117,31 @@ def browser_pipeline(driver: Any) -> dict[str, Any]:
     return value
 
 
+def select_in_memory_file(driver: Any, fixture: Path) -> None:
+    encoded = base64.b64encode(fixture.read_bytes()).decode("ascii")
+    selected = driver.execute(
+        """
+        const encoded = arguments[0];
+        const name = arguments[1];
+        const input = document.querySelector('#scene-file');
+        if (!input) return false;
+        const binary = atob(encoded);
+        const bytes = new Uint8Array(binary.length);
+        for (let index = 0; index < binary.length; index += 1) {
+          bytes[index] = binary.charCodeAt(index);
+        }
+        const transfer = new DataTransfer();
+        transfer.items.add(new File([bytes], name, { type: 'image/jpeg' }));
+        input.files = transfer.files;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        return input.files?.length === 1;
+        """,
+        [encoded, fixture.name],
+    )
+    if selected is not True:
+        raise RuntimeError("Unable to select in-memory Safari JPEG fixture")
+
+
 def run_case(driver: Any, target_url: str, fixture: Path) -> dict[str, Any]:
     driver.navigate(target_url)
     readiness = DIAGNOSTIC.SMOKE.wait_until(
@@ -144,7 +157,7 @@ def run_case(driver: Any, target_url: str, fixture: Path) -> dict[str, Any]:
         timeout=90,
     )
     install_file_capture(driver)
-    driver.send_file("#scene-file", fixture)
+    select_in_memory_file(driver, fixture)
     app_outcome = DIAGNOSTIC.wait_for_app_outcome(driver)
     return {
         "readiness": {
