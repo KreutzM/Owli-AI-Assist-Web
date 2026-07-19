@@ -6,6 +6,7 @@ on:
       - synchronize
     paths:
       - .github/workflows/safari-jpeg-once.yml
+      - tools/safari-jpeg-diagnostic*.py
 
 permissions:
   contents: read
