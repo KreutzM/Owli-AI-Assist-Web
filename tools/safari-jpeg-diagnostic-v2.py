@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Preserve Safari's selected File before the application clears the file input."""
+"""Inspect Safari file reads started inside the original change-event turn."""
 
 from __future__ import annotations
 
@@ -21,7 +21,6 @@ def load_diagnostic_module() -> Any:
 
 
 DIAGNOSTIC = load_diagnostic_module()
-ORIGINAL_BROWSER_PIPELINE = DIAGNOSTIC.browser_pipeline
 
 
 def install_file_capture(driver: Any) -> None:
@@ -29,11 +28,63 @@ def install_file_capture(driver: Any) -> None:
         """
         const input = document.querySelector('#scene-file');
         if (!input) return false;
-        window.__owliDiagnosticFile = null;
+        window.__owliDiagnosticImmediate = null;
         document.addEventListener('change', (event) => {
-          if (event.target === input) {
-            window.__owliDiagnosticFile = input.files?.[0] ?? null;
+          if (event.target !== input) return;
+          const file = input.files?.[0] ?? null;
+          if (!file) {
+            window.__owliDiagnosticImmediate = Promise.resolve({ filePresent: false });
+            return;
           }
+
+          const result = (promise) => promise.then(
+            (value) => ({ status: 'PASS', ...value }),
+            (error) => ({
+              status: 'FAIL',
+              name: error?.name ?? 'Error',
+              message: String(error?.message ?? error)
+            })
+          );
+          const fileReader = (source) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = () => reject(reader.error ?? new Error('FileReader failed'));
+            reader.onabort = () => reject(new DOMException('FileReader aborted', 'AbortError'));
+            reader.onload = () => resolve({
+              byteLength: reader.result instanceof ArrayBuffer ? reader.result.byteLength : 0
+            });
+            reader.readAsArrayBuffer(source);
+          });
+
+          const sliced = file.slice(0, file.size, file.type);
+          const directArrayBuffer = result(
+            file.arrayBuffer().then((buffer) => ({ byteLength: buffer.byteLength }))
+          );
+          const slicedArrayBuffer = result(
+            sliced.arrayBuffer().then((buffer) => ({ byteLength: buffer.byteLength }))
+          );
+          const fileReaderDirect = result(fileReader(file));
+          const fileReaderSlice = result(fileReader(sliced));
+
+          window.__owliDiagnosticImmediate = Promise.all([
+            directArrayBuffer,
+            slicedArrayBuffer,
+            fileReaderDirect,
+            fileReaderSlice
+          ]).then(([
+            directArrayBufferValue,
+            slicedArrayBufferValue,
+            fileReaderDirectValue,
+            fileReaderSliceValue
+          ]) => ({
+            filePresent: true,
+            file: { type: file.type, size: file.size },
+            stages: {
+              directArrayBuffer: directArrayBufferValue,
+              slicedArrayBuffer: slicedArrayBufferValue,
+              fileReaderDirect: fileReaderDirectValue,
+              fileReaderSlice: fileReaderSliceValue
+            }
+          }));
         }, { capture: true, once: true });
         return true;
         """
@@ -43,28 +94,26 @@ def install_file_capture(driver: Any) -> None:
 
 
 def browser_pipeline(driver: Any) -> dict[str, Any]:
-    capture = driver.execute(
+    value = DIAGNOSTIC.execute_async(
+        driver,
         """
-        const input = document.querySelector('#scene-file');
-        const captured = window.__owliDiagnosticFile ?? null;
-        if (!input || !captured) {
-          return { inputPresent: Boolean(input), capturedPresent: Boolean(captured) };
+        const done = arguments[arguments.length - 1];
+        const result = window.__owliDiagnosticImmediate;
+        if (!result) {
+          done({ filePresent: false, missing: true });
+          return;
         }
-        Object.defineProperty(input, 'files', {
-          configurable: true,
-          get: () => [captured]
-        });
-        return {
-          inputPresent: true,
-          capturedPresent: true,
-          type: captured.type,
-          size: captured.size
-        };
-        """
+        Promise.resolve(result).then(done, (error) => done({
+          fatal: {
+            name: error?.name ?? 'Error',
+            message: String(error?.message ?? error)
+          }
+        }));
+        """,
     )
-    result = ORIGINAL_BROWSER_PIPELINE(driver)
-    result["capture"] = capture
-    return result
+    if not isinstance(value, dict):
+        raise RuntimeError(f"Unexpected browser diagnostic response: {value}")
+    return value
 
 
 def run_case(driver: Any, target_url: str, fixture: Path) -> dict[str, Any]:
