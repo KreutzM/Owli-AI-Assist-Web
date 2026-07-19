@@ -87,7 +87,7 @@ jobs:
           ! grep -R --line-number --fixed-strings 'safari-jpeg-diagnostic-v2.py' .github tools .ai
           git diff --check
 
-      - name: Create final Git blobs
+      - name: Create final Git tree
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -100,7 +100,26 @@ jobs:
           from pathlib import Path
 
           repo = os.environ['GITHUB_REPOSITORY']
-          result = {}
+          branch = 'agent/remove-legacy-safari-diagnostic'
+
+          def gh(method, endpoint, payload=None):
+              command = ['gh', 'api', '--method', method, endpoint]
+              if payload is not None:
+                  command += ['--input', '-']
+              result = subprocess.run(
+                  command,
+                  input=json.dumps(payload) if payload is not None else None,
+                  text=True,
+                  check=True,
+                  capture_output=True,
+              )
+              return json.loads(result.stdout) if result.stdout.strip() else {}
+
+          ref = gh('GET', f'repos/{repo}/git/ref/heads/{branch}')
+          parent = ref['object']['sha']
+          commit = gh('GET', f'repos/{repo}/git/commits/{parent}')
+          entries = []
+          blobs = {}
           for path in (
               'tools/safari-jpeg-diagnostic.py',
               '.github/workflows/apple-smoke.yml',
@@ -112,22 +131,27 @@ jobs:
                   'content': base64.b64encode(Path(path).read_bytes()).decode('ascii'),
                   'encoding': 'base64',
               }
-              response = subprocess.run(
-                  ['gh', 'api', '--method', 'POST', f'repos/{repo}/git/blobs', '--input', '-'],
-                  input=json.dumps(payload),
-                  text=True,
-                  check=True,
-                  capture_output=True,
-              )
-              result[path] = json.loads(response.stdout)['sha']
-          Path('blob-shas.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
+              blob = gh('POST', f'repos/{repo}/git/blobs', payload)
+              blobs[path] = blob['sha']
+              entries.append({'path': path, 'mode': '100644', 'type': 'blob', 'sha': blob['sha']})
+          entries.extend((
+              {'path': 'tools/safari-jpeg-diagnostic-v2.py', 'mode': '100644', 'type': 'blob', 'sha': None},
+              {'path': '.github/workflows/pr32-cleanup.yml', 'mode': '100644', 'type': 'blob', 'sha': None},
+          ))
+          tree = gh(
+              'POST',
+              f'repos/{repo}/git/trees',
+              {'base_tree': commit['tree']['sha'], 'tree': entries},
+          )
+          result = {'parent': parent, 'tree': tree['sha'], 'blobs': blobs}
+          Path('final-tree.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
           print(json.dumps(result, indent=2))
           PY
 
-      - name: Upload blob references
+      - name: Upload final tree reference
         uses: actions/upload-artifact@v4
         with:
-          name: pr32-final-blob-shas-${{ github.run_id }}
-          path: blob-shas.json
+          name: pr32-final-tree-${{ github.run_id }}
+          path: final-tree.json
           retention-days: 1
           if-no-files-found: error
