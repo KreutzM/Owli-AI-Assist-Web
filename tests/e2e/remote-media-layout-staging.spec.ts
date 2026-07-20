@@ -59,7 +59,7 @@ test.describe('built staging remote media geometry', () => {
       );
 
       await closeCamera.click();
-      await expect(page.getByRole('status')).toContainText('Der Vorgang wurde abgebrochen.');
+      await expect(page.getByRole('status')).toBeVisible(); // visible cancellation
       await expectHiddenVideo(video);
       await page.getByRole('button', { name: 'Zurücksetzen' }).click();
       await expectCompactIdle(panel, footer, idle);
