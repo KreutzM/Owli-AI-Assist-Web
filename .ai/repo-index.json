@@ -468,7 +468,7 @@
       "bytes": 13010,
       "area": "tools"
     },
-    { "path": "tools/safari-smoke.py", "bytes": 11254, "area": "tools" },
+    { "path": "tools/safari-smoke.py", "bytes": 11725, "area": "tools" },
     { "path": "tools/serve-built-web.mjs", "bytes": 5352, "area": "tools" },
     { "path": "tsconfig.app.json", "bytes": 808, "area": "tsconfig.app.json" },
     { "path": "tsconfig.json", "bytes": 107, "area": "tsconfig.json" },

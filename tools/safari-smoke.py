@@ -55,15 +55,23 @@ class SafariDriver:
         }
         if self.accept_insecure_certs:
             always_match["acceptInsecureCerts"] = True
-        response = self._request(
-            "POST",
-            "/session",
-            {"capabilities": {"alwaysMatch": always_match}},
-        )
-        value = response.get("value")
-        if not isinstance(value, dict) or not isinstance(value.get("sessionId"), str):
-            raise WebDriverError(f"Unexpected Safari session response: {response}")
-        self.session_id = value["sessionId"]
+        payload = {"capabilities": {"alwaysMatch": always_match}}
+        for attempt in range(2):
+            try:
+                response = self._request("POST", "/session", payload)
+                value = response.get("value")
+                if not isinstance(value, dict) or not isinstance(value.get("sessionId"), str):
+                    raise WebDriverError(f"Unexpected Safari session response: {response}")
+                self.session_id = value["sessionId"]
+                return
+            except WebDriverError as error:
+                session_launch_timeout = (
+                    "session not created" in str(error).lower()
+                    and "timed out while connecting to a safari instance" in str(error).lower()
+                )
+                if attempt or not session_launch_timeout:
+                    raise
+                time.sleep(3)
 
     def quit(self) -> None:
         if not self.session_id:
