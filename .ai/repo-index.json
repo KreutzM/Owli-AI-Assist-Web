@@ -237,7 +237,7 @@
       "bytes": 10712,
       "area": "src"
     },
-    { "path": "src/features/remote/remote.css", "bytes": 1392, "area": "src" },
+    { "path": "src/features/remote/remote.css", "bytes": 1652, "area": "src" },
     {
       "path": "src/features/remote/remoteSceneErrors.ts",
       "bytes": 3986,
@@ -328,6 +328,11 @@
       "area": "tests"
     },
     { "path": "tests/e2e/app.spec.ts", "bytes": 727, "area": "tests" },
+    {
+      "path": "tests/e2e/remote-camera-layout.spec.ts",
+      "bytes": 4564,
+      "area": "tests"
+    },
     {
       "path": "tests/e2e/remote-readiness.spec.ts",
       "bytes": 9675,

@@ -29,6 +29,17 @@
   flex: 1 1 18rem;
 }
 
+.camera-preview {
+  display: block;
+  width: 100%;
+  max-height: min(65vh, 32rem);
+  margin-block: 1rem;
+  aspect-ratio: 4 / 3;
+  border-radius: 0.9rem;
+  background: #020617;
+  object-fit: cover;
+}
+
 .camera-preview--hidden {
   display: none;
 }
@@ -78,6 +89,11 @@
   .scene-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .file-control {
+    flex: 0 1 auto;
+    width: 100%;
   }
 
   .scene-actions .button,
