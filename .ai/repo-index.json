@@ -330,7 +330,7 @@
     { "path": "tests/e2e/app.spec.ts", "bytes": 727, "area": "tests" },
     {
       "path": "tests/e2e/remote-camera-layout.spec.ts",
-      "bytes": 4659,
+      "bytes": 4564,
       "area": "tests"
     },
     {
