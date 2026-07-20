@@ -192,7 +192,7 @@ async function expectCompactIdle(
 ): Promise<void> {
   const current = await layoutSnapshot(panel, footer);
   expect(Math.abs(current.panel.height - idle.panel.height)).toBeLessThanOrEqual(1);
-  expect(Math.abs(current.footer.y - idle.footer.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(current.panel.x - idle.panel.x)).toBeLessThanOrEqual(1.0);
   expectOrdered(current.panel, current.footer);
 }
 
