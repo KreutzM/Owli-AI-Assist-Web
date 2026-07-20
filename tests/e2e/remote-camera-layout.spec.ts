@@ -48,15 +48,10 @@ for (const viewport of [
 
 async function mockCamera(page: Page): Promise<void> {
   await page.addInitScript(() => {
-    const track = { stop: () => undefined };
-    const stream = {
-      getTracks: () => [track],
-    };
-
     Object.defineProperty(navigator, 'mediaDevices', {
       configurable: true,
       value: {
-        getUserMedia: () => Promise.resolve(stream),
+        getUserMedia: () => Promise.resolve(new MediaStream()),
       },
     });
 
