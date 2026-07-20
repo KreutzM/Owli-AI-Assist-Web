@@ -5,14 +5,14 @@
 
 .scene-controls,
 .file-control,
-.scene-preview,
+.remote-scene-preview,
 .scene-result {
   display: grid;
   gap: 0.55rem;
 }
 
 .scene-controls,
-.scene-preview,
+.remote-scene-preview,
 .scene-result {
   margin-block: 1rem;
 }
@@ -29,7 +29,7 @@
   flex: 1 1 18rem;
 }
 
-.camera-preview {
+.remote-camera-preview {
   display: block;
   width: 100%;
   max-height: min(65vh, 32rem);
@@ -40,20 +40,21 @@
   object-fit: cover;
 }
 
-.camera-preview--hidden {
+.remote-camera-preview--hidden {
   display: none;
 }
 
-.scene-preview img {
+.remote-scene-preview__image {
   display: block;
   width: 100%;
   max-height: 28rem;
+  height: auto;
   border-radius: 0.9rem;
   background: #020617;
   object-fit: contain;
 }
 
-.scene-preview p {
+.remote-scene-preview p {
   color: var(--text-muted);
 }
 
