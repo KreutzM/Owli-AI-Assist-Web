@@ -300,7 +300,11 @@
       "bytes": 1360,
       "area": "src"
     },
-    { "path": "src/platform/share/browserShare.ts", "bytes": 404, "area": "src" },
+    {
+      "path": "src/platform/share/browserShare.ts",
+      "bytes": 404,
+      "area": "src"
+    },
     {
       "path": "src/platform/speech/browserSpeech.ts",
       "bytes": 669,
@@ -384,7 +388,11 @@
       "bytes": 9940,
       "area": "tests"
     },
-    { "path": "tests/unit/remoteCamera.test.ts", "bytes": 4512, "area": "tests" },
+    {
+      "path": "tests/unit/remoteCamera.test.ts",
+      "bytes": 4512,
+      "area": "tests"
+    },
     {
       "path": "tests/unit/remoteCatalogContracts.test.ts",
       "bytes": 2767,
@@ -431,11 +439,7 @@
       "bytes": 2610,
       "area": "tests"
     },
-    {
-      "path": "tests/unit/sceneSse.test.ts",
-      "bytes": 5972,
-      "area": "tests"
-    },
+    { "path": "tests/unit/sceneSse.test.ts", "bytes": 5972, "area": "tests" },
     {
       "path": "tests/unit/useSceneAnnouncements.test.ts",
       "bytes": 1341,
@@ -463,7 +467,11 @@
     { "path": "tools/serve-built-web.mjs", "bytes": 5352, "area": "tools" },
     { "path": "tsconfig.app.json", "bytes": 808, "area": "tsconfig.app.json" },
     { "path": "tsconfig.json", "bytes": 107, "area": "tsconfig.json" },
-    { "path": "tsconfig.node.json", "bytes": 578, "area": "tsconfig.node.json" },
+    {
+      "path": "tsconfig.node.json",
+      "bytes": 578,
+      "area": "tsconfig.node.json"
+    },
     { "path": "vite.config.ts", "bytes": 1544, "area": "vite.config.ts" },
     {
       "path": "vite.safari-jpeg.config.mjs",
