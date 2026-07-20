@@ -7,8 +7,6 @@ import argparse
 import base64
 import json
 import re
-import subprocess
-import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -18,9 +16,6 @@ from typing import Any, Callable
 
 WEBDRIVER_URL = "http://127.0.0.1:4444"
 ELEMENT_KEY = "element-6066-11e4-a52e-4f735466cecf"
-PNG_FIXTURE = (
-    "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGOs2HKHgYGBiYGBgYGBAQAYJgIMiYqd0gAAAABJRU5ErkJggg=="
-)
 PAGES_HOST = re.compile(r"^[a-z0-9-]+\.owli-ai-assist-web\.pages\.dev$")
 REMOTE_READINESS_MESSAGES = (
     "Die Online-Vorbereitung ist derzeit nicht verfügbar.",
@@ -100,15 +95,6 @@ class SafariDriver:
             raise WebDriverError(f"Element not found: {selector}")
         return value[ELEMENT_KEY]
 
-    def send_file(self, selector: str, file_path: Path) -> None:
-        element_id = self.find_css(selector)
-        text = str(file_path.resolve())
-        self._session_request(
-            "POST",
-            f"/element/{element_id}/value",
-            {"text": text, "value": list(text)},
-        )
-
     def screenshot(self, destination: Path) -> None:
         response = self._session_request("GET", "/screenshot")
         value = response.get("value")
@@ -174,28 +160,6 @@ def validate_target(url: str) -> str:
     return url.rstrip("/")
 
 
-def create_jpeg_fixture(source_png: Path, output: Path, width: int, height: int) -> None:
-    subprocess.run(
-        [
-            "sips",
-            "-z",
-            str(height),
-            str(width),
-            "-s",
-            "format",
-            "jpeg",
-            str(source_png),
-            "--out",
-            str(output),
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    if not output.is_file() or output.stat().st_size == 0:
-        raise RuntimeError(f"Fixture was not created: {output}")
-
-
 def wait_until(
     probe: Callable[[], Any],
     predicate: Callable[[Any], bool],
@@ -238,22 +202,6 @@ def page_snapshot(driver: SafariDriver) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise WebDriverError(f"Unexpected page snapshot: {value}")
     return value
-
-
-def click_button(driver: SafariDriver, label: str) -> None:
-    clicked = driver.execute(
-        """
-        const label = arguments[0];
-        const button = [...document.querySelectorAll('button')]
-          .find((candidate) => candidate.textContent?.trim() === label);
-        if (!button || button.disabled) return false;
-        button.click();
-        return true;
-        """,
-        [label],
-    )
-    if clicked is not True:
-        raise WebDriverError(f"Enabled button was not found: {label}")
 
 
 def storage_snapshot(driver: SafariDriver) -> dict[str, Any]:
@@ -301,92 +249,36 @@ def run_smoke(target_url: str, artifacts: Path) -> dict[str, Any]:
     driver = SafariDriver()
     checks: dict[str, str] = {}
 
-    with tempfile.TemporaryDirectory(prefix="owli-safari-fixtures-") as temp_dir:
-        fixture_dir = Path(temp_dir)
-        source_png = fixture_dir / "source.png"
-        jpeg_12mp = fixture_dir / "iphone-12mp.jpg"
-        jpeg_24mp = fixture_dir / "iphone-24mp.jpg"
-        source_png.write_bytes(base64.b64decode(PNG_FIXTURE))
-        create_jpeg_fixture(source_png, jpeg_12mp, width=4000, height=3000)
-        create_jpeg_fixture(source_png, jpeg_24mp, width=6000, height=4000)
+    try:
+        driver.start()
+        driver.navigate(target_url)
 
+        readiness = wait_for_remote_readiness(driver)
+        if readiness.get("hasManifest") is not True:
+            raise AssertionError("Manifest link is missing.")
+        checks["readiness"] = "PASS"
+
+        storage = storage_snapshot(driver)
+        expected_empty = (
+            storage.get("localStorageLength") == 0
+            and storage.get("sessionStorageLength") == 0
+            and storage.get("cookieLength") == 0
+            and storage.get("search") == ""
+            and storage.get("hash") == ""
+        )
+        if not expected_empty:
+            raise AssertionError(f"Unexpected browser persistence: {storage}")
+        checks["privacy"] = "PASS"
+
+        return {"targetUrl": target_url, "checks": checks}
+    except Exception:
         try:
-            driver.start()
-            driver.navigate(target_url)
-
-            readiness = wait_for_remote_readiness(driver)
-            if readiness.get("hasManifest") is not True:
-                raise AssertionError("Manifest link is missing.")
-            checks["readiness"] = "PASS"
-
-            driver.send_file("#scene-file", jpeg_12mp)
-            wait_until(
-                lambda: page_snapshot(driver),
-                lambda snapshot: (
-                    "Normalisiertes JPEG:" in str(snapshot.get("bodyText", ""))
-                    and "Szene beschreiben" in str(snapshot.get("bodyText", ""))
-                ),
-                "12 MP JPEG normalization",
-                timeout=90,
-            )
-            checks["jpeg12mp"] = "PASS"
-
-            click_button(driver, "Bild verwerfen")
-            wait_until(
-                lambda: page_snapshot(driver),
-                lambda snapshot: "Normalisiertes JPEG:"
-                not in str(snapshot.get("bodyText", "")),
-                "prepared-image reset",
-            )
-
-            driver.send_file("#scene-file", jpeg_24mp)
-            wait_until(
-                lambda: page_snapshot(driver),
-                lambda snapshot: (
-                    "Das Bild überschreitet die lokalen Abmessungsgrenzen."
-                    in str(snapshot.get("bodyText", ""))
-                ),
-                "specific 24 MP dimensions rejection",
-                timeout=60,
-            )
-            checks["jpeg24mpBoundary"] = "PASS"
-
-            storage = storage_snapshot(driver)
-            expected_empty = (
-                storage.get("localStorageLength") == 0
-                and storage.get("sessionStorageLength") == 0
-                and storage.get("cookieLength") == 0
-                and storage.get("search") == ""
-                and storage.get("hash") == ""
-            )
-            if not expected_empty:
-                raise AssertionError(f"Unexpected browser persistence: {storage}")
-            checks["privacy"] = "PASS"
-
-            return {
-                "targetUrl": target_url,
-                "checks": checks,
-                "fixtureMetadata": {
-                    "jpeg12mp": {
-                        "width": 4000,
-                        "height": 3000,
-                        "bytes": jpeg_12mp.stat().st_size,
-                    },
-                    "jpeg24mp": {
-                        "width": 6000,
-                        "height": 4000,
-                        "bytes": jpeg_24mp.stat().st_size,
-                    },
-                },
-            }
-        except Exception:
-            try:
-                driver.screenshot(artifacts / "failure.png")
-            except Exception:  # noqa: BLE001 - best-effort diagnostic only
-                pass
-            raise
-        finally:
-            driver.quit()
+            driver.screenshot(artifacts / "failure.png")
+        except Exception:  # noqa: BLE001 - best-effort diagnostic only
+            pass
+        raise
+    finally:
+        driver.quit()
 
 
 def main() -> int:

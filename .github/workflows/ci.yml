@@ -56,6 +56,7 @@ jobs:
       - name: Check Safari diagnostics syntax
         run: |
           python3 -m py_compile tools/safari-smoke.py tools/safari-jpeg-diagnostic.py
+          node tools/check-safari-smoke-guards.mjs
           rm -rf tools/__pycache__
 
       - name: Build mock PWA

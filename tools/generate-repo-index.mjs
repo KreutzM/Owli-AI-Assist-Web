@@ -6,6 +6,7 @@ const root = process.cwd();
 const checkOnly = process.argv.includes('--check');
 const excludedDirs = new Set([
   '.git',
+  '__pycache__',
   'node_modules',
   'dist',
   'coverage',
@@ -15,6 +16,7 @@ const excludedDirs = new Set([
   'tmp',
 ]);
 const excludedFiles = new Set([
+  '.git',
   '.ai/file-tree.md',
   '.ai/repo-index.json',
   'pnpm-lock.yaml',

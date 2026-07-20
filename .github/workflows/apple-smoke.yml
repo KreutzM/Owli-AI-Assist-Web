@@ -313,9 +313,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/apple-safari/jpeg" "$RUNNER_TEMP/apple-safari/live"
+          mkdir -p "$RUNNER_TEMP/apple-safari/local-jpeg" "$RUNNER_TEMP/apple-safari/logs"
           node tools/serve-built-web.mjs --https --port 4180 \
-            > "$RUNNER_TEMP/apple-safari/jpeg/local-https-server.log" 2>&1 &
+            > "$RUNNER_TEMP/apple-safari/logs/local-https-server.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/apple-safari/local-https-server.pid"
           for attempt in {1..30}; do
             if curl --silent --fail --insecure https://127.0.0.1:4180/ > /dev/null; then
@@ -323,16 +323,16 @@ jobs:
             fi
             sleep 1
           done
-          cat "$RUNNER_TEMP/apple-safari/jpeg/local-https-server.log"
+          cat "$RUNNER_TEMP/apple-safari/logs/local-https-server.log"
           exit 1
 
       - name: Enable and start SafariDriver
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/apple-safari/jpeg" "$RUNNER_TEMP/apple-safari/live"
+          mkdir -p "$RUNNER_TEMP/apple-safari/local-jpeg" "$RUNNER_TEMP/apple-safari/live-readiness" "$RUNNER_TEMP/apple-safari/live-jpeg" "$RUNNER_TEMP/apple-safari/logs"
           sudo safaridriver --enable
-          safaridriver -p 4444 > "$RUNNER_TEMP/apple-safari/jpeg/safaridriver.log" 2>&1 &
+          safaridriver -p 4444 > "$RUNNER_TEMP/apple-safari/logs/safaridriver.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/apple-safari/safaridriver.pid"
           for attempt in {1..30}; do
             if curl --silent --fail http://127.0.0.1:4444/status > /dev/null; then
@@ -340,7 +340,7 @@ jobs:
             fi
             sleep 1
           done
-          cat "$RUNNER_TEMP/apple-safari/jpeg/safaridriver.log"
+          cat "$RUNNER_TEMP/apple-safari/logs/safaridriver.log"
           exit 1
 
       - name: Run deterministic local Safari JPEG gate
@@ -351,28 +351,39 @@ jobs:
         run: |
           python3 tools/safari-jpeg-diagnostic.py \
             --target-url https://127.0.0.1:4180 \
-            --artifacts "$RUNNER_TEMP/apple-safari/jpeg"
+            --artifacts "$RUNNER_TEMP/apple-safari/local-jpeg"
 
-      - name: Run optional live Safari smoke
+      - name: Run live readiness/privacy Safari smoke
         if: ${{ always() && (env.SUITE == 'safari' || env.SUITE == 'all') }}
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/apple-safari/live"
+          mkdir -p "$RUNNER_TEMP/apple-safari/live-readiness"
           if [[ -z "$TARGET_URL" ]]; then
-            cat > "$RUNNER_TEMP/apple-safari/live/result.json" <<'JSON'
+            cat > "$RUNNER_TEMP/apple-safari/live-readiness/result.json" <<'JSON'
           {
             "status": "INCONCLUSIVE_REMOTE_READINESS",
             "reason": "No immutable Cloudflare Pages preview was available for the exact PR head."
           }
           JSON
-            cat "$RUNNER_TEMP/apple-safari/live/result.json"
+            cat "$RUNNER_TEMP/apple-safari/live-readiness/result.json"
             exit 0
           fi
           python3 tools/safari-smoke.py \
             --target-url "$TARGET_URL" \
-            --artifacts "$RUNNER_TEMP/apple-safari/live" \
+            --artifacts "$RUNNER_TEMP/apple-safari/live-readiness" \
             --allow-inconclusive-remote-readiness
+
+      - name: Run live Safari JPEG gate
+        if: ${{ always() && (env.SUITE == 'safari' || env.SUITE == 'all') && env.TARGET_URL != '' }}
+        shell: bash
+        env:
+          TESTED_REVISION: ${{ needs.prepare.outputs.checkout_ref }}
+        run: |
+          set -euo pipefail
+          python3 tools/safari-jpeg-diagnostic.py \
+            --target-url "$TARGET_URL" \
+            --artifacts "$RUNNER_TEMP/apple-safari/live-jpeg"
 
       - name: Stop local browser services
         if: always()
@@ -385,20 +396,29 @@ jobs:
             kill "$(cat "$RUNNER_TEMP/apple-safari/local-https-server.pid")" || true
           fi
 
-      - name: Upload deterministic Safari JPEG diagnostic
+      - name: Upload local Safari JPEG diagnostic
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: apple-safari-jpeg-diagnostic-${{ github.run_id }}
-          path: ${{ runner.temp }}/apple-safari/jpeg/
+          name: apple-safari-local-jpeg-${{ github.run_id }}
+          path: ${{ runner.temp }}/apple-safari/local-jpeg/
           if-no-files-found: warn
           retention-days: 7
 
-      - name: Upload optional live Safari smoke
+      - name: Upload live readiness/privacy Safari smoke
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: apple-safari-live-smoke-${{ github.run_id }}
-          path: ${{ runner.temp }}/apple-safari/live/
+          name: apple-safari-live-readiness-${{ github.run_id }}
+          path: ${{ runner.temp }}/apple-safari/live-readiness/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload live Safari JPEG diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-safari-live-jpeg-${{ github.run_id }}
+          path: ${{ runner.temp }}/apple-safari/live-jpeg/
           if-no-files-found: warn
           retention-days: 7
