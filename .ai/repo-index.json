@@ -66,10 +66,10 @@
     },
     {
       "path": ".github/workflows/apple-smoke.yml",
-      "bytes": 14315,
+      "bytes": 15228,
       "area": ".github"
     },
-    { "path": ".github/workflows/ci.yml", "bytes": 5080, "area": ".github" },
+    { "path": ".github/workflows/ci.yml", "bytes": 5131, "area": ".github" },
     { "path": ".gitignore", "bytes": 152, "area": ".gitignore" },
     { "path": ".nvmrc", "bytes": 3, "area": ".nvmrc" },
     { "path": ".prettierignore", "bytes": 111, "area": ".prettierignore" },
@@ -448,6 +448,11 @@
     { "path": "tools/build-web.mjs", "bytes": 2601, "area": "tools" },
     { "path": "tools/check-architecture.mjs", "bytes": 2643, "area": "tools" },
     {
+      "path": "tools/check-safari-smoke-guards.mjs",
+      "bytes": 2701,
+      "area": "tools"
+    },
+    {
       "path": "tools/check-vite-port-policy.mjs",
       "bytes": 1791,
       "area": "tools"
@@ -457,13 +462,13 @@
       "bytes": 1555,
       "area": "tools"
     },
-    { "path": "tools/generate-repo-index.mjs", "bytes": 3003, "area": "tools" },
+    { "path": "tools/generate-repo-index.mjs", "bytes": 3030, "area": "tools" },
     {
       "path": "tools/safari-jpeg-diagnostic.py",
-      "bytes": 12346,
+      "bytes": 13010,
       "area": "tools"
     },
-    { "path": "tools/safari-smoke.py", "bytes": 15096, "area": "tools" },
+    { "path": "tools/safari-smoke.py", "bytes": 11725, "area": "tools" },
     { "path": "tools/serve-built-web.mjs", "bytes": 5352, "area": "tools" },
     { "path": "tsconfig.app.json", "bytes": 808, "area": "tsconfig.app.json" },
     { "path": "tsconfig.json", "bytes": 107, "area": "tsconfig.json" },

@@ -26,6 +26,11 @@ from pathlib import Path
 from typing import Any
 
 
+PNG_FIXTURE = (
+    "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGOs2HKHgYGBiYGBgYGBAQAYJgIMiYqd0gAAAABJRU5ErkJggg=="
+)
+
+
 def load_smoke_module() -> Any:
     module_path = Path(__file__).with_name("safari-smoke.py")
     spec = importlib.util.spec_from_file_location("owli_safari_smoke", module_path)
@@ -70,6 +75,28 @@ def fixture_metadata(path: Path) -> dict[str, Any]:
         "bytes": path.stat().st_size,
         "sips": [line.strip() for line in completed.stdout.splitlines() if line.strip()],
     }
+
+
+def create_jpeg_fixture(source_png: Path, output: Path, width: int, height: int) -> None:
+    subprocess.run(
+        [
+            "sips",
+            "-z",
+            str(height),
+            str(width),
+            "-s",
+            "format",
+            "jpeg",
+            str(source_png),
+            "--out",
+            str(output),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    if not output.is_file() or output.stat().st_size == 0:
+        raise RuntimeError(f"Fixture was not created: {output}")
 
 
 def execute_async(driver: Any, script: str, args: list[Any] | None = None) -> Any:
@@ -289,10 +316,10 @@ def main() -> int:
         jpeg_1mp = fixture_dir / "synthetic-1mp.jpg"
         jpeg_12mp = fixture_dir / "synthetic-12mp.jpg"
         jpeg_24mp = fixture_dir / "synthetic-24mp.jpg"
-        source_png.write_bytes(base64.b64decode(SMOKE.PNG_FIXTURE))
-        SMOKE.create_jpeg_fixture(source_png, jpeg_1mp, width=1000, height=1000)
-        SMOKE.create_jpeg_fixture(source_png, jpeg_12mp, width=4000, height=3000)
-        SMOKE.create_jpeg_fixture(source_png, jpeg_24mp, width=6000, height=4000)
+        source_png.write_bytes(base64.b64decode(PNG_FIXTURE))
+        create_jpeg_fixture(source_png, jpeg_1mp, width=1000, height=1000)
+        create_jpeg_fixture(source_png, jpeg_12mp, width=4000, height=3000)
+        create_jpeg_fixture(source_png, jpeg_24mp, width=6000, height=4000)
 
         for fixture in (jpeg_1mp, jpeg_12mp, jpeg_24mp):
             shutil.copy2(fixture, args.artifacts / fixture.name)
