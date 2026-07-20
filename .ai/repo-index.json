@@ -119,7 +119,7 @@
     { "path": "package.json", "bytes": 2400, "area": "package.json" },
     {
       "path": "playwright.config.ts",
-      "bytes": 2024,
+      "bytes": 2068,
       "area": "playwright.config.ts"
     },
     {
