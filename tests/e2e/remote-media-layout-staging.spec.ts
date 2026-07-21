@@ -22,7 +22,7 @@ test.describe('built staging remote media geometry', () => {
       await page.setViewportSize(viewport);
       await installHarness(page);
       const response = await page.goto('/');
-      if (!response) throw new Error('Built staging navigation returned no response.');
+      if (!response) throw new Error('No response.');
 
       const panel = page.locator('.remote-scene');
       const footer = page.locator('.site-footer');
@@ -376,7 +376,7 @@ async function act(page: Page, action: HarnessAction): Promise<void> {
         __owliLayoutHarness?: Record<HarnessAction, () => void>;
       }
     ).__owliLayoutHarness;
-    if (!harness) throw new Error('Layout harness is unavailable.');
+    if (!harness) throw new Error('No harness.');
     harness[name]();
   }, action);
 }
@@ -384,6 +384,7 @@ async function act(page: Page, action: HarnessAction): Promise<void> {
 async function installHarness(page: Page): Promise<void> {
   await page.addInitScript((apiBase) => {
     const nativeFetch = globalThis.fetch.bind(globalThis);
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const nativeDrawImage = CanvasRenderingContext2D.prototype.drawImage;
     const encoder = new TextEncoder();
     let resolveCamera: (() => void) | undefined;
@@ -419,7 +420,7 @@ async function installHarness(page: Page): Promise<void> {
     const event = (name: string, data: unknown) =>
       `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`;
     const enqueue = (value: string) => {
-      if (!stream) throw new Error('Scene stream is not open.');
+      if (!stream) throw new Error('Stream shut.');
       stream.enqueue(encoder.encode(value));
     };
     const finish = (value?: string) => {
