@@ -384,8 +384,6 @@ async function act(page: Page, action: HarnessAction): Promise<void> {
 async function installHarness(page: Page): Promise<void> {
   await page.addInitScript((apiBase) => {
     const nativeFetch = globalThis.fetch.bind(globalThis);
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    const nativeDrawImage = CanvasRenderingContext2D.prototype.drawImage;
     const encoder = new TextEncoder();
     let resolveCamera: (() => void) | undefined;
     let stream: ReadableStreamDefaultController<Uint8Array> | undefined;
@@ -409,13 +407,11 @@ async function installHarness(page: Page): Promise<void> {
       return Promise.resolve();
     };
     HTMLMediaElement.prototype.pause = () => undefined;
-    CanvasRenderingContext2D.prototype.drawImage = function (
-      this: CanvasRenderingContext2D,
-      ...args: unknown[]
-    ) {
-      if (args[0] instanceof HTMLVideoElement) return;
-      Reflect.apply(nativeDrawImage, this, args);
-    } as CanvasRenderingContext2D['drawImage'];
+    // Geometry is the subject here; pixel fidelity is covered by the dedicated image suites.
+    // A no-op draw leaves the capture and normalization pipeline intact: canvas allocation,
+    // JPEG encoding, source inspection, browser decode, dimension fitting, re-encoding, and
+    // preview rendering still execute with synthetic, non-sensitive outputs.
+    CanvasRenderingContext2D.prototype.drawImage = () => undefined;
 
     const event = (name: string, data: unknown) =>
       `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`;
