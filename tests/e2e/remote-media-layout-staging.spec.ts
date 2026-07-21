@@ -93,9 +93,11 @@ test.describe('built staging remote media geometry', () => {
         resend.locator('..'),
       );
       await expectActionsReachable(resend, cancelledReset);
+      await act(page, 'close');
 
       await resend.click();
       await expect(status(page, 'Die Anfrage wird gesendet …')).toBeVisible();
+      await expectStreamReady(page);
       await act(page, 'metadata');
       await expect(status(page, 'Die Beschreibung wird übertragen …')).toBeVisible();
       await act(page, 'remoteError');
@@ -124,6 +126,7 @@ test.describe('built staging remote media geometry', () => {
       await expect(retrying).toBeVisible();
       await expectActive(page, panel, preview, image, retrying);
 
+      await expectStreamReady(page);
       await act(page, 'metadata');
       const streaming = status(page, 'Die Beschreibung wird übertragen …').locator('..');
       await expect(streaming).toBeVisible();
@@ -369,6 +372,22 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
     .toBe(true);
 }
 
+async function expectStreamReady(page: Page): Promise<void> {
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Boolean(
+          (
+            globalThis as typeof globalThis & {
+              __owliLayoutStreamReady?: boolean;
+            }
+          ).__owliLayoutStreamReady,
+        ),
+      ),
+    )
+    .toBe(true);
+}
+
 async function act(page: Page, action: HarnessAction): Promise<void> {
   await page.evaluate((name) => {
     const harness = (
@@ -469,6 +488,10 @@ async function installHarness(page: Page): Promise<void> {
     Object.defineProperty(globalThis, '__owliLayoutHarness', {
       configurable: true,
       value: harness,
+    });
+    Object.defineProperty(globalThis, '__owliLayoutStreamReady', {
+      configurable: true,
+      get: () => Boolean(stream),
     });
 
     globalThis.fetch = async (input, init) => {
