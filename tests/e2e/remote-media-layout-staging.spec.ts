@@ -13,7 +13,7 @@ const viewports = [
   { width: 320, height: 800 },
 ] as const;
 
-type HarnessAction = 'resolveCamera' | 'metadata' | 'delta' | 'done' | 'close';
+type HarnessAction = 'resolveCamera' | 'metadata' | 'delta' | 'done' | 'remoteError' | 'close';
 type Box = NonNullable<Awaited<ReturnType<Locator['boundingBox']>>>;
 
 test.describe('built staging remote media geometry', () => {
@@ -28,6 +28,9 @@ test.describe('built staging remote media geometry', () => {
       const footer = page.locator('.site-footer');
       const video = page.locator('video.remote-camera-preview');
       const camera = page.getByRole('button', { name: 'Rückkamera öffnen' });
+      const preview = page.locator('.remote-scene-preview');
+      const image = page.locator('.remote-scene-preview__image');
+      const describe = page.getByRole('button', { name: 'Szene beschreiben' });
 
       await expect(camera).toBeEnabled();
       await expectHiddenVideo(video);
@@ -36,7 +39,7 @@ test.describe('built staging remote media geometry', () => {
       const idle = await layoutSnapshot(panel, footer);
 
       await camera.click();
-      await expect(page.getByText('Die Kamera wird gestartet …')).toBeVisible();
+      await expect(status(page, 'Die Kamera wird gestartet …')).toBeVisible();
       const startingVideo = await expectVisibleVideo(video);
       expectContained(startingVideo, await requiredBox(panel, 'camera-starting panel'));
       expect(startingVideo.width).toBeGreaterThan(startingVideo.height);
@@ -48,20 +51,19 @@ test.describe('built staging remote media geometry', () => {
       const capture = page.getByRole('button', { name: 'Bild aufnehmen' });
       const closeCamera = page.getByRole('button', { name: 'Kamera schließen' });
       await expect(capture).toBeEnabled();
-      await capture.scrollIntoViewIfNeeded();
-      await closeCamera.scrollIntoViewIfNeeded();
-      await expect(capture).toBeInViewport();
-      await expect(closeCamera).toBeInViewport();
+      await expectActionsReachable(capture, closeCamera);
       await expectOrderedWithoutOverlap(video, capture.locator('..'));
       expectContained(
         await requiredBox(video, 'camera-ready video'),
         await requiredBox(panel, 'camera-ready panel'),
       );
 
-      await closeCamera.click();
-      await expect(page.getByRole('status')).toBeVisible(); // visible cancellation
+      await capture.click();
       await expectHiddenVideo(video);
-      await page.getByRole('button', { name: 'Zurücksetzen' }).click();
+      await expect(describe).toBeEnabled();
+      await expectPrepared(page, panel, footer, preview, image, describe.locator('..'));
+      await page.getByRole('button', { name: 'Bild verwerfen' }).click();
+      await expect(image).toHaveCount(0);
       await expectCompactIdle(panel, footer, idle);
 
       await page.getByLabel('Oder ein Bild auswählen').setInputFiles({
@@ -69,19 +71,61 @@ test.describe('built staging remote media geometry', () => {
         mimeType: 'image/png',
         buffer: syntheticPortraitPng,
       });
-      const preview = page.locator('.remote-scene-preview');
-      const image = page.locator('.remote-scene-preview__image');
-      const describe = page.getByRole('button', { name: 'Szene beschreiben' });
       await expect(describe).toBeEnabled();
       await expectPrepared(page, panel, footer, preview, image, describe.locator('..'));
 
       await describe.click();
-      const requesting = page.getByText('Die Anfrage wird gesendet …').locator('..');
+      const requesting = status(page, 'Die Anfrage wird gesendet …').locator('..');
       await expect(requesting).toBeVisible();
       await expectActive(page, panel, preview, image, requesting);
 
+      await page.getByRole('button', { name: 'Abbrechen' }).click();
+      const cancelled = status(page, 'Der Vorgang wurde abgebrochen.').locator('..');
+      const resend = page.getByRole('button', { name: 'Erneut senden' });
+      const cancelledReset = cancelled.getByRole('button', { name: 'Zurücksetzen' });
+      await expectRetainedImageState(
+        page,
+        panel,
+        footer,
+        preview,
+        image,
+        cancelled,
+        resend.locator('..'),
+      );
+      await expectActionsReachable(resend, cancelledReset);
+
+      await resend.click();
+      await expect(status(page, 'Die Anfrage wird gesendet …')).toBeVisible();
       await act(page, 'metadata');
-      const streaming = page.getByText('Die Beschreibung wird übertragen …').locator('..');
+      await expect(status(page, 'Die Beschreibung wird übertragen …')).toBeVisible();
+      await act(page, 'remoteError');
+      const errorState = page
+        .getByRole('alert')
+        .filter({ hasText: 'Synthetischer Szenenfehler.' })
+        .locator('..');
+      const retry = page.getByRole('button', {
+        name: 'Mit dem vorbereiteten Bild erneut versuchen',
+      });
+      const errorReset = errorState.getByRole('button', { name: 'Zurücksetzen' });
+      await expect(retry).toBeEnabled();
+      await expectRetainedImageState(
+        page,
+        panel,
+        footer,
+        preview,
+        image,
+        errorState,
+        retry.locator('..'),
+      );
+      await expectActionsReachable(retry, errorReset);
+
+      await retry.click();
+      const retrying = status(page, 'Die Anfrage wird gesendet …').locator('..');
+      await expect(retrying).toBeVisible();
+      await expectActive(page, panel, preview, image, retrying);
+
+      await act(page, 'metadata');
+      const streaming = status(page, 'Die Beschreibung wird übertragen …').locator('..');
       await expect(streaming).toBeVisible();
       await expectActive(page, panel, preview, image, streaming);
 
@@ -91,7 +135,7 @@ test.describe('built staging remote media geometry', () => {
       await expectActive(page, panel, preview, image, streaming, runningResult);
 
       await act(page, 'done');
-      const terminal = page.getByText('Die Antwort wird sicher abgeschlossen …').locator('..');
+      const terminal = status(page, 'Die Antwort wird sicher abgeschlossen …').locator('..');
       await expect(terminal).toBeVisible();
       await expectActive(page, panel, preview, image, terminal, runningResult);
 
@@ -111,6 +155,10 @@ test.describe('built staging remote media geometry', () => {
   }
 });
 
+function status(page: Page, text: string): Locator {
+  return page.locator('p[role="status"]', { hasText: text });
+}
+
 async function expectPrepared(
   page: Page,
   panel: Locator,
@@ -119,11 +167,12 @@ async function expectPrepared(
   image: Locator,
   actions: Locator,
 ): Promise<void> {
+  await expectImageReady(image);
   const boxes = await boxesFor({ panel, preview, image, actions, footer });
   expectContained(boxes.image, boxes.preview);
   expectContained(boxes.preview, boxes.panel);
   expectContained(boxes.actions, boxes.panel);
-  expectOrdered(boxes.image, boxes.actions);
+  expectOrdered(boxes.preview, boxes.actions);
   expectOrdered(boxes.panel, boxes.footer);
   await expectNoHorizontalOverflow(page);
 }
@@ -143,12 +192,33 @@ async function expectActive(
   expectContained(imageBox, previewBox);
   expectContained(previewBox, panelBox);
   expectContained(actionsBox, panelBox);
-  expectOrdered(imageBox, actionsBox);
+  expectOrdered(previewBox, actionsBox);
   if (result) {
     const resultBox = await requiredBox(result, 'active result');
     expectContained(resultBox, panelBox);
     expect(intersectionArea(imageBox, resultBox)).toBe(0);
   }
+  await expectNoHorizontalOverflow(page);
+}
+
+async function expectRetainedImageState(
+  page: Page,
+  panel: Locator,
+  footer: Locator,
+  preview: Locator,
+  image: Locator,
+  state: Locator,
+  actions: Locator,
+): Promise<void> {
+  await expectImageReady(image);
+  const boxes = await boxesFor({ panel, footer, preview, image, state, actions });
+  expectContained(boxes.image, boxes.preview);
+  for (const child of [boxes.preview, boxes.state, boxes.actions]) {
+    expectContained(child, boxes.panel);
+  }
+  expectContained(boxes.actions, boxes.state);
+  expectOrdered(boxes.preview, boxes.state);
+  expectOrdered(boxes.panel, boxes.footer);
   await expectNoHorizontalOverflow(page);
 }
 
@@ -163,9 +233,10 @@ async function expectComplete(
 ): Promise<void> {
   const boxes = await boxesFor({ panel, footer, preview, image, result, reset });
   expectContained(boxes.image, boxes.preview);
-  for (const child of [boxes.preview, boxes.result, boxes.reset])
+  for (const child of [boxes.preview, boxes.result, boxes.reset]) {
     expectContained(child, boxes.panel);
-  expectOrdered(boxes.image, boxes.result);
+  }
+  expectOrdered(boxes.preview, boxes.result);
   expectOrdered(boxes.result, boxes.reset);
   expectOrdered(boxes.panel, boxes.footer);
   await expectNoHorizontalOverflow(page);
@@ -185,6 +256,19 @@ async function expectVisibleVideo(video: Locator): Promise<Box> {
   return await requiredBox(video, 'visible video');
 }
 
+async function expectImageReady(image: Locator): Promise<void> {
+  await expect
+    .poll(() =>
+      image.evaluate(
+        (element) =>
+          (element as HTMLImageElement).complete &&
+          (element as HTMLImageElement).naturalWidth > 0 &&
+          (element as HTMLImageElement).naturalHeight > 0,
+      ),
+    )
+    .toBe(true);
+}
+
 async function expectCompactIdle(
   panel: Locator,
   footer: Locator,
@@ -192,12 +276,19 @@ async function expectCompactIdle(
 ): Promise<void> {
   const current = await layoutSnapshot(panel, footer);
   expect(Math.abs(current.panel.height - idle.panel.height)).toBeLessThanOrEqual(1);
-  expect(Math.abs(current.panel.x - idle.panel.x)).toBeLessThanOrEqual(1.0);
+  expect(Math.abs(current.panel.x - idle.panel.x)).toBeLessThanOrEqual(1);
   expectOrdered(current.panel, current.footer);
 }
 
 async function expectPanelBeforeFooter(panel: Locator, footer: Locator): Promise<void> {
   expectOrdered(await requiredBox(panel, 'panel'), await requiredBox(footer, 'footer'));
+}
+
+async function expectActionsReachable(...actions: Locator[]): Promise<void> {
+  for (const action of actions) {
+    await action.scrollIntoViewIfNeeded();
+    await expect(action).toBeInViewport();
+  }
 }
 
 async function expectOrderedWithoutOverlap(first: Locator, second: Locator): Promise<void> {
@@ -293,6 +384,7 @@ async function act(page: Page, action: HarnessAction): Promise<void> {
 async function installHarness(page: Page): Promise<void> {
   await page.addInitScript((apiBase) => {
     const nativeFetch = globalThis.fetch.bind(globalThis);
+    const nativeDrawImage = CanvasRenderingContext2D.prototype.drawImage;
     const encoder = new TextEncoder();
     let resolveCamera: (() => void) | undefined;
     let stream: ReadableStreamDefaultController<Uint8Array> | undefined;
@@ -316,12 +408,26 @@ async function installHarness(page: Page): Promise<void> {
       return Promise.resolve();
     };
     HTMLMediaElement.prototype.pause = () => undefined;
+    CanvasRenderingContext2D.prototype.drawImage = function (
+      this: CanvasRenderingContext2D,
+      ...args: unknown[]
+    ) {
+      if (args[0] instanceof HTMLVideoElement) return;
+      Reflect.apply(nativeDrawImage, this, args);
+    } as CanvasRenderingContext2D['drawImage'];
 
     const event = (name: string, data: unknown) =>
       `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`;
     const enqueue = (value: string) => {
       if (!stream) throw new Error('Scene stream is not open.');
       stream.enqueue(encoder.encode(value));
+    };
+    const finish = (value?: string) => {
+      if (!stream) throw new Error('Scene stream is not open.');
+      const controller = stream;
+      stream = undefined;
+      if (value) controller.enqueue(encoder.encode(value));
+      controller.close();
     };
     const harness: Record<HarnessAction, () => void> = {
       resolveCamera: () => {
@@ -354,12 +460,14 @@ async function installHarness(page: Page): Promise<void> {
             locale: 'de-DE',
           }),
         ),
-      close: () => {
-        if (!stream) throw new Error('Scene stream is not open.');
-        const controller = stream;
-        stream = undefined;
-        controller.close();
-      },
+      remoteError: () =>
+        finish(
+          event('error', {
+            error: 'UPSTREAM_FAILED',
+            message: 'Synthetischer Szenenfehler.',
+          }),
+        ),
+      close: () => finish(),
     };
     Object.defineProperty(globalThis, '__owliLayoutHarness', {
       configurable: true,
@@ -420,7 +528,9 @@ async function installHarness(page: Page): Promise<void> {
           { ETag: '"profiles-1"' },
         );
       }
-      if (url.pathname !== '/api/v1/scene/describe') return json({ code: 'NOT_FOUND' }, {}, 404);
+      if (url.pathname !== '/api/v1/scene/describe') {
+        return json({ code: 'NOT_FOUND' }, {}, 404);
+      }
       return new Response(
         new ReadableStream<Uint8Array>({
           start(controller) {
