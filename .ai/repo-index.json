@@ -119,12 +119,12 @@
     { "path": "package.json", "bytes": 2400, "area": "package.json" },
     {
       "path": "playwright.config.ts",
-      "bytes": 2024,
+      "bytes": 2068,
       "area": "playwright.config.ts"
     },
     {
       "path": "playwright.staging.config.ts",
-      "bytes": 1317,
+      "bytes": 1361,
       "area": "playwright.staging.config.ts"
     },
     {
@@ -234,10 +234,10 @@
     { "path": "src/features/remote/README.md", "bytes": 730, "area": "src" },
     {
       "path": "src/features/remote/RemoteAssist.tsx",
-      "bytes": 10712,
+      "bytes": 10902,
       "area": "src"
     },
-    { "path": "src/features/remote/remote.css", "bytes": 1652, "area": "src" },
+    { "path": "src/features/remote/remote.css", "bytes": 1713, "area": "src" },
     {
       "path": "src/features/remote/remoteSceneErrors.ts",
       "bytes": 3986,
@@ -331,6 +331,11 @@
     {
       "path": "tests/e2e/remote-camera-layout.spec.ts",
       "bytes": 4564,
+      "area": "tests"
+    },
+    {
+      "path": "tests/e2e/remote-media-layout-staging.spec.ts",
+      "bytes": 20294,
       "area": "tests"
     },
     {

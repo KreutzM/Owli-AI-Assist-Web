@@ -153,7 +153,12 @@ export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssis
 
       <video
         ref={videoRef}
-        className={cameraVisible ? 'camera-preview' : 'camera-preview camera-preview--hidden'}
+        className={
+          cameraVisible
+            ? 'remote-camera-preview'
+            : 'remote-camera-preview remote-camera-preview--hidden'
+        }
+        hidden={!cameraVisible}
         aria-label={cameraVisible ? 'Lokale Live-Vorschau der Rückkamera' : undefined}
         aria-hidden={!cameraVisible}
         muted
@@ -184,8 +189,12 @@ export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssis
       )}
 
       {state.image && (
-        <div className="scene-preview">
-          <img src={state.image.previewUrl} alt="Ausgewählte Szene" />
+        <div className="remote-scene-preview">
+          <img
+            className="remote-scene-preview__image"
+            src={state.image.previewUrl}
+            alt="Ausgewählte Szene"
+          />
           <p>
             Normalisiertes JPEG: {state.image.width} × {state.image.height} Pixel,{' '}
             {formatBytes(state.image.byteLength)}
