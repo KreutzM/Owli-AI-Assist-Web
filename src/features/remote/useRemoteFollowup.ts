@@ -80,7 +80,11 @@ export function useRemoteFollowup({
   );
 
   const completeScene = useCallback(
-    (currentReadiness: RemoteReadiness, currentImage: NormalizedSceneImage, result: RemoteSceneResult) => {
+    (
+      currentReadiness: RemoteReadiness,
+      currentImage: NormalizedSceneImage,
+      result: RemoteSceneResult,
+    ) => {
       completedSceneText.current = result.answerText;
       completedSceneLocale.current = result.locale;
       const context = resolveFollowupContext(currentReadiness, currentImage, result);
@@ -217,7 +221,16 @@ export function useRemoteFollowup({
         activeKind.current = undefined;
       }
     }
-  }, [activeController, activeKind, attempt, clearAttempt, client, followup.status, image, readiness]);
+  }, [
+    activeController,
+    activeKind,
+    attempt,
+    clearAttempt,
+    client,
+    followup.status,
+    image,
+    readiness,
+  ]);
 
   const cancelFollowup = useCallback(() => {
     if (activeKind.current !== 'followup') return;
