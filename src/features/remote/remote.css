@@ -6,14 +6,21 @@
 .scene-controls,
 .file-control,
 .remote-scene-preview,
-.scene-result {
+.scene-result,
+.followup-panel,
+.followup-form,
+.followup-partial,
+.followup-transcript,
+.speech-disclosure {
   display: grid;
   gap: 0.55rem;
 }
 
 .scene-controls,
 .remote-scene-preview,
-.scene-result {
+.scene-result,
+.followup-panel,
+.speech-disclosure {
   margin-block: 1rem;
 }
 
@@ -54,23 +61,91 @@
   object-fit: contain;
 }
 
-.remote-scene-preview p {
+.remote-scene-preview p,
+.followup-field-meta,
+.speech-disclosure p {
   color: var(--text-muted);
 }
 
-.scene-result {
+.scene-result,
+.followup-panel,
+.speech-disclosure {
   border: 1px solid var(--border);
   border-radius: 0.8rem;
   padding: 1rem;
   background: #091525;
+}
+
+.scene-result {
   font-size: 1.08rem;
   line-height: 1.65;
 }
 
-.scene-result p {
+.scene-result p,
+.followup-partial p,
+.followup-transcript p {
   margin-bottom: 0;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+.speech-actions {
+  margin-top: 0.35rem;
+}
+
+.followup-form textarea {
+  width: 100%;
+  min-height: 7rem;
+  resize: vertical;
+  border: 1px solid #58708e;
+  border-radius: 0.7rem;
+  padding: 0.8rem;
+  background: #08111f;
+  color: white;
+  font: inherit;
+  line-height: 1.5;
+  outline-offset: 4px;
+}
+
+.followup-form textarea[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.followup-field-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+}
+
+.followup-field-meta p {
+  margin-bottom: 0;
+}
+
+.followup-partial {
+  border-left: 0.25rem solid var(--accent);
+  padding-left: 0.85rem;
+}
+
+.followup-transcript ol {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.followup-transcript li {
+  border-top: 1px solid var(--border);
+  padding-top: 0.8rem;
+}
+
+.followup-transcript li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.followup-transcript li .button {
+  margin-top: 0.65rem;
 }
 
 .visually-hidden {
@@ -87,7 +162,8 @@
 
 @media (max-width: 32rem) {
   .scene-source-actions,
-  .scene-actions {
+  .scene-actions,
+  .followup-field-meta {
     align-items: stretch;
     flex-direction: column;
   }
@@ -98,7 +174,8 @@
   }
 
   .scene-actions .button,
-  .scene-source-actions .button {
+  .scene-source-actions .button,
+  .followup-transcript .button {
     width: 100%;
   }
 }
