@@ -7,7 +7,7 @@ permissions:
   contents: write
 
 jobs:
-  apply-source-fix:
+  cleanup-source-transfer:
     runs-on: ubuntu-latest
     steps:
       - name: Check out PR branch
@@ -15,87 +15,15 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.ref }}
 
-      - name: Reconstruct and complete verified source fix
+      - name: Remove source-transfer artifacts
         shell: bash
-        run: |
-          cat .github/slice4-source-fix.part* | tr -d '\r\n[:space:]' > /tmp/slice4-source-fix.b64
-          test "$(wc -c < /tmp/slice4-source-fix.b64)" = "9896"
-          echo 'db0191ec2afbde6a89e1cd651e1ae5222a1ae075672466796bf67d397776572a  /tmp/slice4-source-fix.b64' | sha256sum --check
-          base64 --decode /tmp/slice4-source-fix.b64 > /tmp/slice4-source-fix.tgz
-          echo 'bd906119d9b3e473da26eee38b531892250e6812f67e6329f01622fa373a3339  /tmp/slice4-source-fix.tgz' | sha256sum --check
-          tar -xzf /tmp/slice4-source-fix.tgz
-          python3 - <<'PY'
-          from pathlib import Path
+        run: rm -f .github/slice4-source-fix.part* .github/slice4-source-final.part*
 
-          followup = Path('src/features/remote/useRemoteFollowup.ts')
-          text = followup.read_text()
-          replacements = (
-              ('activeController.current === controller', 'activeControllerRef.current === controller'),
-              ('activeController.current = undefined', 'activeControllerRef.current = undefined'),
-              ('activeKind.current = undefined', 'activeKindRef.current = undefined'),
-              (
-                  '  }, [activeController, activeKind, attempt, clearAttempt, client, followup.status, image, readiness]);',
-                  '  }, [activeControllerRef, activeKindRef, attemptRef, clearAttempt, client, followup.status, imageRef, readinessRef]);',
-              ),
-              ("if (activeKind.current !== 'followup')", "if (activeKindRef.current !== 'followup')"),
-              ('  }, [activeKind, clearAttempt]);', '  }, [activeKindRef, clearAttempt]);'),
-          )
-          for old, new in replacements:
-              if old not in text:
-                  raise SystemExit(f'missing follow-up replacement: {old!r}')
-              text = text.replace(old, new)
-          followup.write_text(text)
-
-          scene = Path('src/features/remote/useRemoteScene.ts')
-          text = scene.read_text()
-          marker = '\nexport type RemoteSceneWorkflow = ReturnType<typeof useRemoteScene>;\n'
-          if marker not in text:
-              raise SystemExit('missing RemoteSceneWorkflow export')
-          scene.write_text(text.replace(marker, '\n'))
-
-          Path('src/features/remote/remoteSceneWorkflow.ts').write_text(
-              "import type { useRemoteScene } from '@/features/remote/useRemoteScene';\n\n"
-              'export type RemoteSceneWorkflow = ReturnType<typeof useRemoteScene>;\n'
-          )
-
-          for path in (
-              Path('src/features/remote/RemoteSceneContent.tsx'),
-              Path('src/features/remote/RemoteFollowupPanel.tsx'),
-          ):
-              source = path.read_text()
-              old = "@/features/remote/useRemoteScene'"
-              if old not in source:
-                  raise SystemExit(f'missing workflow type import in {path}')
-              path.write_text(source.replace(old, "@/features/remote/remoteSceneWorkflow'"))
-          PY
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.12.1
-          run_install: false
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Format and validate source fix
-        run: |
-          pnpm exec prettier --write src/core/api/remoteAssistClient.ts src/features/remote/remoteSceneState.ts src/features/remote/useRemoteRequestLifecycle.ts src/features/remote/useRemoteFollowup.ts src/features/remote/useRemoteScene.ts src/features/remote/remoteSceneWorkflow.ts src/features/remote/RemoteSceneContent.tsx src/features/remote/RemoteFollowupPanel.tsx
-          pnpm lint
-          pnpm typecheck
-          pnpm guardrails
-
-      - name: Commit source fix
+      - name: Commit cleanup
         shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src/core/api/remoteAssistClient.ts src/features/remote/remoteSceneState.ts src/features/remote/useRemoteRequestLifecycle.ts src/features/remote/useRemoteFollowup.ts src/features/remote/useRemoteScene.ts src/features/remote/remoteSceneWorkflow.ts src/features/remote/RemoteSceneContent.tsx src/features/remote/RemoteFollowupPanel.tsx
-          git commit -m 'fix(web): restore modularized follow-up contracts'
+          git add -A .github
+          git commit -m 'chore(web): remove Slice 4 source-transfer artifacts'
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
