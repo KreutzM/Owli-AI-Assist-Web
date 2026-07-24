@@ -120,7 +120,12 @@ export async function consumeFollowupSse(
         metadataSeen,
         ...(terminalAt !== undefined ? { terminalAt } : {}),
       });
-      const result = await readWithTimeout(reader, timeout.delay, timeout.code);
+      const result = await readWithTimeout(
+        reader,
+        timeout.delay,
+        timeout.code,
+        options.signal,
+      );
       buffer += decoder.decode(result.value, { stream: !result.done });
       const blocks = buffer.split(/\r?\n\r?\n/u);
       buffer = blocks.pop() ?? '';
@@ -188,17 +193,31 @@ async function readWithTimeout(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   delay: number,
   code: SceneStreamErrorCode,
+  signal?: AbortSignal,
 ): Promise<ReadableStreamReadResult<Uint8Array>> {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let removeAbort = () => undefined;
   try {
+    const abortPromise = new Promise<never>((_, reject) => {
+      if (!signal) return;
+      const rejectAbort = () => reject(new SceneStreamError('REQUEST_ABORTED'));
+      if (signal.aborted) {
+        rejectAbort();
+        return;
+      }
+      signal.addEventListener('abort', rejectAbort, { once: true });
+      removeAbort = () => signal.removeEventListener('abort', rejectAbort);
+    });
     return await Promise.race([
       reader.read(),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => reject(new SceneStreamError(code)), delay);
       }),
+      abortPromise,
     ]);
   } finally {
     if (timer !== undefined) clearTimeout(timer);
+    removeAbort();
   }
 }
 
