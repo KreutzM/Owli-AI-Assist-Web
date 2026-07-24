@@ -3,10 +3,12 @@ import type { RemoteAssistClient, RemoteReadiness } from '@/core/api/remoteAssis
 import { RemoteAssist } from '@/features/remote/RemoteAssist';
 import type { RemoteCamera } from '@/platform/camera/remoteCamera';
 import { BrowserSceneImageNormalizer } from '@/platform/image/browserSceneImageNormalizer';
+import { BrowserSpeech } from '@/platform/speech/browserSpeech';
 import '@/app/app.css';
 
 const readiness: RemoteReadiness = {
   sceneDescribeEnabled: true,
+  followupEnabled: false,
   catalog: {
     defaultProfileId: 'brief',
     profiles: [
@@ -45,6 +47,7 @@ createRoot(root).render(
       client={localClient}
       camera={disabledCamera}
       normalizer={new BrowserSceneImageNormalizer()}
+      speech={new BrowserSpeech()}
       locale="de-DE"
     />
   </main>,

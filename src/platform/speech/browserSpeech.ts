@@ -13,8 +13,10 @@ export interface SpeechLifecycleGateway extends SpeechGateway {
 }
 
 export interface BrowserSpeechOptions {
-  synthesis?: Pick<SpeechSynthesis, 'cancel' | 'speak'>;
-  utteranceConstructor?: new (text?: string) => SpeechSynthesisUtterance;
+  synthesis?: Pick<SpeechSynthesis, 'cancel' | 'speak'> | undefined;
+  utteranceConstructor?:
+    | (new (text?: string) => SpeechSynthesisUtterance)
+    | undefined;
 }
 
 export class BrowserSpeech implements SpeechLifecycleGateway {

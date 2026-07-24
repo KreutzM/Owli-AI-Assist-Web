@@ -191,7 +191,7 @@ async function readWithTimeout(
   signal?: AbortSignal,
 ): Promise<ReadableStreamReadResult<Uint8Array>> {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let removeAbort = () => undefined;
+  let removeAbort: () => void = () => undefined;
   try {
     const abortPromise = new Promise<never>((_, reject) => {
       if (!signal) return;
