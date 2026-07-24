@@ -65,9 +65,9 @@ export class BrowserSpeech implements SpeechLifecycleGateway {
 
     const generation = ++this.#generation;
     this.#detachActive();
-    this.#synthesis!.cancel();
 
     try {
+      this.#synthesis!.cancel();
       const utterance = new this.#utteranceConstructor!(normalized);
       utterance.lang = locale;
       utterance.onend = () => {
@@ -78,7 +78,7 @@ export class BrowserSpeech implements SpeechLifecycleGateway {
       utterance.onerror = () => {
         if (generation !== this.#generation || this.#active !== utterance) return;
         this.#detachActive();
-        this.#synthesis?.cancel();
+        this.#cancelSafely();
         this.#setState('error');
       };
       this.#active = utterance;
@@ -86,7 +86,7 @@ export class BrowserSpeech implements SpeechLifecycleGateway {
       this.#synthesis!.speak(utterance);
     } catch {
       this.#detachActive();
-      this.#synthesis?.cancel();
+      this.#cancelSafely();
       this.#setState('error');
     }
   }
@@ -94,8 +94,8 @@ export class BrowserSpeech implements SpeechLifecycleGateway {
   stop(): void {
     this.#generation += 1;
     this.#detachActive();
-    this.#synthesis?.cancel();
-    this.#setState(this.supported ? 'idle' : 'unsupported');
+    const cancelled = this.#cancelSafely();
+    this.#setState(cancelled ? (this.supported ? 'idle' : 'unsupported') : 'error');
   }
 
   dispose(): void {
@@ -108,6 +108,15 @@ export class BrowserSpeech implements SpeechLifecycleGateway {
     this.#active.onend = null;
     this.#active.onerror = null;
     this.#active = undefined;
+  }
+
+  #cancelSafely(): boolean {
+    try {
+      this.#synthesis?.cancel();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   #setState(state: SpeechState): void {
