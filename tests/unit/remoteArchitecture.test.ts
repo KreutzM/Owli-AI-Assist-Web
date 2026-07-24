@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 
 describe('remote capability isolation', () => {
-  it('keeps later product capabilities out of the remote scene surface', async () => {
+  it('keeps unauthorized product capabilities out of the remote scene surface', async () => {
     const sources = await Promise.all([
       readFile('src/features/remote/RemoteAssist.tsx', 'utf8'),
       readFile('src/features/remote/useRemoteScene.ts', 'utf8'),
@@ -10,7 +10,7 @@ describe('remote capability isolation', () => {
     ]);
     const remoteSource = sources.slice(0, 2).join('\n');
     expect(remoteSource).not.toMatch(
-      /features\/(?:followup|song|postcard)|askFollowup|generateAudioPostcard|share|speechSynthesis|playAudio|playVideo/iu,
+      /features\/(?:song|postcard)|generateAudioPostcard|share|SpeechRecognition|MediaRecorder|playAudio|playVideo/iu,
     );
     expect(sources[2]).toContain("runtime.mode === 'mock'");
     expect(sources[2]).toContain('<AudioPostcardPanel');
@@ -26,18 +26,27 @@ describe('remote capability isolation', () => {
         '/api/v1/session/bootstrap',
         '/api/v1/profiles',
         '/api/v1/scene/describe',
+        '/api/v1/scene/followup',
       ]),
     );
     expect(source).not.toContain('Authorization');
     expect(source).not.toContain('X-Request-Id');
   });
 
-  it('keeps fetch and camera access in their approved layers', async () => {
+  it('keeps fetch, camera, and speech access in their approved layers', async () => {
     const client = await readFile('src/core/api/remoteAssistClient.ts', 'utf8');
     const camera = await readFile('src/platform/camera/remoteCamera.ts', 'utf8');
+    const speech = await readFile('src/platform/speech/browserSpeech.ts', 'utf8');
     const feature = await readFile('src/features/remote/useRemoteScene.ts', 'utf8');
     expect(client).toMatch(/#fetchImplementation/u);
     expect(camera).toContain("Reflect.get(navigator, 'mediaDevices')");
-    expect(feature).not.toMatch(/\bfetch\s*\(|navigator\.mediaDevices/gu);
+    expect(speech).toContain('speechSynthesis');
+    expect(feature).not.toMatch(/\bfetch\s*\(|navigator\.mediaDevices|speechSynthesis/gu);
+  });
+
+  it('keeps browser speech local and free of network or recognition scope', async () => {
+    const speech = await readFile('src/platform/speech/browserSpeech.ts', 'utf8');
+    expect(speech).not.toMatch(/\bfetch\s*\(|XMLHttpRequest|WebSocket|SpeechRecognition/gu);
+    expect(speech).not.toMatch(/voice\s*=|rate\s*=|pitch\s*=/gu);
   });
 });
