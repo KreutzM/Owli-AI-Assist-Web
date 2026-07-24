@@ -29,18 +29,18 @@ jobs:
 
           followup = Path('src/features/remote/useRemoteFollowup.ts')
           text = followup.read_text()
-          for old, new in (
+          replacements = (
               ('activeController.current === controller', 'activeControllerRef.current === controller'),
               ('activeController.current = undefined', 'activeControllerRef.current = undefined'),
               ('activeKind.current = undefined', 'activeKindRef.current = undefined'),
-              ('    activeController,\n', '    activeControllerRef,\n'),
-              ('    activeKind,\n', '    activeKindRef,\n'),
-              ('    attempt,\n', '    attemptRef,\n'),
-              ('    image,\n', '    imageRef,\n'),
-              ('    readiness,\n', '    readinessRef,\n'),
+              (
+                  '  }, [activeController, activeKind, attempt, clearAttempt, client, followup.status, image, readiness]);',
+                  '  }, [activeControllerRef, activeKindRef, attemptRef, clearAttempt, client, followup.status, imageRef, readinessRef]);',
+              ),
               ("if (activeKind.current !== 'followup')", "if (activeKindRef.current !== 'followup')"),
               ('  }, [activeKind, clearAttempt]);', '  }, [activeKindRef, clearAttempt]);'),
-          ):
+          )
+          for old, new in replacements:
               if old not in text:
                   raise SystemExit(f'missing follow-up replacement: {old!r}')
               text = text.replace(old, new)
