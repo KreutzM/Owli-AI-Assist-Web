@@ -7,7 +7,7 @@ permissions:
   contents: write
 
 jobs:
-  apply-validation-fixes:
+  apply-source-fix:
     runs-on: ubuntu-latest
     steps:
       - name: Check out PR branch
@@ -15,140 +15,15 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.ref }}
 
-      - name: Apply focused fixes
+      - name: Reconstruct verified source fix
         shell: bash
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          def replace(path: str, old: str, new: str) -> None:
-              file = Path(path)
-              text = file.read_text()
-              if old not in text:
-                  raise SystemExit(f'missing replacement in {path}: {old!r}')
-              file.write_text(text.replace(old, new))
-
-          replace('src/core/api/remoteAssistClient.ts', '  type RemoteProfilesResponse,\n', '')
-          replace('src/core/api/remoteAssistClient.ts', '  type RemoteClientErrorCode,\n', '')
-
-          lifecycle = Path('src/features/remote/useRemoteRequestLifecycle.ts')
-          text = lifecycle.read_text()
-          for old, new in (
-              ('activeController', 'activeControllerRef'),
-              ('activeKind', 'activeKindRef'),
-              ('attempt', 'attemptRef'),
-              ('image', 'imageRef'),
-          ):
-              text = text.replace(old, new)
-          text = text.replace("@/platform/imageRef/browserSceneImageNormalizer", "@/platform/image/browserSceneImageNormalizer")
-          lifecycle.write_text(text)
-
-          followup = Path('src/features/remote/useRemoteFollowup.ts')
-          text = followup.read_text()
-          for old, new in (
-              ('activeController', 'activeControllerRef'),
-              ('activeKind', 'activeKindRef'),
-              ('attempt', 'attemptRef'),
-              ('readiness', 'readinessRef'),
-              ('image', 'imageRef'),
-          ):
-              text = text.replace(old, new)
-          text = text.replace("@/platform/imageRef/browserSceneImageNormalizer", "@/platform/image/browserSceneImageNormalizer")
-          text = text.replace('          imageRef: currentImage.blob,', '          image: currentImage.blob,')
-          followup.write_text(text)
-
-          state = Path('src/features/remote/remoteSceneState.ts')
-          text = state.read_text()
-          text += """
-
-export function selectStreamingProfileId(readiness: RemoteReadiness): string | undefined {
-  const preferred = readiness.catalog.profiles.find(
-    (profile) => profile.id === readiness.catalog.defaultProfileId && profile.supportsStreaming,
-  );
-  return preferred?.id ?? readiness.catalog.profiles.find((profile) => profile.supportsStreaming)?.id;
-}
-
-export function createCancelledSceneState(
-  current: RemoteSceneState,
-  image: NormalizedSceneImage | undefined,
-): RemoteSceneState {
-  return {
-    status: 'cancelled',
-    ...(current.readiness ? { readiness: current.readiness } : {}),
-    ...(current.selectedProfileId ? { selectedProfileId: current.selectedProfileId } : {}),
-    ...(image ? { image } : {}),
-    streamedText: '',
-  };
-}
-"""
-          state.write_text(text)
-
-          scene = Path('src/features/remote/useRemoteScene.ts')
-          text = scene.read_text()
-          text = text.replace(
-              "import type {\n  BrowserSceneImageNormalizer,\n  NormalizedSceneImage,\n} from '@/platform/image/browserSceneImageNormalizer';",
-              "import {\n  revokeNormalizedSceneImage,\n  type BrowserSceneImageNormalizer,\n  type NormalizedSceneImage,\n} from '@/platform/image/browserSceneImageNormalizer';",
-          )
-          text = text.replace(
-              '  createResetSceneState,\n',
-              '  createCancelledSceneState,\n  createResetSceneState,\n',
-              1,
-          )
-          text = text.replace(
-              '  type RemoteSceneState,\n',
-              '  selectStreamingProfileId,\n  type RemoteSceneState,\n',
-              1,
-          )
-          text = text.replace(
-              "} from '@/features/remote/remoteSceneState';\n",
-              "} from '@/features/remote/remoteSceneState';\n\nexport type { RemoteSceneState, RemoteSceneStatus } from '@/features/remote/remoteSceneState';\n",
-              1,
-          )
-          for old, new in (
-              ('activeController', 'activeControllerRef'),
-              ('activeKind', 'activeKindRef'),
-              ('attempt', 'attemptRef'),
-          ):
-              text = text.replace(old, new)
-          text = text.replace('    readiness,\n    image,\n', '    readinessRef: readiness,\n    imageRef: image,\n', 1)
-          text = text.replace(
-              "        const preferred = next.catalog.profiles.find(\n          (profile) => profile.id === next.catalog.defaultProfileId && profile.supportsStreaming,\n        );\n        const fallback = next.catalog.profiles.find((profile) => profile.supportsStreaming);\n        selectedProfileId.current = preferred?.id ?? fallback?.id;",
-              '        selectedProfileId.current = selectStreamingProfileId(next);',
-              1,
-          )
-          text = text.replace(
-              '[clearAttempt, clearSceneContext, client]',
-              '[activeControllerRef, activeKindRef, attemptRef, clearAttempt, clearSceneContext, client]',
-              1,
-          )
-          text = text.replace(
-              '  }, []);\n\n  const startCamera',
-              '  }, [activeControllerRef]);\n\n  const startCamera',
-              1,
-          )
-          text = text.replace(
-              '[camera, clearAttempt, clearSceneContext]',
-              '[attemptRef, camera, clearAttempt, clearSceneContext]',
-              1,
-          )
-          text = text.replace(
-              '[clearAttempt, clearSceneContext, normalizer]',
-              '[activeControllerRef, activeKindRef, attemptRef, clearAttempt, clearSceneContext, normalizer]',
-              1,
-          )
-          text = text.replace('}, [camera, prepare]);', '}, [attemptRef, camera, prepare]);', 1)
-          text = text.replace(
-              '[clearAttempt, clearSceneContext, client, followupWorkflow, locale]',
-              '[activeControllerRef, activeKindRef, attemptRef, clearAttempt, clearSceneContext, client, followupWorkflow, locale]',
-              1,
-          )
-          text = text.replace(
-              "    setState((current) => ({\n      status: 'cancelled',\n      ...(current.readiness ? { readiness: current.readiness } : {}),\n      ...(current.selectedProfileId ? { selectedProfileId: current.selectedProfileId } : {}),\n      ...(currentImage ? { image: currentImage } : {}),\n      streamedText: '',\n    }));",
-              '    setState((current) => createCancelledSceneState(current, currentImage));',
-              1,
-          )
-          scene.write_text(text)
-          PY
+          cat .github/slice4-source-fix.part* | tr -d '\r\n[:space:]' > /tmp/slice4-source-fix.b64
+          test "$(wc -c < /tmp/slice4-source-fix.b64)" = "9896"
+          echo 'db0191ec2afbde6a89e1cd651e1ae5222a1ae075672466796bf67d397776572a  /tmp/slice4-source-fix.b64' | sha256sum --check
+          base64 --decode /tmp/slice4-source-fix.b64 > /tmp/slice4-source-fix.tgz
+          echo 'bd906119d9b3e473da26eee38b531892250e6812f67e6329f01622fa373a3339  /tmp/slice4-source-fix.tgz' | sha256sum --check
+          tar -xzf /tmp/slice4-source-fix.tgz
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -165,14 +40,14 @@ export function createCancelledSceneState(
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Format and validate fixes
+      - name: Validate source fix
         run: |
-          pnpm exec prettier --write src/core/api/remoteAssistClient.ts src/features/remote/remoteSceneState.ts src/features/remote/useRemoteRequestLifecycle.ts src/features/remote/useRemoteFollowup.ts src/features/remote/useRemoteScene.ts
+          pnpm format:check
           pnpm lint
           pnpm typecheck
           pnpm guardrails
 
-      - name: Commit fixes
+      - name: Commit source fix
         shell: bash
         run: |
           git config user.name 'github-actions[bot]'
