@@ -1,7 +1,11 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { FOLLOWUP_QUESTION_MAX_LENGTH } from '@/core/api/remoteFollowupContracts';
 import type { RemoteAssistClient } from '@/core/api/remoteAssistClient';
 import type { RemoteCamera } from '@/platform/camera/remoteCamera';
 import type { BrowserSceneImageNormalizer } from '@/platform/image/browserSceneImageNormalizer';
+import type { SpeechLifecycleGateway } from '@/platform/speech/browserSpeech';
+import { isFollowupActive } from '@/features/remote/followupState';
+import { useFollowupAnnouncements } from '@/features/remote/useFollowupAnnouncements';
 import { useRemoteScene } from '@/features/remote/useRemoteScene';
 import { useSceneAnnouncements } from '@/features/remote/useSceneAnnouncements';
 import '@/features/remote/remote.css';
@@ -10,49 +14,76 @@ interface RemoteAssistProps {
   client: RemoteAssistClient;
   camera: RemoteCamera;
   normalizer: BrowserSceneImageNormalizer;
+  speech: SpeechLifecycleGateway;
   locale: string;
 }
 
-export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssistProps) {
-  const workflow = useRemoteScene(client, camera, normalizer, locale);
-  const { state } = workflow;
-  const announcement = useSceneAnnouncements(state);
+export function RemoteAssist({ client, camera, normalizer, speech, locale }: RemoteAssistProps) {
+  const workflow = useRemoteScene(client, camera, normalizer, speech, locale);
+  const { state, followup, speechState } = workflow;
+  const sceneAnnouncement = useSceneAnnouncements(state);
+  const followupAnnouncement = useFollowupAnnouncements(followup);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraButtonRef = useRef<HTMLButtonElement>(null);
+  const questionRef = useRef<HTMLTextAreaElement>(null);
+  const newSceneButtonRef = useRef<HTMLButtonElement>(null);
+  const previousSceneStatus = useRef(state.status);
   const [videoReady, setVideoReady] = useState(false);
   const [retryClock, setRetryClock] = useState(() => Date.now());
 
   const readinessEnabled =
     state.readiness?.sceneDescribeEnabled === true && state.selectedProfileId !== undefined;
-  const active = [
+  const sceneActive = [
     'camera_starting',
     'normalizing',
     'requesting',
     'streaming',
     'terminal_waiting_for_eof',
   ].includes(state.status);
+  const followupActive = isFollowupActive(followup.status);
+  const active = sceneActive || followupActive;
   const cameraVisible = state.status === 'camera_starting' || state.status === 'camera_ready';
-  const retrySeconds =
+  const sceneRetrySeconds =
     state.status === 'rate_limited' && state.retryAt !== undefined
       ? Math.max(0, Math.ceil((state.retryAt - retryClock) / 1000))
       : 0;
-  const retryReady =
+  const followupRetrySeconds =
+    followup.status === 'rate_limited' && followup.retryAt !== undefined
+      ? Math.max(0, Math.ceil((followup.retryAt - retryClock) / 1000))
+      : 0;
+  const sceneRetryReady =
     state.status !== 'rate_limited' || state.retryAt === undefined || retryClock >= state.retryAt;
+  const followupRetryReady =
+    followup.status !== 'rate_limited' ||
+    followup.retryAt === undefined ||
+    retryClock >= followup.retryAt;
   const retryableImage =
     state.image !== undefined &&
     ['prepared', 'cancelled', 'recoverable_error', 'rate_limited'].includes(state.status);
-  const canDescribe = retryableImage && retryReady;
+  const canDescribe = retryableImage && sceneRetryReady && !followupActive;
+  const profileLocked = state.image !== undefined;
+  const followupVisible = state.status === 'complete' && followup.status !== 'unavailable';
+  const canSubmitFollowup =
+    followupVisible &&
+    followup.status !== 'context_expired' &&
+    !followupActive &&
+    followupRetryReady &&
+    Boolean(followup.questionDraft.trim());
+  const remainingQuestionCharacters =
+    FOLLOWUP_QUESTION_MAX_LENGTH - followup.questionDraft.length;
 
   useEffect(() => {
-    const unlockAt = state.retryAt;
-    if (state.status !== 'rate_limited' || unlockAt === undefined) return;
+    const unlockAt = [state.retryAt, followup.retryAt]
+      .filter((value): value is number => value !== undefined)
+      .sort((left, right) => left - right)[0];
+    if (unlockAt === undefined || retryClock >= unlockAt) return;
     const timer = window.setInterval(() => {
       const current = Date.now();
       setRetryClock(current);
       if (current >= unlockAt) window.clearInterval(timer);
     }, 250);
     return () => window.clearInterval(timer);
-  }, [state.retryAt, state.status]);
+  }, [followup.retryAt, retryClock, state.retryAt]);
 
   useEffect(() => {
     if (
@@ -64,6 +95,22 @@ export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssis
     }
   }, [state.status]);
 
+  useEffect(() => {
+    if (followup.focusTarget === 'question') questionRef.current?.focus();
+    if (followup.focusTarget === 'new_scene') newSceneButtonRef.current?.focus();
+  }, [followup.focusRun, followup.focusTarget]);
+
+  useEffect(() => {
+    if (
+      previousSceneStatus.current !== 'complete' &&
+      state.status === 'complete' &&
+      followup.status === 'idle'
+    ) {
+      questionRef.current?.focus();
+    }
+    previousSceneStatus.current = state.status;
+  }, [followup.status, state.status]);
+
   const selectFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
     const selected = input.files?.[0];
@@ -72,6 +119,11 @@ export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssis
     } finally {
       input.value = '';
     }
+  };
+
+  const submitFollowup = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void workflow.submitFollowup();
   };
 
   return (
@@ -111,7 +163,8 @@ export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssis
           <select
             id="scene-profile"
             value={state.selectedProfileId ?? ''}
-            disabled={!readinessEnabled || active}
+            disabled={!readinessEnabled || active || profileLocked}
+            aria-describedby={profileLocked ? 'scene-profile-lock' : undefined}
             onChange={(event) => workflow.selectProfile(event.currentTarget.value)}
           >
             {state.readiness.catalog.profiles
@@ -122,6 +175,11 @@ export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssis
                 </option>
               ))}
           </select>
+          {profileLocked && (
+            <p id="scene-profile-lock" className="field-hint">
+              Das Profil bleibt für die aktuelle Szene fest. Wähle „Neues Bild“, um es zu ändern.
+            </p>
+          )}
 
           <div className="scene-source-actions">
             <button
@@ -238,6 +296,25 @@ export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssis
             {state.status === 'complete' ? 'Szenenbeschreibung' : 'Laufende Beschreibung'}
           </h3>
           <p>{state.streamedText}</p>
+          {state.status === 'complete' && speechState !== 'unsupported' && (
+            <div className="scene-actions speech-actions">
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={workflow.readSceneDescription}
+              >
+                Beschreibung vorlesen
+              </button>
+              <button
+                className="button button--secondary"
+                type="button"
+                disabled={speechState !== 'speaking'}
+                onClick={workflow.stopSpeech}
+              >
+                Vorlesen stoppen
+              </button>
+            </div>
+          )}
         </section>
       )}
 
@@ -248,8 +325,8 @@ export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssis
           <p className="live-status" role="alert">
             {state.errorMessage}
           </p>
-          {state.status === 'rate_limited' && retrySeconds > 0 && (
-            <p role="status">Erneut möglich in {retrySeconds} Sekunden.</p>
+          {state.status === 'rate_limited' && sceneRetrySeconds > 0 && (
+            <p role="status">Erneut möglich in {sceneRetrySeconds} Sekunden.</p>
           )}
           <div className="scene-actions">
             {retryableImage && (
@@ -259,7 +336,7 @@ export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssis
                 disabled={!canDescribe}
                 onClick={() => void workflow.describe()}
               >
-                {state.status === 'rate_limited' && !retryReady
+                {state.status === 'rate_limited' && !sceneRetryReady
                   ? 'Erneut versuchen, sobald freigegeben'
                   : 'Mit dem vorbereiteten Bild erneut versuchen'}
               </button>
@@ -293,14 +370,153 @@ export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssis
         </div>
       )}
 
+      {followupVisible && (
+        <section className="followup-panel" aria-labelledby="followup-title">
+          <h3 id="followup-title">Rückfragen zur aktuellen Szene</h3>
+          <form className="followup-form" onSubmit={submitFollowup}>
+            <label htmlFor="scene-followup-question">Rückfrage zur aktuellen Szene</label>
+            <textarea
+              ref={questionRef}
+              id="scene-followup-question"
+              value={followup.questionDraft}
+              maxLength={FOLLOWUP_QUESTION_MAX_LENGTH}
+              rows={3}
+              disabled={followupActive || followup.status === 'context_expired'}
+              aria-invalid={Boolean(followup.errorMessage)}
+              aria-describedby="followup-character-count followup-help"
+              placeholder="Zum Beispiel: Was steht auf dem Schild?"
+              onChange={(event) => workflow.updateQuestionDraft(event.currentTarget.value)}
+            />
+            <div className="followup-field-meta">
+              <p id="followup-help" className="field-hint">
+                Die Frage bezieht sich nur auf die aktuelle, im Speicher gehaltene Szene.
+              </p>
+              <p id="followup-character-count" className="field-hint">
+                {remainingQuestionCharacters} Zeichen verbleiben
+              </p>
+            </div>
+
+            {followup.errorMessage && (
+              <p className="live-status" role="alert">
+                {followup.errorMessage}
+              </p>
+            )}
+            {followup.status === 'rate_limited' && followupRetrySeconds > 0 && (
+              <p role="status">Erneut möglich in {followupRetrySeconds} Sekunden.</p>
+            )}
+            {followup.status === 'cancelled' && (
+              <p className="live-status" role="status">
+                Die Rückfrage wurde abgebrochen. Dein Entwurf bleibt erhalten.
+              </p>
+            )}
+
+            <div className="scene-actions">
+              <button
+                className="button button--primary"
+                type="submit"
+                disabled={!canSubmitFollowup}
+              >
+                {followup.status === 'rate_limited' && !followupRetryReady
+                  ? 'Erneut senden, sobald freigegeben'
+                  : followup.status === 'recoverable_error' || followup.status === 'cancelled'
+                    ? 'Rückfrage erneut senden'
+                    : 'Rückfrage senden'}
+              </button>
+              {followupActive && (
+                <button
+                  className="button button--secondary"
+                  type="button"
+                  onClick={workflow.cancelFollowup}
+                >
+                  Rückfrage abbrechen
+                </button>
+              )}
+            </div>
+          </form>
+
+          {followupActive && (
+            <p role="status">
+              {followup.status === 'requesting'
+                ? 'Die Rückfrage wird gesendet …'
+                : followup.status === 'terminal_waiting_for_eof'
+                  ? 'Die Antwort wird sicher abgeschlossen …'
+                  : 'Die Antwort wird übertragen …'}
+            </p>
+          )}
+
+          {followup.partialAnswer && (
+            <section className="followup-partial" aria-labelledby="followup-partial-title">
+              <h4 id="followup-partial-title">Laufende Antwort</h4>
+              <p>{followup.partialAnswer}</p>
+            </section>
+          )}
+
+          {followup.transcript.length > 0 && (
+            <section className="followup-transcript" aria-labelledby="followup-transcript-title">
+              <h4 id="followup-transcript-title">Abgeschlossene Rückfragen</h4>
+              <ol>
+                {followup.transcript.map((pair, index) => (
+                  <li key={`${index}-${pair.question}`}>
+                    <p>
+                      <strong>Frage:</strong> {pair.question}
+                    </p>
+                    <p>
+                      <strong>Antwort:</strong> {pair.answer}
+                    </p>
+                    {speechState !== 'unsupported' && (
+                      <button
+                        className="button button--secondary"
+                        type="button"
+                        onClick={() => workflow.readFollowupAnswer(index)}
+                      >
+                        Antwort vorlesen
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+        </section>
+      )}
+
       {state.status === 'complete' && (
-        <button className="button button--secondary" type="button" onClick={workflow.reset}>
-          Neues Bild
+        <section className="speech-disclosure" aria-labelledby="speech-title">
+          <h3 id="speech-title">Lokale Sprachausgabe</h3>
+          <p>
+            Owli sendet keine zusätzliche Sprachanfrage an das Owli-Backend. Der Browser oder das
+            Betriebssystem übernimmt die Sprachsynthese; Plattformstimmen können dabei ein eigenes
+            Verarbeitungsverhalten haben. Eine vollständig offline oder ausschließlich auf dem Gerät
+            ausgeführte Sprachausgabe wird nicht garantiert.
+          </p>
+          {speechState === 'unsupported' && (
+            <p role="status">Sprachausgabe wird in diesem Browser nicht unterstützt.</p>
+          )}
+          {speechState === 'speaking' && <p role="status">Sprachausgabe läuft.</p>}
+          {speechState === 'error' && (
+            <p className="live-status" role="alert">
+              Die lokale Sprachausgabe konnte nicht gestartet oder abgeschlossen werden.
+            </p>
+          )}
+        </section>
+      )}
+
+      {(state.status === 'complete' || followup.status === 'context_expired') && (
+        <button
+          ref={newSceneButtonRef}
+          className="button button--secondary"
+          type="button"
+          onClick={workflow.reset}
+        >
+          {followup.status === 'context_expired' ? 'Neue Szene beginnen' : 'Neues Bild'}
         </button>
       )}
 
       <p className="visually-hidden" aria-live="polite" aria-atomic="true">
-        {announcement}
+        {sceneAnnouncement}
+      </p>
+      <p className="visually-hidden" aria-live="polite" aria-atomic="true">
+        {followupAnnouncement}
       </p>
     </section>
   );
