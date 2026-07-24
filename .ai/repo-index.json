@@ -69,7 +69,7 @@
       "bytes": 15228,
       "area": ".github"
     },
-    { "path": ".github/workflows/ci.yml", "bytes": 5799, "area": ".github" },
+    { "path": ".github/workflows/ci.yml", "bytes": 4889, "area": ".github" },
     { "path": ".gitignore", "bytes": 152, "area": ".gitignore" },
     { "path": ".nvmrc", "bytes": 3, "area": ".nvmrc" },
     { "path": ".prettierignore", "bytes": 111, "area": ".prettierignore" },
@@ -562,7 +562,7 @@
     { "path": "tools/generate-repo-index.mjs", "bytes": 3030, "area": "tools" },
     {
       "path": "tools/safari-jpeg-diagnostic.py",
-      "bytes": 13010,
+      "bytes": 13181,
       "area": "tools"
     },
     { "path": "tools/safari-smoke.py", "bytes": 11725, "area": "tools" },
