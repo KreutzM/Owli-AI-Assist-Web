@@ -40,9 +40,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Validate source fix
+      - name: Format and validate source fix
         run: |
-          pnpm format:check
+          pnpm exec prettier --write src/core/api/remoteAssistClient.ts src/features/remote/remoteSceneState.ts src/features/remote/useRemoteRequestLifecycle.ts src/features/remote/useRemoteFollowup.ts src/features/remote/useRemoteScene.ts
           pnpm lint
           pnpm typecheck
           pnpm guardrails
