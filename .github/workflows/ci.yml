@@ -2,32 +2,210 @@ name: Web CI
 
 on:
   pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: web-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  apply-agent-index:
+  validate:
+    name: Type, lint, unit, guardrails, builds
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
-      - name: Check out PR branch
+      - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          version: 10.12.1
+          run_install: false
 
-      - name: Write exact generated index
-        shell: bash
-        run: |
-          printf '%s' 'H4sIADWvY2oC/5VZS3PiOhbe51dQ1ZuZhcHvx5IQJ6EuAQrITd1VtzEKuGNsjyyTZn79HMmSLYFNMotOI+v75POQzkP+MXhCGcIRQbvBG9oOVqjIy4Tk+Dx4TFI02GCE7u5azPY8+EXyPC1He/5Mw0DRkmyH/gyPv8tfw8FDPshyMkC7hAyOUVZFaXoe3t39+DH4NYyS0a+7O63+FR+ibI80ci6QdoyK4XH3a/Avw9Wtwf2/BeYTbbV9lexQPRtYPp2sF4tzeKlYrx5EIBYpR1Eco7JMtkmakDNIeErQJ8JamadDkh9TWMjVA/EWhVmkUZZdQH27G4qTUxR3L+8ERieHqrOtknQH8LTKogbv6V/iCcK4IbiG30vo1Ne/0DfOs/dkL6YNz3Nbw1LX5bhGCPvKzyjBlxyxT0hECE62FUGlICgPKcMwFcah2kpQOposHsLF2zxcrRlcyMtnp+v1a/hzE74sZ+NNONpW++GZye675m0oV7VGG0FwG50cixQdwZgRSfKMswLTvc0iOIo/kky8xQ0uxd+hAmW7aJsTDrGNyyWLKk1/YvSfCpXkJ0EgB5yvet9bwSX4M8cf72n+CZu9AIG18ph/IKGjY5p+Lz5OOMzxals0Lkn2WY6R5JX6Qb1ii8xORxwLFBtQCdv5AiNCEoTV5dSnzMNGwxk/hfPNGnTl6GZMbenqLXDyPN48LTctsn0AUNM2nBa6mG9W0/vXzXT+JOHVp+ys6g1nl8diA7Of48kkXK+n99PZdPMPD1CGKwJUDaGias/j+cPi8VF7W6z+epwt3jjWMz0Fu5xq0/kmfFqNN9PFvFnQV0CryfN0E042r6tQe3odrx5W4+lMGMML+rB8tcBREJPZ4vXhcTaGtZYg6lpbh5vXJcfqjqFgV4v1WluFy8WVHo4pA5+mm+fXew1sOYd3L1baevwYCgN5hqLOC5zqmbZazECAxWw6EWa0TeXdL38vtSkcpvAFzMmso8HJ4ibyfdeVwcvV9O/x5B/QZfK6aj1j2gpqFb4sNqG2hpeGmqlNnsPJX7PpWuwVx+8H89eqxlYgVg2x+ebsxNj88LbBl2OWi58vY+EE21dsuwnX7d40HF1RibplvRzD2lfbKDAdGblDcVJCACtHuq4bkBOimGinBBJ28Rlx2S2rl2FqWwhoELG09wSXRNvmFUQvfOZM6ZihMk0yMuRB9rc4PpeP2S4K2qRRVwwHckw5oX1A95BtN0hqyvk65DA+YimoFaIAYSEDwnvyjAPlRyw06O0xh8h6/oRIdGgEJELurilK13W7i16SaE/D/o1lriBUdsttY5qIjAJxbIzYMcP2uaR4tU0TEYz54OcBRVAwUKjbHHAxhyGRYxTXUgTq5A4d8xEUgCSO8E6jo+FndGKZwrVtFfsenRKQalieaDng6KY6TedEaiJ5FR80hi4yVjy4jtUFp381IzAFzLOdXphjCBj8Mnthx6j8iLYghIy3LvTGOaTlckj+EOrpthBaheOHl7DNHc2Ywky3TXlljJOi8b0YlYhUBZjxNCxKg1Is4YxrRHnoBJyiNNnRKjvN4yjl60A0vg1ji3EUk0+Kk1xGNXI6uqRLk9vpL/DgaFwUQ6jhCGzdPxTc5D8FwOagTvGvJ0OMc3wvIkiNDGzvAgj/hnFJ96Vjm8HFJK4ykhwRPz26LosQ0yojKhJa6NE6jLqSnVlD97tg73kKhVBVrEu+nq87ThfwmMcfi880GRdJDbTakKkAcxnk+HoXBsNxImgMbUlJJmkCBSZXxvS6F70mrKuiyDHnWX5TE/bSNtBacWNYzg30JCJRmu8nF/ZzA+cGh4nEXFs2MdL7Cq+oYOjuDc0fuZsupLJN2+8nKe4yAv8GdB1DC3upsu4aXYySYtv9YhhBJ4oC6oNCc1i3f0qximHb5iWA91x8t0+kjGGZ5pVxoS0GHDmPkgySTJqyjmW6k2QwdMv5NqveVVebNzlCGq0tMKU/p1lZQAKhzVFtDd+8snJJ229IxdzS9eglyoCOuaUd3+lj8f/X0HCqBrW/x2Cn0LgSirSnwTQN2TnvKCIVht5VJL/RuNol+ZKPllGGUjkEQmzV/286Y9quEroaZm2okZxhPEu/hZSOOV/bC/SvGeJUKUIF3dZQiM1xqSMXi+GOYd7gNXGW0D6W2d3Vg1uM+j+eBSxdCd/dWCaVHISgUPkmSxLL1B3re6Q33kaLI/y1NoIhxWLfvsGqysZH4yyDpBmz2wihnvkFV/WyiAKma32HtqovH2bJO4rPcSoClXXTzQ2bGUgkNd3/gsPQHRpC/dcpKwtAo8YJJdT3qNn4gd1PYX9XaFfFNPa00cTQv8up469l9uOFPur2sHUlxh2jJBMnTpmgFz3vOT6O4uiIcDTa4vyzRHjCRqKWUV5/yRBpvCXYplJDXRKkWGgo4bsB1mGfi7LASXMjVi9vd8ujsNZNzpjDHNSo/xXWdC3b+ZqeVzhG6ywqykNOmsZJ7yKWhwi3RDoQLrA74QVC8aHBsxH3s3rC2Lo7yB/HIs/YDessObHQUZWi5rVuE5YYtMLn+4qQPGvqZJlDN2XdC3AZArkIYU07yk7DnVCpbR0pU7Qd9W9kIvX6e0izNc+JTQkhYaHqbhFeB6LeW1q9cTToa/OKSBTbce0+zhGaTUHRRB/cUk2IS2YfF0MTm2Sgh0QI3Kb1ucJ3LO/Ynro8+IauOCqj9wgn2u8C7UfKvYOle18SpGNseG6g4KssIRepWaoaTM83ruFdR6yJUhC43V7K5QFpWJZh+f0svtsbtK13aRGnebV7T2E3P9fXCcr6XgdD6asarGt2KX1RG7SyBL55jeY9zZZ1DlJxGzi9WBwf4NzENEjL5rRdr5eitGYNJQh0v48iAm4rflsRdYAvm6xWLK9fLE5b4vy3qLpbP5i+3ccL4TzIklnNJ6YraNNpXevuOl+SOvRxLLtXn3k+y/NCdqPru33gJXh8madJfFb3ax/+stNoLWUbRi8JugaAL+vvebJbdLfLvEpzxktWSR3P6bBZd/vUqmQ73i2SyJ/X4cHQe3jqKXQCr2Nj9pRhrS5gtjbXsO++PNew3+zLpPaJtvxi0nTaQMIA8QHFH1okn0WOdG2rA8nDLPuWpe0r6J1KQfCae3aZUF9owyaBP2yXHMVNs4puvla3UU3jt6SC4phWN+XiAzdNEk1nVkOl7KBBwttn0Pgl8bA418Wzb3Sh6w92Ncbwmst7jkH4hNiXXyLZ17Gkz3Ck5JfCNINL995Xz9kFl3/N6+JwvFGnQRWf5TvUSWom2E1x+ybqnKuLcfUhM7x0189mJXNeX4nfQLAPE6ayVkk6BSjVy33XZP78H9b4Nj4NIQAA' | base64 --decode | gzip --decompress > .ai/file-tree.md
-          printf '%s' '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' | base64 --decode | gzip --decompress > .ai/repo-index.json
-          git diff --check
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
 
-      - name: Commit exact index
-        shell: bash
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Run lint
+        run: pnpm lint
+
+      - name: Run typecheck
+        run: pnpm typecheck
+
+      - name: Run architecture guardrails
+        run: pnpm guardrails
+
+      - name: Run unit tests
+        run: pnpm test
+
+      - name: Check Safari diagnostics syntax
         run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .ai/file-tree.md .ai/repo-index.json
-          git commit -m 'chore(ai): refresh generated repository index'
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          python3 -m py_compile tools/safari-smoke.py tools/safari-jpeg-diagnostic.py
+          node tools/check-safari-smoke-guards.mjs
+          rm -rf tools/__pycache__
+
+      - name: Build mock PWA
+        run: pnpm build
+
+      - name: Verify occupied ports fail fast
+        run: pnpm test:ports
+
+      - name: Build staging PWA and headers
+        run: pnpm build:staging
+
+      - name: Build production PWA and headers
+        run: pnpm build:production
+
+      - name: Build deterministic Safari JPEG harness
+        run: |
+          pnpm build:safari-jpeg-harness
+          if grep -qE 'api-staging\.owli-ai\.com|https://api\.owli-ai\.com' dist/_headers; then
+            echo 'Safari JPEG harness headers contain a remote API origin.' >&2
+            exit 1
+          fi
+
+      - name: Generate agent index
+        run: pnpm ai:index
+
+      - name: Upload generated agent index
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-agent-index
+          path: |
+            .ai/file-tree.md
+            .ai/repo-index.json
+          retention-days: 1
+
+      - name: Verify agent index
+        run: git diff --exit-code -- .ai/file-tree.md .ai/repo-index.json
+
+  aggregate:
+    name: Aggregate pnpm check:all
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Run aggregate checks
+        run: pnpm check:all
+
+  windows-builds:
+    name: Windows mock, staging, and production builds
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build mock PWA and verify headers
+        shell: pwsh
+        run: |
+          pnpm build
+          $headers = Get-Content dist/_headers -Raw
+          if ($headers.Contains('api-staging.owli-ai.com') -or $headers.Contains('https://api.owli-ai.com')) { throw 'Mock headers contain a remote API origin.' }
+
+      - name: Build staging PWA and verify headers
+        shell: pwsh
+        run: |
+          pnpm build:staging
+          $headers = Get-Content dist/_headers -Raw
+          if (-not $headers.Contains('connect-src ''self'' https://api-staging.owli-ai.com')) { throw 'Staging connect-src is missing.' }
+          if ($headers.Contains('https://api.owli-ai.com')) { throw 'Staging headers contain the production API origin.' }
+
+      - name: Build production PWA and verify headers
+        shell: pwsh
+        run: |
+          pnpm build:production
+          $headers = Get-Content dist/_headers -Raw
+          if (-not $headers.Contains('connect-src ''self'' https://api.owli-ai.com')) { throw 'Production connect-src is missing.' }
+          if ($headers.Contains('api-staging.owli-ai.com')) { throw 'Production headers contain the staging API origin.' }
+
+  browser:
+    name: Browser, built staging, and accessibility matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: validate
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Run isolated Chromium and WebKit remote-state matrix
+        run: pnpm test:e2e
+
+      - name: Run built staging Chromium and WebKit matrix
+        run: pnpm test:e2e:staging
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
