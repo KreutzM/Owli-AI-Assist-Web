@@ -18,7 +18,11 @@ jobs:
       - name: Apply modularization
         shell: bash
         run: |
-          base64 --decode .github/slice4-modularization.b64 > /tmp/slice4-modularization.tgz
+          cat .github/slice4-modularization.part* > /tmp/slice4-modularization.b64
+          test "$(wc -c < /tmp/slice4-modularization.b64)" = "13004"
+          echo '2f62be6e2e4d117ec6b77a763662315972c9db9123fd9694aba1d912941f0b53  /tmp/slice4-modularization.b64' | sha256sum --check
+          base64 --decode /tmp/slice4-modularization.b64 > /tmp/slice4-modularization.tgz
+          echo '70f0dbf960acd00596927a4a66ec1b8faa39d27af2eda958829c4d81efdeba9b  /tmp/slice4-modularization.tgz' | sha256sum --check
           tar -xzf /tmp/slice4-modularization.tgz
           node tools/check-architecture.mjs
 
