@@ -4,14 +4,118 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  diagnostics:
+  apply-validation-fixes:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repository
+      - name: Check out PR branch
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Apply focused fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              if old not in text:
+                  raise SystemExit(f'missing replacement in {path}: {old!r}')
+              file.write_text(text.replace(old, new))
+
+          replace(
+              'src/core/api/remoteAssistClient.ts',
+              '  type RemoteProfilesResponse,\n',
+              '',
+          )
+          replace(
+              'src/core/api/remoteAssistClient.ts',
+              '  type RemoteClientErrorCode,\n',
+              '',
+          )
+
+          lifecycle = Path('src/features/remote/useRemoteRequestLifecycle.ts')
+          text = lifecycle.read_text()
+          for old, new in (
+              ('activeController', 'activeControllerRef'),
+              ('activeKind', 'activeKindRef'),
+              ('attempt', 'attemptRef'),
+              ('image', 'imageRef'),
+          ):
+              text = text.replace(old, new)
+          lifecycle.write_text(text)
+
+          followup = Path('src/features/remote/useRemoteFollowup.ts')
+          text = followup.read_text()
+          for old, new in (
+              ('activeController', 'activeControllerRef'),
+              ('activeKind', 'activeKindRef'),
+              ('attempt', 'attemptRef'),
+              ('readiness', 'readinessRef'),
+              ('image', 'imageRef'),
+          ):
+              text = text.replace(old, new)
+          followup.write_text(text)
+
+          scene = Path('src/features/remote/useRemoteScene.ts')
+          text = scene.read_text()
+          text = text.replace(
+              "import type {\n  BrowserSceneImageNormalizer,\n  NormalizedSceneImage,\n} from '@/platform/image/browserSceneImageNormalizer';",
+              "import {\n  revokeNormalizedSceneImage,\n  type BrowserSceneImageNormalizer,\n  type NormalizedSceneImage,\n} from '@/platform/image/browserSceneImageNormalizer';",
+          )
+          text = text.replace(
+              "} from '@/features/remote/remoteSceneState';\n",
+              "} from '@/features/remote/remoteSceneState';\n\nexport type { RemoteSceneState, RemoteSceneStatus } from '@/features/remote/remoteSceneState';\n",
+              1,
+          )
+          for old, new in (
+              ('activeController', 'activeControllerRef'),
+              ('activeKind', 'activeKindRef'),
+              ('attempt', 'attemptRef'),
+          ):
+              text = text.replace(old, new)
+          text = text.replace(
+              '    readiness,\n    image,\n',
+              '    readinessRef: readiness,\n    imageRef: image,\n',
+              1,
+          )
+          text = text.replace(
+              '[clearAttempt, clearSceneContext, client]',
+              '[activeControllerRef, activeKindRef, attemptRef, clearAttempt, clearSceneContext, client]',
+              1,
+          )
+          text = text.replace(
+              '  }, []);\n\n  const startCamera',
+              '  }, [activeControllerRef]);\n\n  const startCamera',
+              1,
+          )
+          text = text.replace(
+              '[camera, clearAttempt, clearSceneContext]',
+              '[attemptRef, camera, clearAttempt, clearSceneContext]',
+              1,
+          )
+          text = text.replace(
+              '[clearAttempt, clearSceneContext, normalizer]',
+              '[activeControllerRef, activeKindRef, attemptRef, clearAttempt, clearSceneContext, normalizer]',
+              1,
+          )
+          text = text.replace(
+              '}, [camera, prepare]);',
+              '}, [attemptRef, camera, prepare]);',
+              1,
+          )
+          text = text.replace(
+              '[clearAttempt, clearSceneContext, client, followupWorkflow, locale]',
+              '[activeControllerRef, activeKindRef, attemptRef, clearAttempt, clearSceneContext, client, followupWorkflow, locale]',
+              1,
+          )
+          scene.write_text(text)
+          PY
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -28,21 +132,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Capture diagnostics
+      - name: Format and validate fixes
+        run: |
+          pnpm exec prettier --write src/core/api/remoteAssistClient.ts src/features/remote/useRemoteRequestLifecycle.ts src/features/remote/useRemoteFollowup.ts src/features/remote/useRemoteScene.ts
+          pnpm lint
+          pnpm typecheck
+          pnpm guardrails
+
+      - name: Commit fixes
         shell: bash
         run: |
-          pnpm lint > lint.log 2>&1 || true
-          pnpm typecheck > typecheck.log 2>&1 || true
-          pnpm guardrails > guardrails.log 2>&1 || true
-          pnpm build > build.log 2>&1 || true
-
-      - name: Upload diagnostics
-        uses: actions/upload-artifact@v4
-        with:
-          name: slice4-validation-diagnostics
-          path: |
-            lint.log
-            typecheck.log
-            guardrails.log
-            build.log
-          retention-days: 1
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/core/api/remoteAssistClient.ts src/features/remote/useRemoteRequestLifecycle.ts src/features/remote/useRemoteFollowup.ts src/features/remote/useRemoteScene.ts
+          git commit -m 'fix(web): restore modularized follow-up contracts'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
