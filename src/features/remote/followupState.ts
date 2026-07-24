@@ -19,8 +19,19 @@ export type RemoteFollowupStatus =
 
 export type FollowupFocusTarget = 'question' | 'new_scene';
 
+export interface FollowupSceneContext {
+  sceneToken: string;
+  sceneTokenExpiresAt: string;
+  frozenProfileId: string;
+  frozenLocale: string;
+}
+
 export interface RemoteFollowupState {
   status: RemoteFollowupStatus;
+  sceneToken?: string;
+  sceneTokenExpiresAt?: string;
+  frozenProfileId?: string;
+  frozenLocale?: string;
   questionDraft: string;
   partialAnswer: string;
   completedAnswer?: string;
@@ -40,7 +51,7 @@ export const INITIAL_FOLLOWUP_STATE: RemoteFollowupState = {
 };
 
 export type FollowupAction =
-  | { type: 'availability'; available: boolean }
+  | { type: 'availability'; context?: FollowupSceneContext }
   | { type: 'draft_changed'; value: string }
   | { type: 'validation_failed'; message: string; focusRun: number }
   | { type: 'request_started'; announcementRun: number }
@@ -65,10 +76,14 @@ export function followupReducer(
 ): RemoteFollowupState {
   switch (action.type) {
     case 'availability':
-      return action.available
+      return action.context
         ? {
             ...state,
             status: state.status === 'unavailable' ? 'idle' : state.status,
+            sceneToken: action.context.sceneToken,
+            sceneTokenExpiresAt: action.context.sceneTokenExpiresAt,
+            frozenProfileId: action.context.frozenProfileId,
+            frozenLocale: action.context.frozenLocale,
             errorMessage: undefined,
           }
         : { ...INITIAL_FOLLOWUP_STATE };
