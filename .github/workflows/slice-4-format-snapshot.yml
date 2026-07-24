@@ -1,0 +1,49 @@
+name: Slice 4 formatter snapshot
+
+on:
+  push:
+    branches:
+      - pwa-mvp/slice-4-followup-local-speech
+
+permissions:
+  contents: read
+
+jobs:
+  format-snapshot:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format tracked files
+        run: pnpm format
+
+      - name: Package formatter changes
+        shell: bash
+        run: |
+          git diff --name-only -z --diff-filter=ACMRT | tar --null -T - -czf slice-4-formatted-files.tgz
+          git diff --name-only --diff-filter=ACMRT > slice-4-formatted-files.txt
+
+      - name: Upload formatter snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: slice-4-formatted-files
+          path: |
+            slice-4-formatted-files.tgz
+            slice-4-formatted-files.txt
+          if-no-files-found: error
+          retention-days: 1
