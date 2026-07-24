@@ -388,9 +388,7 @@ function projectReadiness(
     followupEnabled:
       config.features.followup === true &&
       bootstrap.featureFlags.followup === true &&
-      catalog.profiles.some(
-        (profile) => profile.supportsStreaming && profile.supportsFollowup,
-      ),
+      catalog.profiles.some((profile) => profile.supportsStreaming && profile.supportsFollowup),
   };
 }
 
@@ -446,9 +444,7 @@ function assertEventStreamResponse(response: Response): asserts response is Resp
 }
 
 async function throwFollowupUnauthorized(response: Response): Promise<never> {
-  const parsed = remoteErrorEnvelopeSchema.safeParse(
-    await response.json().catch(() => undefined),
-  );
+  const parsed = remoteErrorEnvelopeSchema.safeParse(await response.json().catch(() => undefined));
   if (!parsed.success) throw new RemoteClientError('UNAUTHORIZED', undefined, 401);
   const tokenType = parsed.data.details?.tokenType;
   const reason = parsed.data.details?.reason;
