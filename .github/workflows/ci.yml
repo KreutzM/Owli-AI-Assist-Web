@@ -4,21 +4,29 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  source-snapshot:
+  apply-modularization:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repository
+      - name: Check out PR branch
         uses: actions/checkout@v4
-
-      - name: Package current source
-        run: tar -czf source-snapshot.tgz src tests tools docs .github package.json pnpm-lock.yaml tsconfig*.json vite.config.ts playwright*.ts eslint.config.js
-
-      - name: Upload source snapshot
-        uses: actions/upload-artifact@v4
         with:
-          name: slice-4-source-snapshot
-          path: source-snapshot.tgz
-          retention-days: 1
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Apply modularization
+        shell: bash
+        run: |
+          base64 --decode .github/slice4-modularization.b64 > /tmp/slice4-modularization.tgz
+          tar -xzf /tmp/slice4-modularization.tgz
+          node tools/check-architecture.mjs
+
+      - name: Commit modularization
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/features/remote
+          git commit -m 'refactor(web): modularize follow-up workflow and UI'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
