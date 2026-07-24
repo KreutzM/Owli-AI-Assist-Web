@@ -120,12 +120,7 @@ export async function consumeFollowupSse(
         metadataSeen,
         ...(terminalAt !== undefined ? { terminalAt } : {}),
       });
-      const result = await readWithTimeout(
-        reader,
-        timeout.delay,
-        timeout.code,
-        options.signal,
-      );
+      const result = await readWithTimeout(reader, timeout.delay, timeout.code, options.signal);
       buffer += decoder.decode(result.value, { stream: !result.done });
       const blocks = buffer.split(/\r?\n\r?\n/u);
       buffer = blocks.pop() ?? '';
