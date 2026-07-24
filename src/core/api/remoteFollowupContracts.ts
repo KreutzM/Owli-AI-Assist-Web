@@ -24,9 +24,7 @@ export const webSceneFollowupRequestSchema = z
       .refine((value) => value === value.trim()),
     imageBase64: z.string().min(1),
     imageMimeType: z.literal('image/jpeg'),
-    conversationHistory: z
-      .array(followupConversationItemSchema)
-      .max(FOLLOWUP_MAX_HISTORY_ITEMS),
+    conversationHistory: z.array(followupConversationItemSchema).max(FOLLOWUP_MAX_HISTORY_ITEMS),
     stream: z.literal(true),
     profileId: z.string().min(1),
     locale: z.string().min(1),
@@ -117,7 +115,9 @@ interface BuildFollowupRequestInput {
   input: RemoteFollowupInput;
 }
 
-export function buildWebSceneFollowupRequest(values: BuildFollowupRequestInput): WebSceneFollowupRequest {
+export function buildWebSceneFollowupRequest(
+  values: BuildFollowupRequestInput,
+): WebSceneFollowupRequest {
   const conversationHistory = values.input.transcript
     .slice(-FOLLOWUP_MAX_TRANSCRIPT_PAIRS)
     .flatMap((pair) => [
