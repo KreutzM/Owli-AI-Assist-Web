@@ -134,6 +134,7 @@ describe('consumeFollowupSse', () => {
     const rejection = expect(promise).rejects.toMatchObject({
       code: 'STREAM_IDLE_TIMEOUT',
     });
+    await vi.advanceTimersByTimeAsync(0);
     await vi.advanceTimersByTimeAsync(SCENE_IDLE_TIMEOUT_MS);
     await rejection;
   });
@@ -154,6 +155,7 @@ describe('consumeFollowupSse', () => {
     const rejection = expect(promise).rejects.toMatchObject({
       code: 'STREAM_TERMINAL_EOF_TIMEOUT',
     });
+    await vi.advanceTimersByTimeAsync(0);
     await vi.advanceTimersByTimeAsync(SCENE_TERMINAL_EOF_TIMEOUT_MS);
     await rejection;
   });
@@ -169,11 +171,13 @@ describe('consumeFollowupSse', () => {
       signal: controller.signal,
       abort: vi.fn(),
     });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(onDelta).toHaveBeenCalledWith('Ausgang');
     controller.abort();
 
     await expect(promise).rejects.toBeInstanceOf(SceneStreamError);
     await expect(promise).rejects.toMatchObject({ code: 'REQUEST_ABORTED' });
-    expect(onDelta).toHaveBeenCalledWith('Ausgang');
   });
 });
 
