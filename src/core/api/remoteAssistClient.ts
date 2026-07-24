@@ -17,7 +17,6 @@ import { consumeFollowupSse } from '@/core/api/followupSse';
 import {
   buildWebSceneFollowupRequest,
   FOLLOWUP_QUESTION_MAX_LENGTH,
-  remoteErrorEnvelopeSchema,
   type FollowupStreamCallbacks,
   type RemoteFollowupInput,
   type RemoteFollowupResult,
@@ -28,52 +27,29 @@ import {
   type RemoteSceneResult,
   type SceneStreamCallbacks,
 } from '@/core/api/remoteSceneContracts';
-import { consumeSceneSse, SCENE_RESPONSE_TIMEOUT_MS, SceneStreamError } from '@/core/api/sceneSse';
-import type { RuntimeConfig } from '@/core/config/runtimeConfig';
+import { consumeSceneSse } from '@/core/api/sceneSse';
 import { SCENE_IMAGE_MAX_BYTES } from '@/core/image/sceneImageInspection';
+import type { RemoteReadiness, RemoteRuntimeConfig } from '@/core/api/remoteAssistTypes';
 import { RemoteHttpError, RemoteSessionManager } from '@/core/session/remoteSessionManager';
+import {
+  assertEventStreamResponse,
+  projectCatalog,
+  projectReadiness,
+  throwFollowupUnauthorized,
+  withResponseTimeout,
+  type ProfileCatalogCacheEntry,
+  type RemoteAssistClientOptions,
+} from '@/core/api/remoteAssistClientSupport';
+import {
+  mapClientError,
+  rateLimitError,
+  RemoteClientError,
+  statusError,
+  type RemoteClientErrorCode,
+} from '@/core/api/remoteClientErrors';
 
-export type RemoteRuntimeConfig = Extract<RuntimeConfig, { mode: 'remote' }>;
-
-export type RemoteClientErrorCode =
-  | 'NETWORK_UNAVAILABLE'
-  | 'SERVICE_UNAVAILABLE'
-  | 'RATE_LIMITED'
-  | 'FORBIDDEN'
-  | 'UNAUTHORIZED'
-  | 'SCENE_CONTEXT_INVALID'
-  | 'SCENE_CONTEXT_EXPIRED'
-  | 'REQUEST_REJECTED'
-  | 'REMOTE_CONTRACT_INVALID'
-  | 'PROFILE_CACHE_INVALID'
-  | 'REQUEST_ABORTED';
-
-export class RemoteClientError extends Error {
-  constructor(
-    readonly code: RemoteClientErrorCode,
-    readonly retryAt?: number,
-    readonly status?: number,
-  ) {
-    super(code);
-    this.name = 'RemoteClientError';
-  }
-}
-
-export interface RemoteReadiness {
-  catalog: RemoteProfileCatalog;
-  sceneDescribeEnabled: boolean;
-  followupEnabled: boolean;
-}
-
-interface ProfileCatalogCacheEntry {
-  etag: string;
-  response: RemoteProfilesResponse;
-}
-
-interface RemoteAssistClientOptions {
-  installationId?: string;
-  fetch?: typeof fetch;
-}
+export type { RemoteReadiness, RemoteRuntimeConfig } from '@/core/api/remoteAssistTypes';
+export { RemoteClientError, type RemoteClientErrorCode } from '@/core/api/remoteClientErrors';
 
 export class RemoteAssistClient {
   readonly #sessions: RemoteSessionManager;
@@ -372,125 +348,4 @@ export class RemoteAssistClient {
       throw new RemoteClientError('NETWORK_UNAVAILABLE');
     }
   }
-}
-
-function projectReadiness(
-  config: RemotePublicConfig,
-  bootstrap: WebBootstrapResponseV2,
-  catalog: RemoteProfileCatalog,
-): RemoteReadiness {
-  return {
-    catalog,
-    sceneDescribeEnabled:
-      config.features.sceneDescribe === true &&
-      bootstrap.featureFlags.sceneDescribe === true &&
-      catalog.profiles.some((profile) => profile.supportsStreaming),
-    followupEnabled:
-      config.features.followup === true &&
-      bootstrap.featureFlags.followup === true &&
-      catalog.profiles.some((profile) => profile.supportsStreaming && profile.supportsFollowup),
-  };
-}
-
-function projectCatalog(
-  response: RemoteProfilesResponse,
-  config: RemotePublicConfig,
-): RemoteProfileCatalog {
-  const allowed = new Set(config.profiles.backendSupportedProfileIds);
-  const profiles = response.profiles
-    .filter(
-      (profile) =>
-        (profile.availability === 'backend' || profile.availability === 'both') &&
-        profile.transports.backend?.available === true &&
-        allowed.has(profile.id),
-    )
-    .map((profile) => ({
-      id: profile.id,
-      label: profile.label,
-      description: profile.description,
-      supportsStreaming: profile.transports.backend!.supportsStreaming,
-      supportsFollowup: profile.transports.backend!.supportsFollowup,
-    }));
-  const defaultProfileId = profiles.some((profile) => profile.id === response.defaultProfileId)
-    ? response.defaultProfileId
-    : undefined;
-  return { profiles, ...(defaultProfileId ? { defaultProfileId } : {}) };
-}
-
-async function withResponseTimeout(
-  responsePromise: Promise<Response>,
-  controller: AbortController,
-  setTimer: (timer: ReturnType<typeof setTimeout>) => void,
-): Promise<Response> {
-  return Promise.race([
-    responsePromise,
-    new Promise<never>((_, reject) => {
-      const timer = setTimeout(() => {
-        controller.abort();
-        reject(new SceneStreamError('STREAM_RESPONSE_TIMEOUT'));
-      }, SCENE_RESPONSE_TIMEOUT_MS);
-      setTimer(timer);
-    }),
-  ]);
-}
-
-function assertEventStreamResponse(response: Response): asserts response is Response & {
-  body: ReadableStream<Uint8Array>;
-} {
-  if (!response.headers.get('Content-Type')?.toLowerCase().startsWith('text/event-stream')) {
-    throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
-  }
-  if (!response.body) throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
-}
-
-async function throwFollowupUnauthorized(response: Response): Promise<never> {
-  const parsed = remoteErrorEnvelopeSchema.safeParse(await response.json().catch(() => undefined));
-  if (!parsed.success) throw new RemoteClientError('UNAUTHORIZED', undefined, 401);
-  const tokenType = parsed.data.details?.tokenType;
-  const reason = parsed.data.details?.reason;
-  if (tokenType === 'session' && reason?.startsWith('session_token_')) {
-    throw new RemoteHttpError(401);
-  }
-  if (tokenType === 'scene' && reason?.startsWith('scene_token_')) {
-    throw new RemoteClientError(
-      reason === 'scene_token_expired' ? 'SCENE_CONTEXT_EXPIRED' : 'SCENE_CONTEXT_INVALID',
-      undefined,
-      401,
-    );
-  }
-  throw new RemoteClientError('UNAUTHORIZED', undefined, 401);
-}
-
-function statusError(status: number): RemoteClientError {
-  if (status >= 500) return new RemoteClientError('SERVICE_UNAVAILABLE', undefined, status);
-  return new RemoteClientError('REQUEST_REJECTED', undefined, status);
-}
-
-function rateLimitError(response: Response): RemoteClientError {
-  return new RemoteClientError(
-    'RATE_LIMITED',
-    parseRetryAfter(response.headers.get('Retry-After')),
-    429,
-  );
-}
-
-function parseRetryAfter(value: string | null): number | undefined {
-  if (value === null) return undefined;
-  const seconds = Number(value);
-  if (Number.isFinite(seconds) && seconds >= 0) return Date.now() + seconds * 1_000;
-  const date = Date.parse(value);
-  return Number.isFinite(date) && date >= Date.now() ? date : undefined;
-}
-
-function mapClientError(error: unknown, signal?: AbortSignal): Error {
-  if (error instanceof RemoteHttpError) {
-    return error.status === 403
-      ? new RemoteClientError('FORBIDDEN', undefined, 403)
-      : new RemoteClientError('UNAUTHORIZED', undefined, 401);
-  }
-  if (error instanceof RemoteClientError || error instanceof SceneStreamError) return error;
-  if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
-    return new RemoteClientError('REQUEST_ABORTED');
-  }
-  return new RemoteClientError('NETWORK_UNAVAILABLE');
 }
