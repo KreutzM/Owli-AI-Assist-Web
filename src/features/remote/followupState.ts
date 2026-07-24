@@ -28,26 +28,36 @@ export interface FollowupSceneContext {
 
 export interface RemoteFollowupState {
   status: RemoteFollowupStatus;
-  sceneToken?: string;
-  sceneTokenExpiresAt?: string;
-  frozenProfileId?: string;
-  frozenLocale?: string;
+  sceneToken: string | undefined;
+  sceneTokenExpiresAt: string | undefined;
+  frozenProfileId: string | undefined;
+  frozenLocale: string | undefined;
   questionDraft: string;
   partialAnswer: string;
-  completedAnswer?: string;
+  completedAnswer: string | undefined;
   transcript: FollowupTranscriptPair[];
-  retryAt?: number;
-  errorMessage?: string;
-  announcementRun?: number;
-  focusTarget?: FollowupFocusTarget;
-  focusRun?: number;
+  retryAt: number | undefined;
+  errorMessage: string | undefined;
+  announcementRun: number | undefined;
+  focusTarget: FollowupFocusTarget | undefined;
+  focusRun: number | undefined;
 }
 
 export const INITIAL_FOLLOWUP_STATE: RemoteFollowupState = {
   status: 'unavailable',
+  sceneToken: undefined,
+  sceneTokenExpiresAt: undefined,
+  frozenProfileId: undefined,
+  frozenLocale: undefined,
   questionDraft: '',
   partialAnswer: '',
+  completedAnswer: undefined,
   transcript: [],
+  retryAt: undefined,
+  errorMessage: undefined,
+  announcementRun: undefined,
+  focusTarget: undefined,
+  focusRun: undefined,
 };
 
 export type FollowupAction =
@@ -156,10 +166,9 @@ export function followupReducer(
       };
     case 'context_expired':
       return {
+        ...INITIAL_FOLLOWUP_STATE,
         status: 'context_expired',
         questionDraft: state.questionDraft,
-        partialAnswer: '',
-        transcript: [],
         errorMessage: action.message,
         focusTarget: 'new_scene',
         focusRun: action.focusRun,
