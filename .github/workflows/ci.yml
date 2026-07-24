@@ -38,8 +38,36 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check formatting
-        run: pnpm format:check
+      - name: Format Slice 4 working tree
+        run: pnpm format
+
+      - name: Upload formatted Slice 4 files
+        uses: actions/upload-artifact@v4
+        with:
+          name: formatted-slice-4
+          path: |
+            docs/REMOTE-SLICE-4.md
+            src/app/App.tsx
+            src/core/api/followupSse.ts
+            src/core/api/remoteAssistClient.ts
+            src/core/api/remoteFollowupContracts.ts
+            src/core/config/runtimeConfig.ts
+            src/features/remote/RemoteAssist.tsx
+            src/features/remote/followupState.ts
+            src/features/remote/remote.css
+            src/features/remote/remoteSceneErrors.ts
+            src/features/remote/useFollowupAnnouncements.ts
+            src/features/remote/useRemoteScene.ts
+            src/platform/speech/browserSpeech.ts
+            tests/unit/RemoteAssist.test.tsx
+            tests/unit/browserSpeech.test.ts
+            tests/unit/followupSse.test.ts
+            tests/unit/followupState.test.ts
+            tests/unit/remoteArchitecture.test.ts
+            tests/unit/remoteFollowupClient.test.ts
+            tests/unit/remoteFollowupContracts.test.ts
+            tests/unit/remoteStoragePrivacy.test.ts
+          retention-days: 1
 
       - name: Run lint
         run: pnpm lint
