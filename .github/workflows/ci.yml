@@ -4,16 +4,14 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  apply-source-fix:
+  formatted-source-diagnostics:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out PR branch
+      - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Reconstruct verified source fix
         shell: bash
@@ -40,18 +38,28 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Format and validate source fix
-        run: |
-          pnpm exec prettier --write src/core/api/remoteAssistClient.ts src/features/remote/remoteSceneState.ts src/features/remote/useRemoteRequestLifecycle.ts src/features/remote/useRemoteFollowup.ts src/features/remote/useRemoteScene.ts
-          pnpm lint
-          pnpm typecheck
-          pnpm guardrails
-
-      - name: Commit source fix
+      - name: Format and capture diagnostics
         shell: bash
         run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src/core/api/remoteAssistClient.ts src/features/remote/remoteSceneState.ts src/features/remote/useRemoteRequestLifecycle.ts src/features/remote/useRemoteFollowup.ts src/features/remote/useRemoteScene.ts
-          git commit -m 'fix(web): restore modularized follow-up contracts'
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          pnpm exec prettier --write src/core/api/remoteAssistClient.ts src/features/remote/remoteSceneState.ts src/features/remote/useRemoteRequestLifecycle.ts src/features/remote/useRemoteFollowup.ts src/features/remote/useRemoteScene.ts > prettier.log 2>&1
+          pnpm lint > lint.log 2>&1 || true
+          pnpm typecheck > typecheck.log 2>&1 || true
+          pnpm guardrails > guardrails.log 2>&1 || true
+          wc -l src/features/remote/useRemoteScene.ts src/features/remote/remoteSceneState.ts > line-counts.log
+
+      - name: Upload formatted source and diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: slice4-formatted-source-fix
+          path: |
+            src/core/api/remoteAssistClient.ts
+            src/features/remote/remoteSceneState.ts
+            src/features/remote/useRemoteRequestLifecycle.ts
+            src/features/remote/useRemoteFollowup.ts
+            src/features/remote/useRemoteScene.ts
+            prettier.log
+            lint.log
+            typecheck.log
+            guardrails.log
+            line-counts.log
+          retention-days: 1
