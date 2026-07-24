@@ -42,18 +42,18 @@ jobs:
         run: pnpm format:check
 
       - name: Run lint
-        run: pnpm lint 2>&1 | tee lint.log
+        run: pnpm lint
 
-      - name: Upload lint diagnostics
+      - name: Run typecheck
+        run: pnpm typecheck 2>&1 | tee typecheck.log
+
+      - name: Upload type diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: slice-4-lint
-          path: lint.log
+          name: slice-4-typecheck
+          path: typecheck.log
           retention-days: 1
-
-      - name: Run typecheck
-        run: pnpm typecheck
 
       - name: Run architecture guardrails
         run: pnpm guardrails
