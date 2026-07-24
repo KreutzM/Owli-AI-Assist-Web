@@ -28,16 +28,8 @@ jobs:
                   raise SystemExit(f'missing replacement in {path}: {old!r}')
               file.write_text(text.replace(old, new))
 
-          replace(
-              'src/core/api/remoteAssistClient.ts',
-              '  type RemoteProfilesResponse,\n',
-              '',
-          )
-          replace(
-              'src/core/api/remoteAssistClient.ts',
-              '  type RemoteClientErrorCode,\n',
-              '',
-          )
+          replace('src/core/api/remoteAssistClient.ts', '  type RemoteProfilesResponse,\n', '')
+          replace('src/core/api/remoteAssistClient.ts', '  type RemoteClientErrorCode,\n', '')
 
           lifecycle = Path('src/features/remote/useRemoteRequestLifecycle.ts')
           text = lifecycle.read_text()
@@ -48,6 +40,7 @@ jobs:
               ('image', 'imageRef'),
           ):
               text = text.replace(old, new)
+          text = text.replace("@/platform/imageRef/browserSceneImageNormalizer", "@/platform/image/browserSceneImageNormalizer")
           lifecycle.write_text(text)
 
           followup = Path('src/features/remote/useRemoteFollowup.ts')
@@ -60,6 +53,8 @@ jobs:
               ('image', 'imageRef'),
           ):
               text = text.replace(old, new)
+          text = text.replace("@/platform/imageRef/browserSceneImageNormalizer", "@/platform/image/browserSceneImageNormalizer")
+          text = text.replace('          imageRef: currentImage.blob,', '          image: currentImage.blob,')
           followup.write_text(text)
 
           scene = Path('src/features/remote/useRemoteScene.ts')
@@ -79,11 +74,7 @@ jobs:
               ('attempt', 'attemptRef'),
           ):
               text = text.replace(old, new)
-          text = text.replace(
-              '    readiness,\n    image,\n',
-              '    readinessRef: readiness,\n    imageRef: image,\n',
-              1,
-          )
+          text = text.replace('    readiness,\n    image,\n', '    readinessRef: readiness,\n    imageRef: image,\n', 1)
           text = text.replace(
               '[clearAttempt, clearSceneContext, client]',
               '[activeControllerRef, activeKindRef, attemptRef, clearAttempt, clearSceneContext, client]',
@@ -104,11 +95,7 @@ jobs:
               '[activeControllerRef, activeKindRef, attemptRef, clearAttempt, clearSceneContext, normalizer]',
               1,
           )
-          text = text.replace(
-              '}, [camera, prepare]);',
-              '}, [attemptRef, camera, prepare]);',
-              1,
-          )
+          text = text.replace('}, [camera, prepare]);', '}, [attemptRef, camera, prepare]);', 1)
           text = text.replace(
               '[clearAttempt, clearSceneContext, client, followupWorkflow, locale]',
               '[activeControllerRef, activeKindRef, attemptRef, clearAttempt, clearSceneContext, client, followupWorkflow, locale]',
