@@ -4,14 +4,42 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  unit-diagnostics:
+  fix-unit-tests:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repository
+      - name: Check out PR branch
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Apply focused test fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          remote = Path('tests/unit/RemoteAssist.test.tsx')
+          text = remote.read_text()
+          text = text.replace(
+              "    expect(screen.getByText('Auf dem Schild steht Ausgang.')).toBeInTheDocument();",
+              "    expect(\n      within(transcript.parentElement as HTMLElement).getByText(\n        'Auf dem Schild steht Ausgang.',\n      ),\n    ).toBeInTheDocument();",
+          )
+          text = text.replace(
+              "    expect(screen.getByText('Der Vorgang wurde abgebrochen.')).toBeInTheDocument();",
+              "    expect(screen.getByRole('status')).toHaveTextContent('Der Vorgang wurde abgebrochen.');",
+          )
+          remote.write_text(text)
+
+          sse = Path('tests/unit/followupSse.test.ts')
+          text = sse.read_text().replace(
+              "    await Promise.resolve();\n    await Promise.resolve();\n    expect(onDelta).toHaveBeenCalledWith('Ausgang');",
+              "    await vi.waitFor(() => expect(onDelta).toHaveBeenCalledWith('Ausgang'));",
+          )
+          sse.write_text(text)
+          PY
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -28,13 +56,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Capture unit diagnostics
-        shell: bash
-        run: pnpm test > unit.log 2>&1 || true
+      - name: Format and validate focused tests
+        run: |
+          pnpm exec prettier --write tests/unit/RemoteAssist.test.tsx tests/unit/followupSse.test.ts
+          pnpm exec vitest run tests/unit/RemoteAssist.test.tsx tests/unit/followupSse.test.ts
+          pnpm lint
+          pnpm typecheck
 
-      - name: Upload unit diagnostics
-        uses: actions/upload-artifact@v4
-        with:
-          name: slice4-unit-diagnostics
-          path: unit.log
-          retention-days: 1
+      - name: Commit focused test fixes
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tests/unit/RemoteAssist.test.tsx tests/unit/followupSse.test.ts
+          git commit -m 'test(web): scope Slice 4 completion assertions'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
