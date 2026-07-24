@@ -12,7 +12,7 @@ export interface SpeechLifecycleGateway extends SpeechGateway {
   dispose(): void;
 }
 
-interface BrowserSpeechOptions {
+export interface BrowserSpeechOptions {
   synthesis?: Pick<SpeechSynthesis, 'cancel' | 'speak'>;
   utteranceConstructor?: new (text?: string) => SpeechSynthesisUtterance;
 }
