@@ -32,7 +32,9 @@ describe('remote privacy boundary', () => {
 
   it('keeps sensitive values out of URLs and history APIs', async () => {
     const combined = await readSliceSources();
-    expect(combined).not.toMatch(/URLSearchParams|history\.|pushState|replaceState|location\.hash/gu);
+    expect(combined).not.toMatch(
+      /URLSearchParams|history\.|pushState|replaceState|location\.hash/gu,
+    );
     expect(combined).not.toMatch(/sceneToken=.*|questionText=.*|answerText=.*/gu);
   });
 
@@ -45,7 +47,7 @@ describe('remote privacy boundary', () => {
 });
 
 async function readSliceSources(): Promise<string> {
-  return (
-    await Promise.all(sliceSources.map(async (path) => await readFile(path, 'utf8')))
-  ).join('\n');
+  return (await Promise.all(sliceSources.map(async (path) => await readFile(path, 'utf8')))).join(
+    '\n',
+  );
 }

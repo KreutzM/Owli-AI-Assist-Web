@@ -19,9 +19,7 @@ export interface BrowserSpeechOptions {
 
 export class BrowserSpeech implements SpeechLifecycleGateway {
   readonly #synthesis: Pick<SpeechSynthesis, 'cancel' | 'speak'> | undefined;
-  readonly #utteranceConstructor:
-    | (new (text?: string) => SpeechSynthesisUtterance)
-    | undefined;
+  readonly #utteranceConstructor: (new (text?: string) => SpeechSynthesisUtterance) | undefined;
   readonly #listeners = new Set<(state: SpeechState) => void>();
   #active: SpeechSynthesisUtterance | undefined;
   #generation = 0;

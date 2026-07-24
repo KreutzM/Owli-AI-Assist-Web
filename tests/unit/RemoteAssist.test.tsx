@@ -18,10 +18,7 @@ import type {
 import { RemoteAssist } from '@/features/remote/RemoteAssist';
 import type { RemoteCamera } from '@/platform/camera/remoteCamera';
 import type { BrowserSceneImageNormalizer } from '@/platform/image/browserSceneImageNormalizer';
-import type {
-  SpeechLifecycleGateway,
-  SpeechState,
-} from '@/platform/speech/browserSpeech';
+import type { SpeechLifecycleGateway, SpeechState } from '@/platform/speech/browserSpeech';
 
 const readiness: RemoteReadiness = {
   sceneDescribeEnabled: true,
@@ -135,7 +132,9 @@ describe('RemoteAssist', () => {
     await screen.findByText('Die Antwort wird sicher abgeschlossen …');
     const partial = screen.getByRole('heading', { name: 'Laufende Antwort' }).closest('section');
     expect(partial).not.toHaveAttribute('aria-live');
-    expect(screen.queryByRole('heading', { name: 'Abgeschlossene Rückfragen' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Abgeschlossene Rückfragen' }),
+    ).not.toBeInTheDocument();
 
     resolveFollowup?.(followupResult());
     const transcript = await screen.findByRole('heading', { name: 'Abgeschlossene Rückfragen' });
@@ -179,7 +178,9 @@ describe('RemoteAssist', () => {
     await screen.findByText('Die Rückfrage wurde abgebrochen. Dein Entwurf bleibt erhalten.');
     expect(question).toHaveValue('Welche Farbe hat die Tür?');
     expect(screen.queryByText('Nicht vollständig')).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Abgeschlossene Rückfragen' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Abgeschlossene Rückfragen' }),
+    ).not.toBeInTheDocument();
     expect(question).toHaveFocus();
   });
 
@@ -250,10 +251,7 @@ describe('RemoteAssist', () => {
   });
 });
 
-function renderRemote(
-  overrides: Partial<RemoteAssistClient> = {},
-  speech = createSpeech(),
-) {
+function renderRemote(overrides: Partial<RemoteAssistClient> = {}, speech = createSpeech()) {
   const client = {
     initialize: vi.fn(async () => readiness),
     refreshCatalog: vi.fn(async () => readiness),

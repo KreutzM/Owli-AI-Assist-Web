@@ -14,10 +14,7 @@ import {
   type BrowserSceneImageNormalizer,
   type NormalizedSceneImage,
 } from '@/platform/image/browserSceneImageNormalizer';
-import type {
-  SpeechLifecycleGateway,
-  SpeechState,
-} from '@/platform/speech/browserSpeech';
+import type { SpeechLifecycleGateway, SpeechState } from '@/platform/speech/browserSpeech';
 import {
   appendCompletedPair,
   followupReducer,
@@ -619,10 +616,7 @@ function resolveFollowupContext(
   };
 }
 
-function isFollowupReady(
-  readiness: RemoteReadiness,
-  context: FollowupSceneContext,
-): boolean {
+function isFollowupReady(readiness: RemoteReadiness, context: FollowupSceneContext): boolean {
   return (
     readiness.followupEnabled &&
     readiness.catalog.profiles.some(

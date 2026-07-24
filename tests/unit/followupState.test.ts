@@ -56,9 +56,7 @@ describe('followup state', () => {
     expect(cancelled.status).toBe('cancelled');
     expect(cancelled.questionDraft).toBe('Welche Farbe?');
     expect(cancelled.partialAnswer).toBe('');
-    expect(cancelled.transcript).toEqual([
-      { question: 'Vorher?', answer: 'Vorherige Antwort.' },
-    ]);
+    expect(cancelled.transcript).toEqual([{ question: 'Vorher?', answer: 'Vorherige Antwort.' }]);
     expect(cancelled.focusTarget).toBe('question');
   });
 

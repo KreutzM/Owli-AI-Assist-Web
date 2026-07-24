@@ -69,8 +69,7 @@ export function RemoteAssist({ client, camera, normalizer, speech, locale }: Rem
     !followupActive &&
     followupRetryReady &&
     Boolean(followup.questionDraft.trim());
-  const remainingQuestionCharacters =
-    FOLLOWUP_QUESTION_MAX_LENGTH - followup.questionDraft.length;
+  const remainingQuestionCharacters = FOLLOWUP_QUESTION_MAX_LENGTH - followup.questionDraft.length;
 
   useEffect(() => {
     const unlockAt = [state.retryAt, followup.retryAt]

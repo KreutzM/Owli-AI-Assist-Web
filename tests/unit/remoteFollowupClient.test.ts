@@ -1,8 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  RemoteAssistClient,
-  type RemoteRuntimeConfig,
-} from '@/core/api/remoteAssistClient';
+import { RemoteAssistClient, type RemoteRuntimeConfig } from '@/core/api/remoteAssistClient';
 import type { RemoteFollowupInput } from '@/core/api/remoteFollowupContracts';
 import { SceneStreamError } from '@/core/api/sceneSse';
 
@@ -234,9 +231,7 @@ function input(): RemoteFollowupInput {
     sceneToken: 'scene-token',
     questionText: ' Was steht auf dem Schild? ',
     image: new Blob([new Uint8Array([0, 1, 2])], { type: 'image/jpeg' }),
-    transcript: [
-      { question: 'Welche Farbe hat die Tür?', answer: 'Die Tür ist blau.' },
-    ],
+    transcript: [{ question: 'Welche Farbe hat die Tür?', answer: 'Die Tür ist blau.' }],
     profileId: 'brief',
     locale: 'de-DE',
   };

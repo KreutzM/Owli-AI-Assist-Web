@@ -133,5 +133,7 @@ export function followupMessage(error: unknown): string {
 }
 
 export function isFollowupErrorStatus(status: RemoteFollowupStatus): boolean {
-  return ['rate_limited', 'recoverable_error', 'context_expired', 'contract_error'].includes(status);
+  return ['rate_limited', 'recoverable_error', 'context_expired', 'contract_error'].includes(
+    status,
+  );
 }

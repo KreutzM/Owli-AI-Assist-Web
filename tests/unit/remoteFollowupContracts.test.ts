@@ -16,9 +16,7 @@ describe('remote follow-up contracts', () => {
         sceneToken: 'scene-token',
         questionText: '  Was steht auf dem Schild?  ',
         image: new Blob(['jpeg'], { type: 'image/jpeg' }),
-        transcript: [
-          { question: 'Welche Farbe hat die Tür?', answer: 'Die Tür ist blau.' },
-        ],
+        transcript: [{ question: 'Welche Farbe hat die Tür?', answer: 'Die Tür ist blau.' }],
         profileId: 'brief',
         locale: 'de-DE',
       },
