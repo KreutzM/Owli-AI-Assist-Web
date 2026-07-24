@@ -1,6 +1,6 @@
 import type { FormEvent, RefObject } from 'react';
 import { FOLLOWUP_QUESTION_MAX_LENGTH } from '@/core/api/remoteFollowupContracts';
-import type { RemoteSceneWorkflow } from '@/features/remote/useRemoteScene';
+import type { RemoteSceneWorkflow } from '@/features/remote/remoteSceneWorkflow';
 
 interface RemoteFollowupPanelProps {
   workflow: RemoteSceneWorkflow;

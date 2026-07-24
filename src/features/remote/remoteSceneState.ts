@@ -47,3 +47,25 @@ export function createResetSceneState(
     streamedText: '',
   };
 }
+
+export function selectStreamingProfileId(readiness: RemoteReadiness): string | undefined {
+  const preferred = readiness.catalog.profiles.find(
+    (profile) => profile.id === readiness.catalog.defaultProfileId && profile.supportsStreaming,
+  );
+  return (
+    preferred?.id ?? readiness.catalog.profiles.find((profile) => profile.supportsStreaming)?.id
+  );
+}
+
+export function createCancelledSceneState(
+  current: RemoteSceneState,
+  image: NormalizedSceneImage | undefined,
+): RemoteSceneState {
+  return {
+    status: 'cancelled',
+    ...(current.readiness ? { readiness: current.readiness } : {}),
+    ...(current.selectedProfileId ? { selectedProfileId: current.selectedProfileId } : {}),
+    ...(image ? { image } : {}),
+    streamedText: '',
+  };
+}

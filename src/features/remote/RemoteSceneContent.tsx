@@ -1,5 +1,5 @@
 import type { ChangeEvent, RefObject } from 'react';
-import type { RemoteSceneWorkflow } from '@/features/remote/useRemoteScene';
+import type { RemoteSceneWorkflow } from '@/features/remote/remoteSceneWorkflow';
 
 interface RemoteSceneContentProps {
   workflow: RemoteSceneWorkflow;

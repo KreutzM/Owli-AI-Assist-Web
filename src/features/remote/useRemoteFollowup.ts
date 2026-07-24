@@ -32,22 +32,22 @@ interface MutableValue<T> {
 interface UseRemoteFollowupOptions {
   client: RemoteAssistClient;
   speech: SpeechLifecycleGateway;
-  activeController: MutableValue<AbortController | undefined>;
-  activeKind: MutableValue<ActiveRequestKind | undefined>;
-  attempt: MutableValue<number>;
-  readiness: MutableValue<RemoteReadiness | undefined>;
-  image: MutableValue<NormalizedSceneImage | undefined>;
+  activeControllerRef: MutableValue<AbortController | undefined>;
+  activeKindRef: MutableValue<ActiveRequestKind | undefined>;
+  attemptRef: MutableValue<number>;
+  readinessRef: MutableValue<RemoteReadiness | undefined>;
+  imageRef: MutableValue<NormalizedSceneImage | undefined>;
   clearAttempt: (retainImage: boolean) => void;
 }
 
 export function useRemoteFollowup({
   client,
   speech,
-  activeController,
-  activeKind,
-  attempt,
-  readiness,
-  image,
+  activeControllerRef,
+  activeKindRef,
+  attemptRef,
+  readinessRef,
+  imageRef,
   clearAttempt,
 }: UseRemoteFollowupOptions) {
   const [followup, dispatchFollowup] = useReducer(followupReducer, INITIAL_FOLLOWUP_STATE);
@@ -101,8 +101,8 @@ export function useRemoteFollowup({
 
   const submitFollowup = useCallback(async () => {
     const currentContext = sceneContext.current;
-    const currentImage = image.current;
-    const currentReadiness = readiness.current;
+    const currentImage = imageRef.current;
+    const currentReadiness = readinessRef.current;
     const normalizedQuestion = questionDraft.current.trim();
     const nextFocusRun = ++focusRun.current;
 
@@ -123,7 +123,7 @@ export function useRemoteFollowup({
       return;
     }
     if (!currentContext || !currentImage || !currentReadiness) return;
-    if (!isFollowupSubmittable(followup.status) || activeController.current) return;
+    if (!isFollowupSubmittable(followup.status) || activeControllerRef.current) return;
 
     const sceneExpiresAt = Date.parse(currentContext.sceneTokenExpiresAt);
     if (!Number.isFinite(sceneExpiresAt) || sceneExpiresAt <= Date.now()) {
@@ -146,10 +146,10 @@ export function useRemoteFollowup({
     if (followupRetryAt.current !== undefined && Date.now() < followupRetryAt.current) return;
 
     clearAttempt(true);
-    const id = attempt.current;
+    const id = attemptRef.current;
     const controller = new AbortController();
-    activeController.current = controller;
-    activeKind.current = 'followup';
+    activeControllerRef.current = controller;
+    activeKindRef.current = 'followup';
     followupRetryAt.current = undefined;
     dispatchFollowup({ type: 'request_started', announcementRun: id });
 
@@ -165,18 +165,18 @@ export function useRemoteFollowup({
         },
         {
           onMetadata: () => {
-            if (id === attempt.current) dispatchFollowup({ type: 'metadata' });
+            if (id === attemptRef.current) dispatchFollowup({ type: 'metadata' });
           },
           onDelta: (text) => {
-            if (id === attempt.current) dispatchFollowup({ type: 'delta', text });
+            if (id === attemptRef.current) dispatchFollowup({ type: 'delta', text });
           },
           onTerminal: () => {
-            if (id === attempt.current) dispatchFollowup({ type: 'terminal' });
+            if (id === attemptRef.current) dispatchFollowup({ type: 'terminal' });
           },
         },
         controller.signal,
       );
-      if (id !== attempt.current || controller.signal.aborted) return;
+      if (id !== attemptRef.current || controller.signal.aborted) return;
       transcript.current = appendCompletedPair(transcript.current, {
         question: normalizedQuestion,
         answer: result.answerText,
@@ -190,7 +190,7 @@ export function useRemoteFollowup({
         focusRun: ++focusRun.current,
       });
     } catch (error) {
-      if (id !== attempt.current || isRemoteSceneAbort(error)) return;
+      if (id !== attemptRef.current || isRemoteSceneAbort(error)) return;
       const status = remoteFollowupErrorStatus(error);
       if (status === 'context_expired') {
         sceneContext.current = undefined;
@@ -216,28 +216,28 @@ export function useRemoteFollowup({
         ...(nextRetryAt !== undefined ? { retryAt: nextRetryAt } : {}),
       });
     } finally {
-      if (activeController.current === controller) {
-        activeController.current = undefined;
-        activeKind.current = undefined;
+      if (activeControllerRef.current === controller) {
+        activeControllerRef.current = undefined;
+        activeKindRef.current = undefined;
       }
     }
   }, [
-    activeController,
-    activeKind,
-    attempt,
+    activeControllerRef,
+    activeKindRef,
+    attemptRef,
     clearAttempt,
     client,
     followup.status,
-    image,
-    readiness,
+    imageRef,
+    readinessRef,
   ]);
 
   const cancelFollowup = useCallback(() => {
-    if (activeKind.current !== 'followup') return;
+    if (activeKindRef.current !== 'followup') return;
     clearAttempt(true);
     followupRetryAt.current = undefined;
     dispatchFollowup({ type: 'cancelled', focusRun: ++focusRun.current });
-  }, [activeKind, clearAttempt]);
+  }, [activeKindRef, clearAttempt]);
 
   const readSceneDescription = useCallback(() => {
     const text = completedSceneText.current;
@@ -272,19 +272,19 @@ export function useRemoteFollowup({
 }
 
 function resolveFollowupContext(
-  readiness: RemoteReadiness,
+  readinessRef: RemoteReadiness,
   currentImage: NormalizedSceneImage | undefined,
   result: RemoteSceneResult,
 ): FollowupSceneContext | undefined {
   const sceneExpiresAt = Date.parse(result.sceneTokenExpiresAt);
   if (!Number.isFinite(sceneExpiresAt) || sceneExpiresAt <= Date.now()) return undefined;
-  const profile = readiness.catalog.profiles.find(
+  const profile = readinessRef.catalog.profiles.find(
     (candidate) =>
       candidate.id === result.profileId &&
       candidate.supportsStreaming &&
       candidate.supportsFollowup,
   );
-  if (!readiness.followupEnabled || !profile || !currentImage) return undefined;
+  if (!readinessRef.followupEnabled || !profile || !currentImage) return undefined;
   return {
     sceneToken: result.sceneToken,
     sceneTokenExpiresAt: result.sceneTokenExpiresAt,
@@ -293,10 +293,10 @@ function resolveFollowupContext(
   };
 }
 
-function isFollowupReady(readiness: RemoteReadiness, context: FollowupSceneContext): boolean {
+function isFollowupReady(readinessRef: RemoteReadiness, context: FollowupSceneContext): boolean {
   return (
-    readiness.followupEnabled &&
-    readiness.catalog.profiles.some(
+    readinessRef.followupEnabled &&
+    readinessRef.catalog.profiles.some(
       (profile) =>
         profile.id === context.frozenProfileId &&
         profile.supportsStreaming &&

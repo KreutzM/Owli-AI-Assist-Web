@@ -14,27 +14,27 @@ interface MutableImageRef {
 export function useRemoteRequestLifecycle(
   camera: RemoteCamera,
   speech: SpeechLifecycleGateway,
-  image: MutableImageRef,
+  imageRef: MutableImageRef,
 ) {
-  const activeController = useRef<AbortController | undefined>(undefined);
-  const activeKind = useRef<ActiveRequestKind | undefined>(undefined);
-  const attempt = useRef(0);
+  const activeControllerRef = useRef<AbortController | undefined>(undefined);
+  const activeKindRef = useRef<ActiveRequestKind | undefined>(undefined);
+  const attemptRef = useRef(0);
 
   const clearAttempt = useCallback(
     (retainImage: boolean) => {
-      attempt.current += 1;
-      activeController.current?.abort();
-      activeController.current = undefined;
-      activeKind.current = undefined;
+      attemptRef.current += 1;
+      activeControllerRef.current?.abort();
+      activeControllerRef.current = undefined;
+      activeKindRef.current = undefined;
       camera.stop();
       speech.stop();
       if (!retainImage) {
-        revokeNormalizedSceneImage(image.current);
-        image.current = undefined;
+        revokeNormalizedSceneImage(imageRef.current);
+        imageRef.current = undefined;
       }
     },
-    [camera, image, speech],
+    [camera, imageRef, speech],
   );
 
-  return { activeController, activeKind, attempt, clearAttempt };
+  return { activeControllerRef, activeKindRef, attemptRef, clearAttempt };
 }

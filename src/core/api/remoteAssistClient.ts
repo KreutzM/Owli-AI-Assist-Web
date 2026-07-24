@@ -3,7 +3,6 @@ import {
   remotePublicConfigSchema,
   webBootstrapResponseV2Schema,
   type RemoteProfileCatalog,
-  type RemoteProfilesResponse,
   type RemotePublicConfig,
   type WebBootstrapResponseV2,
 } from '@/core/api/remoteCatalogContracts';
@@ -45,7 +44,6 @@ import {
   rateLimitError,
   RemoteClientError,
   statusError,
-  type RemoteClientErrorCode,
 } from '@/core/api/remoteClientErrors';
 
 export type { RemoteReadiness, RemoteRuntimeConfig } from '@/core/api/remoteAssistTypes';
