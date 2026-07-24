@@ -140,7 +140,9 @@ describe('RemoteAssist', () => {
     const transcript = await screen.findByRole('heading', { name: 'Abgeschlossene Rückfragen' });
     expect(transcript).toBeInTheDocument();
     expect(screen.getByText('Was steht auf dem Schild?')).toBeInTheDocument();
-    expect(screen.getByText('Auf dem Schild steht Ausgang.')).toBeInTheDocument();
+    expect(
+      within(transcript.parentElement as HTMLElement).getByText('Auf dem Schild steht Ausgang.'),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Antwort vorlesen' }));
     expect(speech.speak).toHaveBeenCalledWith('Auf dem Schild steht Ausgang.', 'de-DE');
@@ -213,7 +215,7 @@ describe('RemoteAssist', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Abbrechen' }));
 
     const retry = await screen.findByRole('button', { name: 'Erneut senden' });
-    expect(screen.getByText('Der Vorgang wurde abgebrochen.')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Der Vorgang wurde abgebrochen.');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(retry).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Rückkamera öffnen' })).toHaveFocus();

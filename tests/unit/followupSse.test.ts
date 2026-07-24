@@ -171,9 +171,7 @@ describe('consumeFollowupSse', () => {
       signal: controller.signal,
       abort: vi.fn(),
     });
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(onDelta).toHaveBeenCalledWith('Ausgang');
+    await vi.waitFor(() => expect(onDelta).toHaveBeenCalledWith('Ausgang'));
     controller.abort();
 
     await expect(promise).rejects.toBeInstanceOf(SceneStreamError);
