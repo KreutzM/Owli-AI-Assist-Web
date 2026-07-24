@@ -32,77 +32,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Apply focused Safari diagnostic fix
+      - name: Write focused Safari diagnostic fix
         shell: bash
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path('tools/safari-jpeg-diagnostic.py')
-          source = path.read_text(encoding='utf-8')
-          old_wait = '''    readiness = SMOKE.wait_until(
-              lambda: SMOKE.page_snapshot(driver),
-              lambda snapshot: (
-                  snapshot.get("readyState") == "complete"
-                  and snapshot.get("cameraPresent") is True
-                  and snapshot.get("cameraDisabled") is False
-                  and snapshot.get("filePresent") is True
-                  and snapshot.get("fileDisabled") is False
-              ),
-              "remote readiness controls",
-              timeout=90,
-          )
-          '''
-          new_wait = '''    readiness = SMOKE.wait_for_remote_readiness(driver)
-          '''
-          if old_wait not in source:
-              raise SystemExit('Expected readiness wait block was not found.')
-          source = source.replace(old_wait, new_wait, 1)
-
-          old_except = '''        except Exception as error:  # noqa: BLE001 - safe diagnostic summary
-                      report["fatal"] = {"type": type(error).__name__, "message": str(error)}
-                      try:
-                          driver.screenshot(args.artifacts / "diagnostic-failure.png")
-                      except Exception:  # noqa: BLE001 - best effort only
-                          pass
-          '''
-          new_except = '''        except SMOKE.RemoteReadinessUnavailable as error:
-                      report["status"] = "INCONCLUSIVE_REMOTE_READINESS"
-                      report["inconclusive"] = {
-                          "reason": str(error),
-                          "snapshot": error.snapshot,
-                      }
-                      try:
-                          driver.screenshot(args.artifacts / "diagnostic-inconclusive.png")
-                      except Exception:  # noqa: BLE001 - best effort only
-                          pass
-                  except Exception as error:  # noqa: BLE001 - safe diagnostic summary
-                      report["fatal"] = {"type": type(error).__name__, "message": str(error)}
-                      try:
-                          driver.screenshot(args.artifacts / "diagnostic-failure.png")
-                      except Exception:  # noqa: BLE001 - best effort only
-                          pass
-          '''
-          if old_except not in source:
-              raise SystemExit('Expected diagnostic exception block was not found.')
-          source = source.replace(old_except, new_except, 1)
-
-          old_return = '''    print(json.dumps(report, indent=2))
-              return 0 if report.get("status") == "PASS" else 1
-          '''
-          new_return = '''    print(json.dumps(report, indent=2))
-              status = report.get("status")
-              if status == "PASS":
-                  return 0
-              if status == "INCONCLUSIVE_REMOTE_READINESS" and not local_target:
-                  return 0
-              return 1
-          '''
-          if old_return not in source:
-              raise SystemExit('Expected diagnostic return block was not found.')
-          source = source.replace(old_return, new_return, 1)
-          path.write_text(source, encoding='utf-8')
-          PY
+          printf '%s' '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' | base64 --decode | gzip --decompress > tools/safari-jpeg-diagnostic.py
 
       - name: Validate and refresh generated index
         shell: bash
