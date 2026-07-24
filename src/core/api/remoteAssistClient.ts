@@ -16,6 +16,7 @@ import {
 import { consumeFollowupSse } from '@/core/api/followupSse';
 import {
   buildWebSceneFollowupRequest,
+  FOLLOWUP_QUESTION_MAX_LENGTH,
   remoteErrorEnvelopeSchema,
   type FollowupStreamCallbacks,
   type RemoteFollowupInput,
@@ -143,16 +144,23 @@ export class RemoteAssistClient {
     signal?: AbortSignal,
   ): Promise<RemoteFollowupResult> {
     signal?.throwIfAborted();
+    const normalizedQuestion = input.questionText.trim();
     if (
       input.image.type !== 'image/jpeg' ||
       input.image.size > SCENE_IMAGE_MAX_BYTES ||
       !input.sceneToken.trim() ||
       !input.profileId.trim() ||
-      !input.locale.trim()
+      !input.locale.trim() ||
+      !normalizedQuestion ||
+      normalizedQuestion.length > FOLLOWUP_QUESTION_MAX_LENGTH
     ) {
       throw new RemoteClientError('REQUEST_REJECTED');
     }
 
+    const normalizedInput: RemoteFollowupInput = {
+      ...input,
+      questionText: normalizedQuestion,
+    };
     let imageBase64: string | undefined = await blobToBase64(input.image, signal);
     try {
       return await this.#sessions.withUnauthorizedRetry((sessionToken) => {
@@ -163,7 +171,7 @@ export class RemoteAssistClient {
             sessionToken,
             installationId: this.#installationId,
             imageBase64,
-            input,
+            input: normalizedInput,
           });
         } catch {
           throw new RemoteClientError('REQUEST_REJECTED');
@@ -286,8 +294,9 @@ export class RemoteAssistClient {
     assertNotAborted(signal);
     if (!parsed.success) throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
     const expected = this.config.target === 'staging' ? 'staging' : 'prod';
-    if (parsed.data.environment !== expected)
+    if (parsed.data.environment !== expected) {
       throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
+    }
     return parsed.data;
   }
 
@@ -462,7 +471,11 @@ function statusError(status: number): RemoteClientError {
 }
 
 function rateLimitError(response: Response): RemoteClientError {
-  return new RemoteClientError('RATE_LIMITED', parseRetryAfter(response.headers.get('Retry-After')), 429);
+  return new RemoteClientError(
+    'RATE_LIMITED',
+    parseRetryAfter(response.headers.get('Retry-After')),
+    429,
+  );
 }
 
 function parseRetryAfter(value: string | null): number | undefined {
