@@ -5,7 +5,7 @@ const declaredTarget = process.env.OWLI_WEB_DEPLOY_TARGET;
 const origins = {
   mock: { connect: '', media: '' },
   staging: {
-    connect: ' https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev',
+    connect: ' https://api-staging.owli-ai.com',
     media: '',
   },
   production: {

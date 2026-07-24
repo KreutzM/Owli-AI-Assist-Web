@@ -417,7 +417,8 @@ export function useRemoteScene(
     }
     if (!currentContext || !currentImage || !currentReadiness) return;
     if (!isFollowupSubmittable(followup.status) || activeController.current) return;
-    if (Date.parse(currentContext.sceneTokenExpiresAt) <= Date.now()) {
+    const sceneExpiresAt = Date.parse(currentContext.sceneTokenExpiresAt);
+    if (!Number.isFinite(sceneExpiresAt) || sceneExpiresAt <= Date.now()) {
       sceneContext.current = undefined;
       transcript.current = [];
       followupRetryAt.current = undefined;
@@ -600,7 +601,8 @@ function resolveFollowupContext(
     locale: string;
   },
 ): FollowupSceneContext | undefined {
-  if (!currentImage || Date.parse(result.sceneTokenExpiresAt) <= Date.now()) return undefined;
+  const sceneExpiresAt = Date.parse(result.sceneTokenExpiresAt);
+  if (!Number.isFinite(sceneExpiresAt) || sceneExpiresAt <= Date.now()) return undefined;
   const profile = readiness.catalog.profiles.find(
     (candidate) =>
       candidate.id === result.profileId &&

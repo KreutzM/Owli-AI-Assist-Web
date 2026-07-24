@@ -221,7 +221,7 @@ export class RemoteAssistClient {
       if (!response.ok) throw statusError(response.status);
       assertEventStreamResponse(response);
 
-      return await consumeSceneSse(response.body!, {
+      return await consumeSceneSse(response.body, {
         profileId: parsed.data.profileId,
         locale: parsed.data.locale,
         requestStartedAt,
@@ -270,7 +270,7 @@ export class RemoteAssistClient {
       if (!response.ok) throw statusError(response.status);
       assertEventStreamResponse(response);
 
-      return await consumeFollowupSse(response.body!, {
+      return await consumeFollowupSse(response.body, {
         profileId: request.profileId,
         locale: request.locale,
         requestStartedAt,

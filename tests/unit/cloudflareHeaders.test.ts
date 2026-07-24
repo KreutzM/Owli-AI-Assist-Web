@@ -38,7 +38,7 @@ describe('deployment build targets', () => {
     await expect(printBuildConfig('staging')).resolves.toEqual({
       OWLI_WEB_DEPLOY_TARGET: 'staging',
       VITE_OWLI_API_MODE: 'remote',
-      VITE_OWLI_API_BASE_URL: 'https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev/',
+      VITE_OWLI_API_BASE_URL: 'https://api-staging.owli-ai.com/',
       VITE_OWLI_APP_VERSION: '0.1.0',
       VITE_OWLI_VERSION_CODE: '1',
       VITE_OWLI_DEFAULT_LOCALE: 'de-DE',
@@ -61,7 +61,7 @@ describe('Cloudflare header artifacts', () => {
 
     const staging = await generate('staging');
     expect(staging).toContain(
-      "connect-src 'self' https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev",
+      "connect-src 'self' https://api-staging.owli-ai.com",
     );
     expect(staging).not.toContain('https://api.owli-ai.com');
     expect(staging).not.toMatch(/media-src[^;]*workers\.dev/);

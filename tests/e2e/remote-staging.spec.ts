@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page, type Route } from '@playwright/test';
 
-const API_BASE = 'https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev/';
+const API_BASE = 'https://api-staging.owli-ai.com/';
 const API_ORIGIN = new URL(API_BASE).origin;
 const ALLOWED_ROUTES = new Set([
   '/api/v1/config',
@@ -10,7 +10,7 @@ const ALLOWED_ROUTES = new Set([
   '/api/v1/scene/describe',
 ]);
 const EXPECTED_CSP =
-  "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self' https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests";
+  "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self' https://api-staging.owli-ai.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests";
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGOs2HKHgYGBiYGBgYGBAQAYJgIMiYqd0gAAAABJRU5ErkJggg==',
   'base64',
