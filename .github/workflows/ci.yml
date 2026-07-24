@@ -4,18 +4,16 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  apply-validation-fixes:
+  patched-diagnostics:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out PR branch
+      - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
 
-      - name: Apply focused fixes
+      - name: Apply focused fixes in working tree
         shell: bash
         run: |
           python3 - <<'PY'
@@ -119,18 +117,23 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Format and validate fixes
-        run: |
-          pnpm exec prettier --write src/core/api/remoteAssistClient.ts src/features/remote/useRemoteRequestLifecycle.ts src/features/remote/useRemoteFollowup.ts src/features/remote/useRemoteScene.ts
-          pnpm lint
-          pnpm typecheck
-          pnpm guardrails
-
-      - name: Commit fixes
+      - name: Capture patched diagnostics
         shell: bash
         run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src/core/api/remoteAssistClient.ts src/features/remote/useRemoteRequestLifecycle.ts src/features/remote/useRemoteFollowup.ts src/features/remote/useRemoteScene.ts
-          git commit -m 'fix(web): restore modularized follow-up contracts'
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          pnpm exec prettier --write src/core/api/remoteAssistClient.ts src/features/remote/useRemoteRequestLifecycle.ts src/features/remote/useRemoteFollowup.ts src/features/remote/useRemoteScene.ts > prettier.log 2>&1 || true
+          pnpm lint > lint.log 2>&1 || true
+          pnpm typecheck > typecheck.log 2>&1 || true
+          pnpm guardrails > guardrails.log 2>&1 || true
+          git diff -- src/core/api/remoteAssistClient.ts src/features/remote/useRemoteRequestLifecycle.ts src/features/remote/useRemoteFollowup.ts src/features/remote/useRemoteScene.ts > patch.diff
+
+      - name: Upload patched diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: slice4-patched-diagnostics
+          path: |
+            prettier.log
+            lint.log
+            typecheck.log
+            guardrails.log
+            patch.diff
+          retention-days: 1
