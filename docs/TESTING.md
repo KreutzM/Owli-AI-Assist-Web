@@ -1,8 +1,22 @@
 # Testing
 
-## Fast checks
+## Fast local checks
 
-`pnpm check:fast` runs formatting, ESLint, TypeScript, architecture guardrails, and Vitest.
+`pnpm check:fast` runs formatting, ESLint, TypeScript, architecture guardrails, workflow-policy checks, and Vitest. During draft development, run the smallest relevant command first and complete `check:fast` before publishing a logical patch.
+
+## Final aggregate check
+
+`pnpm check:all` runs the fast checks once, builds the mock PWA, verifies the Vite port policy, and runs both isolated and built-staging Playwright matrices. It is the final Linux aggregate check; CI must not run the same suites again in parallel jobs.
+
+## CI tiers
+
+- **Quick CI** runs on synchronized draft PR heads and explicit quick dispatches. It executes `check:fast` plus one Linux mock build.
+- **Full CI** runs when a PR is opened or reopened, becomes ready for review, receives a new commit while non-draft, enters a merge queue, is explicitly dispatched as full, or reaches `main`. It executes `check:all` once, Safari diagnostic syntax/harness checks, optional agent-index artifact generation, and Windows builds.
+- **Apple CI** skips drafts and test-only changes. It runs only for ready/non-draft Apple-, browser-, image-, camera-, speech-, or platform-sensitive heads and gates on successful exact-head Web CI.
+
+## Optional agent index
+
+`pnpm ai:index` writes `file-tree.md` and `repo-index.json` to `artifacts/agent-index/`. The directory is ignored and the output is uploaded for one day by full CI. The generated files are not committed and do not gate ordinary PR updates.
 
 ## Coverage report
 
