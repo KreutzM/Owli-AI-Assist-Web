@@ -1,54 +1,104 @@
-name: Format artifact
+name: Build PR39 formatted commit object
 
 on:
-  push:
-    branches:
-      - agent/pr39-format-artifact
   pull_request:
     branches:
       - agent/pr39-format-artifact
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  format:
+  build-commit:
+    if: ${{ github.event.pull_request.head.ref == 'agent/pr39-format-artifact-head' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
+    env:
+      TARGET_BRANCH: pwa-mvp/slice-4-followup-local-speech
+      EXPECTED_HEAD: 68b3e2a909196e068150609ac933e7120a670025
+      GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out exact PR39 head
+        uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+
       - uses: pnpm/action-setup@v4
         with:
           version: 10.12.1
           run_install: false
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
+
       - run: pnpm install --frozen-lockfile
-      - name: Format changed files
-        run: >-
-          pnpm exec prettier --write
-          src/features/remote/RemoteAssist.tsx
-          src/features/remote/RemoteSceneContent.tsx
-          src/features/remote/useRemoteFollowup.ts
-          tests/unit/RemoteAssist.test.tsx
-          tests/e2e/remote-followup.spec.ts
-          .ai/file-tree.md
-          .ai/repo-index.json
-      - name: Upload formatted files
+
+      - name: Format and regenerate index
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          pnpm exec prettier --write \
+            src/features/remote/RemoteAssist.tsx \
+            src/features/remote/RemoteSceneContent.tsx \
+            src/features/remote/useRemoteFollowup.ts \
+            tests/unit/RemoteAssist.test.tsx \
+            tests/e2e/remote-followup.spec.ts
+          pnpm ai:index
+          pnpm format:check
+          pnpm lint
+          pnpm typecheck
+          pnpm guardrails
+          pnpm exec vitest run tests/unit/RemoteAssist.test.tsx
+          git diff --check
+
+      - name: Create Git tree and commit object without updating the branch
+        id: commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMRT)
+          if [[ "${#files[@]}" -eq 0 ]]; then
+            echo 'No formatting changes were produced.' >&2
+            exit 1
+          fi
+
+          base_tree="$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${EXPECTED_HEAD}" --jq .tree.sha)"
+          entries='[]'
+          : > changed-files.txt
+          for path in "${files[@]}"; do
+            printf '%s\n' "$path" >> changed-files.txt
+            blob_sha="$({
+              printf '{"content":"'
+              base64 -w0 "$path"
+              printf '","encoding":"base64"}'
+            } | gh api --method POST "repos/${GITHUB_REPOSITORY}/git/blobs" --input - --jq .sha)"
+            entries="$(jq --arg path "$path" --arg sha "$blob_sha" '. + [{path: $path, mode: "100644", type: "blob", sha: $sha}]' <<<"$entries")"
+          done
+
+          jq -n --arg base_tree "$base_tree" --argjson tree "$entries" \
+            '{base_tree: $base_tree, tree: $tree}' > tree-payload.json
+          tree_sha="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/trees" --input tree-payload.json --jq .sha)"
+
+          jq -n \
+            --arg message 'style(web): format independent review fixes' \
+            --arg tree "$tree_sha" \
+            --arg parent "$EXPECTED_HEAD" \
+            '{message: $message, tree: $tree, parents: [$parent]}' > commit-payload.json
+          commit_sha="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/commits" --input commit-payload.json --jq .sha)"
+          printf '%s\n' "$commit_sha" > commit-sha.txt
+          printf 'commit_sha=%s\n' "$commit_sha" >> "$GITHUB_OUTPUT"
+          echo "Created unattached commit: $commit_sha"
+
+      - name: Upload commit handoff
         uses: actions/upload-artifact@v4
         with:
-          name: pr39-formatted-files-${{ github.event.pull_request.head.sha || github.sha }}
+          name: pr39-formatted-commit-${{ steps.commit.outputs.commit_sha }}
           path: |
-            src/features/remote/RemoteAssist.tsx
-            src/features/remote/RemoteSceneContent.tsx
-            src/features/remote/useRemoteFollowup.ts
-            tests/unit/RemoteAssist.test.tsx
-            tests/e2e/remote-followup.spec.ts
-            .ai/file-tree.md
-            .ai/repo-index.json
+            commit-sha.txt
+            changed-files.txt
           if-no-files-found: error
           retention-days: 1
