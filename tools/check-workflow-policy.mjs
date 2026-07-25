@@ -40,8 +40,8 @@ requireText(
   'github.event.pull_request.draft == false',
   'Full CI must cover synchronized ready PRs',
 );
-requireText(ci, 'run: pnpm check:all', 'Full CI must run the aggregate check once');
-if ((ci.match(/run: pnpm check:all/gu) || []).length !== 1) {
+requireText(ci, 'pnpm check:all', 'Full CI must run the aggregate check once');
+if ((ci.match(/pnpm check:all/gu) || []).length !== 1) {
   failures.push('Web CI must invoke check:all exactly once.');
 }
 forbidText(
