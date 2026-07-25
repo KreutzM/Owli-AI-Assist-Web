@@ -52,13 +52,15 @@ test.describe('remote follow-up and local speech', () => {
     await expect(question).toBeFocused();
 
     await page.getByRole('button', { name: 'Antwort vorlesen' }).click();
-    await expect.poll(() => speechSnapshot(page)).toMatchObject({
-      cancelCount: 2,
-      spoken: [
-        { text: 'Eine helle Straße.', lang: 'de-DE' },
-        { text: 'Auf dem Schild steht Ausgang.', lang: 'de-DE' },
-      ],
-    });
+    await expect
+      .poll(() => speechSnapshot(page))
+      .toMatchObject({
+        cancelCount: 2,
+        spoken: [
+          { text: 'Eine helle Straße.', lang: 'de-DE' },
+          { text: 'Auf dem Schild steht Ausgang.', lang: 'de-DE' },
+        ],
+      });
     await page.getByRole('button', { name: 'Vorlesen stoppen' }).click();
     await expect.poll(() => speechSnapshot(page)).toMatchObject({ cancelCount: 3 });
     await expect(page.getByText('Sprachausgabe läuft.')).toHaveCount(0);
@@ -116,7 +118,9 @@ test.describe('remote follow-up and local speech', () => {
     expect(followupCalls).toBe(2);
   });
 
-  test('cancels a streaming turn, discards partial text, and preserves the draft', async ({ page }) => {
+  test('cancels a streaming turn, discards partial text, and preserves the draft', async ({
+    page,
+  }) => {
     await installCancellableFollowupFetch(page);
     await mockDescribe(page);
 

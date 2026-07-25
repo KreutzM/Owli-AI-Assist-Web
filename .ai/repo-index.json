@@ -302,7 +302,7 @@
     },
     {
       "path": "src/features/remote/useRemoteFollowup.ts",
-      "bytes": 11637,
+      "bytes": 11629,
       "area": "src"
     },
     {
@@ -402,7 +402,7 @@
     },
     {
       "path": "tests/e2e/remote-followup.spec.ts",
-      "bytes": 14358,
+      "bytes": 14391,
       "area": "tests"
     },
     {

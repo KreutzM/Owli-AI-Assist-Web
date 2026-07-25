@@ -92,8 +92,7 @@ export function useRemoteFollowup({
 
   const expireSceneContext = useCallback(
     (
-      message =
-        'Der Szenenkontext ist abgelaufen. Bitte erstelle eine neue Szenenbeschreibung.',
+      message = 'Der Szenenkontext ist abgelaufen. Bitte erstelle eine neue Szenenbeschreibung.',
     ) => {
       if (activeKindRef.current === 'followup') clearAttempt(true);
       clearSceneContextExpiryTimer();
