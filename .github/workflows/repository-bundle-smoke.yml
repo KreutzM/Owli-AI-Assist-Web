@@ -1,0 +1,49 @@
+name: Repository bundle smoke
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repository-bundle-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bundle:
+    name: Create exact-head Git bundle
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact requested revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Create and verify bundle
+        id: bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          head_sha="$(git rev-parse HEAD)"
+          bundle="repository-${head_sha}.bundle"
+          git bundle create "$bundle" HEAD refs/remotes/origin/main
+          git bundle verify "$bundle"
+          printf 'path=%s\n' "$bundle" >> "$GITHUB_OUTPUT"
+          printf 'head_sha=%s\n' "$head_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-bundle-${{ steps.bundle.outputs.head_sha }}
+          path: ${{ steps.bundle.outputs.path }}
+          if-no-files-found: error
+          retention-days: 1
