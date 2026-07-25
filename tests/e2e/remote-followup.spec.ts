@@ -48,22 +48,26 @@ test.describe('remote follow-up and local speech', () => {
 
     const sceneState = await speechSnapshot(page);
     await page.getByRole('button', { name: 'Beschreibung vorlesen' }).click();
-    await expect.poll(async () => speechDelta(page, sceneState)).toEqual([
-      { type: 'cancel', text: null },
-      { type: 'speak', text: 'Eine helle Straße.', lang: 'de-DE' },
-    ]);
+    await expect
+      .poll(async () => speechDelta(page, sceneState))
+      .toEqual([
+        { type: 'cancel', text: null },
+        { type: 'speak', text: 'Eine helle Straße.', lang: 'de-DE' },
+      ]);
 
     const answerState = await speechSnapshot(page);
     await page.getByRole('button', { name: 'Antwort vorlesen' }).click();
-    await expect.poll(async () => speechDelta(page, answerState)).toEqual([
-      { type: 'cancel', text: 'Eine helle Straße.' },
-      { type: 'speak', text: 'Auf dem Schild steht Ausgang.', lang: 'de-DE' },
-    ]);
+    await expect
+      .poll(async () => speechDelta(page, answerState))
+      .toEqual([
+        { type: 'cancel', text: 'Eine helle Straße.' },
+        { type: 'speak', text: 'Auf dem Schild steht Ausgang.', lang: 'de-DE' },
+      ]);
     const stopState = await speechSnapshot(page);
     await page.getByRole('button', { name: 'Vorlesen stoppen' }).click();
-    await expect.poll(async () => speechDelta(page, stopState)).toEqual([
-      { type: 'cancel', text: 'Auf dem Schild steht Ausgang.' },
-    ]);
+    await expect
+      .poll(async () => speechDelta(page, stopState))
+      .toEqual([{ type: 'cancel', text: 'Auf dem Schild steht Ausgang.' }]);
     await expect(page.getByText('Sprachausgabe läuft.')).toHaveCount(0);
 
     await question.fill('Welche Farbe hat die Tür?');
