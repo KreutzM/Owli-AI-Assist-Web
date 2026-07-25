@@ -1,7 +1,8 @@
 name: Apple browser smoke
 
 # macOS runners are substantially more expensive than Linux runners.
-# Run automatically only for PRs that touch Apple/browser-sensitive paths, and gate them on Web CI.
+# Run automatically only for non-draft final heads that touch Apple/browser-sensitive paths.
+# Draft preparation commits remain on Web quick CI; ready or subsequently updated review heads gate on full Web CI.
 on:
   workflow_dispatch:
     inputs:
@@ -36,7 +37,6 @@ on:
       - src/features/scene/**
       - src/platform/camera/**
       - src/platform/image/**
-      - tests/**
       - tools/build-web.mjs
       - tools/safari*.py
       - tools/serve-built-web.mjs
@@ -58,6 +58,7 @@ concurrency:
 jobs:
   prepare:
     name: Gate exact PR revision
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
