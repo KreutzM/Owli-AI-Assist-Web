@@ -1,0 +1,49 @@
+name: Format artifact
+
+on:
+  push:
+    branches:
+      - agent/pr39-format-artifact
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Format changed files
+        run: >-
+          pnpm exec prettier --write
+          src/features/remote/RemoteAssist.tsx
+          src/features/remote/RemoteSceneContent.tsx
+          src/features/remote/useRemoteFollowup.ts
+          tests/unit/RemoteAssist.test.tsx
+          tests/e2e/remote-followup.spec.ts
+          .ai/file-tree.md
+          .ai/repo-index.json
+      - name: Upload formatted files
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr39-formatted-files-${{ github.sha }}
+          path: |
+            src/features/remote/RemoteAssist.tsx
+            src/features/remote/RemoteSceneContent.tsx
+            src/features/remote/useRemoteFollowup.ts
+            tests/unit/RemoteAssist.test.tsx
+            tests/e2e/remote-followup.spec.ts
+            .ai/file-tree.md
+            .ai/repo-index.json
+          if-no-files-found: error
+          retention-days: 1
