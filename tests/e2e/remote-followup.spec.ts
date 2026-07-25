@@ -41,33 +41,37 @@ test.describe('remote follow-up and local speech', () => {
     const question = page.getByLabel('Rückfrage zur aktuellen Szene');
     await expect(question).toBeFocused();
 
+    const sceneSpeechBefore = await speechSnapshot(page);
     await page.getByRole('button', { name: 'Beschreibung vorlesen' }).click();
     await expect
-      .poll(() => speechSnapshot(page))
+      .poll(async () => speechDelta(page, sceneSpeechBefore))
       .toMatchObject({ cancelCount: 1, spoken: [{ text: 'Eine helle Straße.', lang: 'de-DE' }] });
 
     await question.fill('Was steht auf dem Schild?');
     await page.getByRole('button', { name: 'Rückfrage senden' }).click();
-    await expect(page.getByText('Auf dem Schild steht Ausgang.')).toBeVisible();
+    await expect(page.getByRole('listitem').nth(0)).toContainText('Auf dem Schild steht Ausgang.');
     await expect(question).toBeFocused();
 
+    const answerSpeechBefore = await speechSnapshot(page);
     await page.getByRole('button', { name: 'Antwort vorlesen' }).click();
     await expect
-      .poll(() => speechSnapshot(page))
+      .poll(async () => speechDelta(page, answerSpeechBefore))
       .toMatchObject({
-        cancelCount: 2,
-        spoken: [
-          { text: 'Eine helle Straße.', lang: 'de-DE' },
-          { text: 'Auf dem Schild steht Ausgang.', lang: 'de-DE' },
-        ],
+        cancelCount: 1,
+        spoken: [{ text: 'Auf dem Schild steht Ausgang.', lang: 'de-DE' }],
       });
+    const stopSpeechBefore = await speechSnapshot(page);
     await page.getByRole('button', { name: 'Vorlesen stoppen' }).click();
-    await expect.poll(() => speechSnapshot(page)).toMatchObject({ cancelCount: 3 });
+    await expect
+      .poll(async () => speechDelta(page, stopSpeechBefore))
+      .toMatchObject({ cancelCount: 1, spoken: [] });
     await expect(page.getByText('Sprachausgabe läuft.')).toHaveCount(0);
 
     await question.fill('Welche Farbe hat die Tür?');
     await page.getByRole('button', { name: 'Rückfrage senden' }).click();
-    await expect(page.getByText('Die Tür neben dem Schild ist blau.')).toBeVisible();
+    await expect(page.getByRole('listitem').nth(1)).toContainText(
+      'Die Tür neben dem Schild ist blau.',
+    );
     expect(followupBodies).toHaveLength(2);
     expect(followupBodies[0]?.conversationHistory).toEqual([]);
     expect(followupBodies[1]?.conversationHistory).toEqual([
@@ -114,7 +118,7 @@ test.describe('remote follow-up and local speech', () => {
     await expect(page.getByRole('heading', { name: 'Abgeschlossene Rückfragen' })).toHaveCount(0);
     await page.getByRole('button', { name: 'Rückfrage erneut senden' }).click();
 
-    await expect(page.getByText('Auf dem Schild steht Ausgang.')).toBeVisible();
+    await expect(page.getByRole('listitem')).toContainText('Auf dem Schild steht Ausgang.');
     expect(followupCalls).toBe(2);
   });
 
@@ -262,6 +266,17 @@ async function installCancellableFollowupFetch(page: Page): Promise<void> {
       });
     };
   });
+}
+
+async function speechDelta(
+  page: Page,
+  baseline: { cancelCount: number; spoken: { text: string; lang: string }[] },
+) {
+  const current = await speechSnapshot(page);
+  return {
+    cancelCount: current.cancelCount - baseline.cancelCount,
+    spoken: current.spoken.slice(baseline.spoken.length),
+  };
 }
 
 async function speechSnapshot(page: Page) {
