@@ -20,7 +20,7 @@ test.describe('remote follow-up and local speech', () => {
     await mockReadiness(page);
   });
 
-  test('completes multiple clean-EOF turns and supports speak, replace, stop, and reset', async ({
+  test('completes multiple clean-EOF turns and supports speak, replace, stop and reset', async ({
     page,
   }) => {
     await mockDescribe(page);
@@ -41,30 +41,29 @@ test.describe('remote follow-up and local speech', () => {
     const question = page.getByLabel('Rückfrage zur aktuellen Szene');
     await expect(question).toBeFocused();
 
-    const sceneSpeechBefore = await speechSnapshot(page);
-    await page.getByRole('button', { name: 'Beschreibung vorlesen' }).click();
-    await expect
-      .poll(async () => speechDelta(page, sceneSpeechBefore))
-      .toMatchObject({ cancelCount: 1, spoken: [{ text: 'Eine helle Straße.', lang: 'de-DE' }] });
-
     await question.fill('Was steht auf dem Schild?');
     await page.getByRole('button', { name: 'Rückfrage senden' }).click();
     await expect(page.getByRole('listitem').nth(0)).toContainText('Auf dem Schild steht Ausgang.');
     await expect(question).toBeFocused();
 
-    const answerSpeechBefore = await speechSnapshot(page);
+    const sceneBase = await speechSnapshot(page);
+    await page.getByRole('button', { name: 'Beschreibung vorlesen' }).click();
+    await expect.poll(async () => speechDelta(page, sceneBase)).toEqual([
+      { type: 'cancel', text: null },
+      { type: 'speak', text: 'Eine helle Straße.', lang: 'de-DE' },
+    ]);
+
+    const answerBase = await speechSnapshot(page);
     await page.getByRole('button', { name: 'Antwort vorlesen' }).click();
-    await expect
-      .poll(async () => speechDelta(page, answerSpeechBefore))
-      .toMatchObject({
-        cancelCount: 1,
-        spoken: [{ text: 'Auf dem Schild steht Ausgang.', lang: 'de-DE' }],
-      });
-    const stopSpeechBefore = await speechSnapshot(page);
+    await expect.poll(async () => speechDelta(page, answerBase)).toEqual([
+      { type: 'cancel', text: 'Eine helle Straße.' },
+      { type: 'speak', text: 'Auf dem Schild steht Ausgang.', lang: 'de-DE' },
+    ]);
+    const stopBase = await speechSnapshot(page);
     await page.getByRole('button', { name: 'Vorlesen stoppen' }).click();
-    await expect
-      .poll(async () => speechDelta(page, stopSpeechBefore))
-      .toMatchObject({ cancelCount: 1, spoken: [] });
+    await expect.poll(async () => speechDelta(page, stopBase)).toEqual([
+      { type: 'cancel', text: 'Auf dem Schild steht Ausgang.' },
+    ]);
     await expect(page.getByText('Sprachausgabe läuft.')).toHaveCount(0);
 
     await question.fill('Welche Farbe hat die Tür?');
@@ -187,11 +186,11 @@ async function chooseFileAndDescribe(page: Page): Promise<void> {
 
 async function installSpeechMock(page: Page): Promise<void> {
   await page.addInitScript(() => {
-    const speechState = {
-      cancelCount: 0,
-      spoken: [] as { text: string; lang: string }[],
+    const state = {
+      active: null as string | null,
+      log: [] as { type: 'cancel' | 'speak'; text: string | null; lang?: string }[],
     };
-    class MockSpeechSynthesisUtterance {
+    class MockUtterance {
       lang = '';
       onend: ((event: Event) => void) | null = null;
       onerror: ((event: Event) => void) | null = null;
@@ -200,15 +199,17 @@ async function installSpeechMock(page: Page): Promise<void> {
     }
     const synthesis = {
       cancel() {
-        speechState.cancelCount += 1;
+        state.log.push({ type: 'cancel', text: state.active });
+        state.active = null;
       },
-      speak(utterance: MockSpeechSynthesisUtterance) {
-        speechState.spoken.push({ text: utterance.text, lang: utterance.lang });
+      speak(utterance: MockUtterance) {
+        state.active = utterance.text;
+        state.log.push({ type: 'speak', text: utterance.text, lang: utterance.lang });
       },
     };
     Object.defineProperty(globalThis, 'SpeechSynthesisUtterance', {
       configurable: true,
-      value: MockSpeechSynthesisUtterance,
+      value: MockUtterance,
     });
     Object.defineProperty(globalThis, 'speechSynthesis', {
       configurable: true,
@@ -216,9 +217,9 @@ async function installSpeechMock(page: Page): Promise<void> {
     });
     (
       globalThis as typeof globalThis & {
-        __owliSpeechMock?: typeof speechState;
+        __owliSpeechMock?: typeof state;
       }
-    ).__owliSpeechMock = speechState;
+    ).__owliSpeechMock = state;
   });
 }
 
@@ -270,13 +271,10 @@ async function installCancellableFollowupFetch(page: Page): Promise<void> {
 
 async function speechDelta(
   page: Page,
-  baseline: { cancelCount: number; spoken: { text: string; lang: string }[] },
+  prior: Awaited<ReturnType<typeof speechSnapshot>>,
 ) {
-  const current = await speechSnapshot(page);
-  return {
-    cancelCount: current.cancelCount - baseline.cancelCount,
-    spoken: current.spoken.slice(baseline.spoken.length),
-  };
+  const state = await speechSnapshot(page);
+  return state.log.slice(prior.log.length);
 }
 
 async function speechSnapshot(page: Page) {
@@ -284,8 +282,8 @@ async function speechSnapshot(page: Page) {
     const state = (
       globalThis as typeof globalThis & {
         __owliSpeechMock?: {
-          cancelCount: number;
-          spoken: { text: string; lang: string }[];
+          active: string | null;
+          log: { type: 'cancel' | 'speak'; text: string | null; lang?: string }[];
         };
       }
     ).__owliSpeechMock;
