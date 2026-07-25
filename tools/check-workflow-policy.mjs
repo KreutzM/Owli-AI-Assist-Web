@@ -53,7 +53,7 @@ forbidText(
 forbidText(apple, '- tests/**', 'Apple CI must not trigger for every test-only change');
 requireText(
   apple,
-  "github.event.pull_request.draft == false",
+  'github.event.pull_request.draft == false',
   'Apple CI must skip draft PR heads',
 );
 
