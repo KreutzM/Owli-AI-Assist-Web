@@ -4,6 +4,4 @@ node_modules
 playwright-report
 test-results
 pnpm-lock.yaml
-.ai/repo-index.json
-
-.ai/file-tree.md
+artifacts
