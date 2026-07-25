@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
-const API_BASE = 'https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev/';
+const API_BASE = 'https://api-staging.owli-ai.com/';
 const syntheticPortraitPng = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAIAAAA2iEnWAAAAFElEQVR42mMUqTjBwMDAxMDAgKAAGNwBWqZmmI0AAAAASUVORK5CYII=',
   'base64',

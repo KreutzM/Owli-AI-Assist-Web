@@ -39,7 +39,7 @@ describe('remote runtime configuration', () => {
   });
 
   it.each([
-    'http://owli-ai-backend-staging.michael-kreutzer-77.workers.dev/',
+    'http://api-staging.owli-ai.com/',
     `${STAGING_API_ROOT}path`,
     `${STAGING_API_ROOT}?query=1`,
     'https://example.com/',

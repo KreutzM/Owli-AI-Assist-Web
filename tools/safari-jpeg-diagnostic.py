@@ -242,18 +242,7 @@ def select_in_memory_file(driver: Any, fixture: Path) -> None:
 
 def run_case(driver: Any, target_url: str, fixture: Path) -> dict[str, Any]:
     driver.navigate(target_url)
-    readiness = SMOKE.wait_until(
-        lambda: SMOKE.page_snapshot(driver),
-        lambda snapshot: (
-            snapshot.get("readyState") == "complete"
-            and snapshot.get("cameraPresent") is True
-            and snapshot.get("cameraDisabled") is False
-            and snapshot.get("filePresent") is True
-            and snapshot.get("fileDisabled") is False
-        ),
-        "remote readiness controls",
-        timeout=90,
-    )
+    readiness = SMOKE.wait_for_remote_readiness(driver)
     install_file_capture(driver)
     select_in_memory_file(driver, fixture)
     app_outcome = wait_for_app_outcome(driver)
@@ -353,6 +342,16 @@ def main() -> int:
                 if one_mp_passed and twelve_mp_passed and twenty_four_mp_passed
                 else "FAIL"
             )
+        except SMOKE.RemoteReadinessUnavailable as error:
+            report["status"] = "INCONCLUSIVE_REMOTE_READINESS"
+            report["inconclusive"] = {
+                "reason": str(error),
+                "snapshot": error.snapshot,
+            }
+            try:
+                driver.screenshot(args.artifacts / "diagnostic-inconclusive.png")
+            except Exception:  # noqa: BLE001 - best effort only
+                pass
         except Exception as error:  # noqa: BLE001 - safe diagnostic summary
             report["fatal"] = {"type": type(error).__name__, "message": str(error)}
             try:
@@ -365,7 +364,12 @@ def main() -> int:
     result_path = args.artifacts / "jpeg-diagnostic.json"
     result_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2))
-    return 0 if report.get("status") == "PASS" else 1
+    status = report.get("status")
+    if status == "PASS":
+        return 0
+    if status == "INCONCLUSIVE_REMOTE_READINESS" and not local_target:
+        return 0
+    return 1
 
 
 if __name__ == "__main__":

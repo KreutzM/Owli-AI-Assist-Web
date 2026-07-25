@@ -69,7 +69,7 @@
       "bytes": 15228,
       "area": ".github"
     },
-    { "path": ".github/workflows/ci.yml", "bytes": 5131, "area": ".github" },
+    { "path": ".github/workflows/ci.yml", "bytes": 5799, "area": ".github" },
     { "path": ".gitignore", "bytes": 152, "area": ".gitignore" },
     { "path": ".nvmrc", "bytes": 3, "area": ".nvmrc" },
     { "path": ".prettierignore", "bytes": 111, "area": ".prettierignore" },
@@ -101,6 +101,7 @@
     },
     { "path": "docs/REMOTE-SLICE-2.md", "bytes": 879, "area": "docs" },
     { "path": "docs/REMOTE-SLICE-3.md", "bytes": 4601, "area": "docs" },
+    { "path": "docs/REMOTE-SLICE-4.md", "bytes": 3689, "area": "docs" },
     { "path": "docs/REPO_MAP.md", "bytes": 1482, "area": "docs" },
     { "path": "docs/TESTING.md", "bytes": 1506, "area": "docs" },
     { "path": "docs/WORKSPACE-INTEGRATION.md", "bytes": 925, "area": "docs" },
@@ -119,7 +120,7 @@
     { "path": "package.json", "bytes": 2400, "area": "package.json" },
     {
       "path": "playwright.config.ts",
-      "bytes": 2068,
+      "bytes": 2004,
       "area": "playwright.config.ts"
     },
     {
@@ -158,16 +159,27 @@
     { "path": "scripts/validate-local.ps1", "bytes": 175, "area": "scripts" },
     { "path": "scripts/validate-local.sh", "bytes": 175, "area": "scripts" },
     { "path": "src/app/App.test.tsx", "bytes": 563, "area": "src" },
-    { "path": "src/app/App.tsx", "bytes": 3875, "area": "src" },
+    { "path": "src/app/App.tsx", "bytes": 3968, "area": "src" },
     { "path": "src/app/AppErrorBoundary.tsx", "bytes": 947, "area": "src" },
     { "path": "src/app/app.css", "bytes": 5429, "area": "src" },
     { "path": "src/app/runtime.ts", "bytes": 1003, "area": "src" },
     { "path": "src/core/api/contracts.ts", "bytes": 2108, "area": "src" },
+    { "path": "src/core/api/followupSse.ts", "bytes": 8055, "area": "src" },
     { "path": "src/core/api/mockOwliApi.ts", "bytes": 3433, "area": "src" },
     { "path": "src/core/api/owliApi.ts", "bytes": 580, "area": "src" },
     {
       "path": "src/core/api/remoteAssistClient.ts",
-      "bytes": 12371,
+      "bytes": 12733,
+      "area": "src"
+    },
+    {
+      "path": "src/core/api/remoteAssistClientSupport.ts",
+      "bytes": 3896,
+      "area": "src"
+    },
+    {
+      "path": "src/core/api/remoteAssistTypes.ts",
+      "bytes": 356,
       "area": "src"
     },
     {
@@ -176,8 +188,18 @@
       "area": "src"
     },
     {
+      "path": "src/core/api/remoteClientErrors.ts",
+      "bytes": 2007,
+      "area": "src"
+    },
+    {
       "path": "src/core/api/remoteClientSupport.ts",
       "bytes": 1063,
+      "area": "src"
+    },
+    {
+      "path": "src/core/api/remoteFollowupContracts.ts",
+      "bytes": 4248,
       "area": "src"
     },
     { "path": "src/core/api/remoteOwliApi.ts", "bytes": 1988, "area": "src" },
@@ -191,7 +213,7 @@
     { "path": "src/core/api/sse.ts", "bytes": 1442, "area": "src" },
     {
       "path": "src/core/config/runtimeConfig.ts",
-      "bytes": 3259,
+      "bytes": 3227,
       "area": "src"
     },
     {
@@ -234,18 +256,63 @@
     { "path": "src/features/remote/README.md", "bytes": 730, "area": "src" },
     {
       "path": "src/features/remote/RemoteAssist.tsx",
-      "bytes": 10902,
+      "bytes": 8297,
       "area": "src"
     },
-    { "path": "src/features/remote/remote.css", "bytes": 1713, "area": "src" },
+    {
+      "path": "src/features/remote/RemoteFollowupPanel.tsx",
+      "bytes": 4916,
+      "area": "src"
+    },
+    {
+      "path": "src/features/remote/RemoteSceneContent.tsx",
+      "bytes": 9525,
+      "area": "src"
+    },
+    {
+      "path": "src/features/remote/followupState.ts",
+      "bytes": 6092,
+      "area": "src"
+    },
+    { "path": "src/features/remote/remote.css", "bytes": 3008, "area": "src" },
     {
       "path": "src/features/remote/remoteSceneErrors.ts",
-      "bytes": 3986,
+      "bytes": 6448,
+      "area": "src"
+    },
+    {
+      "path": "src/features/remote/remoteSceneState.ts",
+      "bytes": 2053,
+      "area": "src"
+    },
+    {
+      "path": "src/features/remote/remoteSceneWorkflow.ts",
+      "bytes": 142,
+      "area": "src"
+    },
+    {
+      "path": "src/features/remote/remoteWorkflowTypes.ts",
+      "bytes": 84,
+      "area": "src"
+    },
+    {
+      "path": "src/features/remote/useFollowupAnnouncements.ts",
+      "bytes": 624,
+      "area": "src"
+    },
+    {
+      "path": "src/features/remote/useRemoteFollowup.ts",
+      "bytes": 11629,
+      "area": "src"
+    },
+    {
+      "path": "src/features/remote/useRemoteRequestLifecycle.ts",
+      "bytes": 1312,
       "area": "src"
     },
     {
       "path": "src/features/remote/useRemoteScene.ts",
-      "bytes": 11355,
+      "bytes": 12082,
       "area": "src"
     },
     {
@@ -307,7 +374,7 @@
     },
     {
       "path": "src/platform/speech/browserSpeech.ts",
-      "bytes": 669,
+      "bytes": 3624,
       "area": "src"
     },
     {
@@ -334,8 +401,13 @@
       "area": "tests"
     },
     {
+      "path": "tests/e2e/remote-followup.spec.ts",
+      "bytes": 14991,
+      "area": "tests"
+    },
+    {
       "path": "tests/e2e/remote-media-layout-staging.spec.ts",
-      "bytes": 20294,
+      "bytes": 20262,
       "area": "tests"
     },
     {
@@ -345,7 +417,7 @@
     },
     {
       "path": "tests/e2e/remote-staging.spec.ts",
-      "bytes": 25536,
+      "bytes": 25472,
       "area": "tests"
     },
     {
@@ -355,12 +427,12 @@
     },
     {
       "path": "tests/harness/safari-jpeg/main.tsx",
-      "bytes": 1643,
+      "bytes": 1769,
       "area": "tests"
     },
     {
       "path": "tests/unit/RemoteAssist.test.tsx",
-      "bytes": 7470,
+      "bytes": 14522,
       "area": "tests"
     },
     {
@@ -374,8 +446,23 @@
       "area": "tests"
     },
     {
+      "path": "tests/unit/browserSpeech.test.ts",
+      "bytes": 4069,
+      "area": "tests"
+    },
+    {
       "path": "tests/unit/cloudflareHeaders.test.ts",
-      "bytes": 3256,
+      "bytes": 3179,
+      "area": "tests"
+    },
+    {
+      "path": "tests/unit/followupSse.test.ts",
+      "bytes": 6281,
+      "area": "tests"
+    },
+    {
+      "path": "tests/unit/followupState.test.ts",
+      "bytes": 4982,
       "area": "tests"
     },
     {
@@ -385,12 +472,12 @@
     },
     {
       "path": "tests/unit/remoteArchitecture.test.ts",
-      "bytes": 1935,
+      "bytes": 2467,
       "area": "tests"
     },
     {
       "path": "tests/unit/remoteAssistClient.test.ts",
-      "bytes": 9940,
+      "bytes": 9908,
       "area": "tests"
     },
     {
@@ -405,10 +492,20 @@
     },
     {
       "path": "tests/unit/remoteCatalogProjection.test.ts",
-      "bytes": 3316,
+      "bytes": 3284,
       "area": "tests"
     },
-    { "path": "tests/unit/remoteEtag.test.ts", "bytes": 4402, "area": "tests" },
+    { "path": "tests/unit/remoteEtag.test.ts", "bytes": 4370, "area": "tests" },
+    {
+      "path": "tests/unit/remoteFollowupClient.test.ts",
+      "bytes": 9965,
+      "area": "tests"
+    },
+    {
+      "path": "tests/unit/remoteFollowupContracts.test.ts",
+      "bytes": 5347,
+      "area": "tests"
+    },
     {
       "path": "tests/unit/remoteNoLoop.test.ts",
       "bytes": 1686,
@@ -426,12 +523,12 @@
     },
     {
       "path": "tests/unit/remoteStoragePrivacy.test.ts",
-      "bytes": 1363,
+      "bytes": 2064,
       "area": "tests"
     },
     {
       "path": "tests/unit/runtimeConfig.remote.test.ts",
-      "bytes": 1787,
+      "bytes": 1755,
       "area": "tests"
     },
     {
@@ -450,7 +547,7 @@
       "bytes": 1341,
       "area": "tests"
     },
-    { "path": "tools/build-web.mjs", "bytes": 2601, "area": "tools" },
+    { "path": "tools/build-web.mjs", "bytes": 2569, "area": "tools" },
     { "path": "tools/check-architecture.mjs", "bytes": 2643, "area": "tools" },
     {
       "path": "tools/check-safari-smoke-guards.mjs",
@@ -464,13 +561,13 @@
     },
     {
       "path": "tools/generate-cloudflare-headers.mjs",
-      "bytes": 1555,
+      "bytes": 1523,
       "area": "tools"
     },
     { "path": "tools/generate-repo-index.mjs", "bytes": 3030, "area": "tools" },
     {
       "path": "tools/safari-jpeg-diagnostic.py",
-      "bytes": 13010,
+      "bytes": 13181,
       "area": "tools"
     },
     { "path": "tools/safari-smoke.py", "bytes": 11725, "area": "tools" },

@@ -5,7 +5,7 @@ import { PROFILE_REGISTRY_SCHEMA_VERSION } from '@/core/api/remoteCatalogContrac
 const config = {
   mode: 'remote' as const,
   target: 'staging' as const,
-  apiBaseUrl: 'https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev/',
+  apiBaseUrl: 'https://api-staging.owli-ai.com/',
   appVersion: '0.1.0',
   versionCode: 1,
   defaultLocale: 'de-DE',

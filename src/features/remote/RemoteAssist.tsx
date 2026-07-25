@@ -1,7 +1,13 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { FOLLOWUP_QUESTION_MAX_LENGTH } from '@/core/api/remoteFollowupContracts';
 import type { RemoteAssistClient } from '@/core/api/remoteAssistClient';
 import type { RemoteCamera } from '@/platform/camera/remoteCamera';
 import type { BrowserSceneImageNormalizer } from '@/platform/image/browserSceneImageNormalizer';
+import type { SpeechLifecycleGateway } from '@/platform/speech/browserSpeech';
+import { isFollowupActive } from '@/features/remote/followupState';
+import { RemoteFollowupPanel } from '@/features/remote/RemoteFollowupPanel';
+import { RemoteSceneContent } from '@/features/remote/RemoteSceneContent';
+import { useFollowupAnnouncements } from '@/features/remote/useFollowupAnnouncements';
 import { useRemoteScene } from '@/features/remote/useRemoteScene';
 import { useSceneAnnouncements } from '@/features/remote/useSceneAnnouncements';
 import '@/features/remote/remote.css';
@@ -10,49 +16,81 @@ interface RemoteAssistProps {
   client: RemoteAssistClient;
   camera: RemoteCamera;
   normalizer: BrowserSceneImageNormalizer;
+  speech: SpeechLifecycleGateway;
   locale: string;
 }
 
-export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssistProps) {
-  const workflow = useRemoteScene(client, camera, normalizer, locale);
-  const { state } = workflow;
-  const announcement = useSceneAnnouncements(state);
+export function RemoteAssist({ client, camera, normalizer, speech, locale }: RemoteAssistProps) {
+  const workflow = useRemoteScene(client, camera, normalizer, speech, locale);
+  const { state, followup, speechState, reset } = workflow;
+  const sceneAnnouncement = useSceneAnnouncements(state);
+  const followupAnnouncement = useFollowupAnnouncements(followup);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraButtonRef = useRef<HTMLButtonElement>(null);
+  const questionRef = useRef<HTMLTextAreaElement>(null);
+  const newSceneButtonRef = useRef<HTMLButtonElement>(null);
+  const focusAfterResetRef = useRef(false);
+  const previousSceneStatus = useRef(state.status);
   const [videoReady, setVideoReady] = useState(false);
   const [retryClock, setRetryClock] = useState(() => Date.now());
 
   const readinessEnabled =
     state.readiness?.sceneDescribeEnabled === true && state.selectedProfileId !== undefined;
-  const active = [
+  const sceneActive = [
     'camera_starting',
     'normalizing',
     'requesting',
     'streaming',
     'terminal_waiting_for_eof',
   ].includes(state.status);
+  const followupActive = isFollowupActive(followup.status);
+  const active = sceneActive || followupActive;
   const cameraVisible = state.status === 'camera_starting' || state.status === 'camera_ready';
-  const retrySeconds =
+  const sceneRetrySeconds =
     state.status === 'rate_limited' && state.retryAt !== undefined
       ? Math.max(0, Math.ceil((state.retryAt - retryClock) / 1000))
       : 0;
-  const retryReady =
+  const followupRetrySeconds =
+    followup.status === 'rate_limited' && followup.retryAt !== undefined
+      ? Math.max(0, Math.ceil((followup.retryAt - retryClock) / 1000))
+      : 0;
+  const sceneRetryReady =
     state.status !== 'rate_limited' || state.retryAt === undefined || retryClock >= state.retryAt;
+  const followupRetryReady =
+    followup.status !== 'rate_limited' ||
+    followup.retryAt === undefined ||
+    retryClock >= followup.retryAt;
   const retryableImage =
     state.image !== undefined &&
     ['prepared', 'cancelled', 'recoverable_error', 'rate_limited'].includes(state.status);
-  const canDescribe = retryableImage && retryReady;
+  const canDescribe = retryableImage && sceneRetryReady && !followupActive;
+  const profileLocked = state.image !== undefined;
+  const followupVisible = state.status === 'complete' && followup.status !== 'unavailable';
+  const canSubmitFollowup =
+    followupVisible &&
+    followup.status !== 'context_expired' &&
+    !followupActive &&
+    followupRetryReady &&
+    Boolean(followup.questionDraft.trim());
+  const remainingQuestionCharacters = FOLLOWUP_QUESTION_MAX_LENGTH - followup.questionDraft.length;
+
+  const resetScene = useCallback(() => {
+    focusAfterResetRef.current = true;
+    reset();
+  }, [reset]);
 
   useEffect(() => {
-    const unlockAt = state.retryAt;
-    if (state.status !== 'rate_limited' || unlockAt === undefined) return;
+    const unlockAt = [state.retryAt, followup.retryAt]
+      .filter((value): value is number => value !== undefined)
+      .sort((left, right) => left - right)[0];
+    if (unlockAt === undefined || retryClock >= unlockAt) return;
     const timer = window.setInterval(() => {
       const current = Date.now();
       setRetryClock(current);
       if (current >= unlockAt) window.clearInterval(timer);
     }, 250);
     return () => window.clearInterval(timer);
-  }, [state.retryAt, state.status]);
+  }, [followup.retryAt, retryClock, state.retryAt]);
 
   useEffect(() => {
     if (
@@ -64,15 +102,27 @@ export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssis
     }
   }, [state.status]);
 
-  const selectFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const input = event.currentTarget;
-    const selected = input.files?.[0];
-    try {
-      if (selected) await workflow.prepare(selected);
-    } finally {
-      input.value = '';
+  useEffect(() => {
+    if (!focusAfterResetRef.current || state.status !== 'ready_idle') return;
+    focusAfterResetRef.current = false;
+    cameraButtonRef.current?.focus();
+  }, [state.status]);
+
+  useEffect(() => {
+    if (followup.focusTarget === 'question') questionRef.current?.focus();
+    if (followup.focusTarget === 'new_scene') newSceneButtonRef.current?.focus();
+  }, [followup.focusRun, followup.focusTarget]);
+
+  useEffect(() => {
+    if (
+      previousSceneStatus.current !== 'complete' &&
+      state.status === 'complete' &&
+      followup.status === 'idle'
+    ) {
+      questionRef.current?.focus();
     }
-  };
+    previousSceneStatus.current = state.status;
+  }, [followup.status, state.status]);
 
   return (
     <section className="panel remote-scene" aria-labelledby="remote-scene-title" aria-busy={active}>
@@ -83,229 +133,72 @@ export function RemoteAssist({ client, camera, normalizer, locale }: RemoteAssis
         JPEG verkleinert und nicht im Browser gespeichert.
       </p>
 
-      {state.status === 'readiness_loading' && (
-        <p className="live-status" role="status">
-          Sichere Sitzung und Profile werden vorbereitet …
-        </p>
-      )}
-
-      {state.status === 'readiness_unavailable' && (
-        <div>
-          <p className="live-status" role="alert">
-            {state.errorMessage ??
-              'Die Szenenbeschreibung ist in dieser Bereitstellung nicht freigegeben.'}
-          </p>
-          <button
-            className="button button--primary"
-            type="button"
-            onClick={() => void workflow.loadReadiness(true)}
-          >
-            Erneut prüfen
-          </button>
-        </div>
-      )}
-
-      {state.readiness && (
-        <div className="scene-controls">
-          <label htmlFor="scene-profile">Profil für die Beschreibung</label>
-          <select
-            id="scene-profile"
-            value={state.selectedProfileId ?? ''}
-            disabled={!readinessEnabled || active}
-            onChange={(event) => workflow.selectProfile(event.currentTarget.value)}
-          >
-            {state.readiness.catalog.profiles
-              .filter((profile) => profile.supportsStreaming)
-              .map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.label}
-                </option>
-              ))}
-          </select>
-
-          <div className="scene-source-actions">
-            <button
-              ref={cameraButtonRef}
-              className="button button--primary"
-              type="button"
-              disabled={!readinessEnabled || active}
-              onClick={() => {
-                setVideoReady(false);
-                if (videoRef.current) void workflow.startCamera(videoRef.current);
-              }}
-            >
-              Rückkamera öffnen
-            </button>
-
-            <div className="file-control">
-              <label htmlFor="scene-file">Oder ein Bild auswählen</label>
-              <input
-                id="scene-file"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                disabled={!readinessEnabled || active}
-                onChange={(event) => void selectFile(event)}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      <video
-        ref={videoRef}
-        className={
-          cameraVisible
-            ? 'remote-camera-preview'
-            : 'remote-camera-preview remote-camera-preview--hidden'
-        }
-        hidden={!cameraVisible}
-        aria-label={cameraVisible ? 'Lokale Live-Vorschau der Rückkamera' : undefined}
-        aria-hidden={!cameraVisible}
-        muted
-        playsInline
-        onLoadedMetadata={() => setVideoReady(Boolean(videoRef.current?.videoWidth))}
-        onCanPlay={() => setVideoReady(Boolean(videoRef.current?.videoWidth))}
+      <RemoteSceneContent
+        workflow={workflow}
+        videoRef={videoRef}
+        cameraButtonRef={cameraButtonRef}
+        readinessEnabled={readinessEnabled}
+        active={active}
+        cameraVisible={cameraVisible}
+        profileLocked={profileLocked}
+        videoReady={videoReady}
+        setVideoReady={setVideoReady}
+        retryableImage={retryableImage}
+        canDescribe={canDescribe}
+        sceneRetrySeconds={sceneRetrySeconds}
+        sceneRetryReady={sceneRetryReady}
+        onReset={resetScene}
       />
 
-      {state.status === 'camera_starting' && <p role="status">Die Kamera wird gestartet …</p>}
-      {state.status === 'camera_ready' && (
-        <div className="scene-actions">
-          <button
-            className="button button--primary"
-            type="button"
-            disabled={!videoReady}
-            onClick={() => void workflow.capture()}
-          >
-            Bild aufnehmen
-          </button>
-          <button className="button button--secondary" type="button" onClick={workflow.cancel}>
-            Kamera schließen
-          </button>
-        </div>
-      )}
+      <RemoteFollowupPanel
+        workflow={workflow}
+        questionRef={questionRef}
+        visible={followupVisible}
+        active={followupActive}
+        canSubmit={canSubmitFollowup}
+        retrySeconds={followupRetrySeconds}
+        retryReady={followupRetryReady}
+        remainingQuestionCharacters={remainingQuestionCharacters}
+      />
 
-      {state.status === 'normalizing' && (
-        <p role="status">Das Bild wird lokal geprüft und vorbereitet …</p>
-      )}
-
-      {state.image && (
-        <div className="remote-scene-preview">
-          <img
-            className="remote-scene-preview__image"
-            src={state.image.previewUrl}
-            alt="Ausgewählte Szene"
-          />
+      {state.status === 'complete' && (
+        <section className="speech-disclosure" aria-labelledby="speech-title">
+          <h3 id="speech-title">Lokale Sprachausgabe</h3>
           <p>
-            Normalisiertes JPEG: {state.image.width} × {state.image.height} Pixel,{' '}
-            {formatBytes(state.image.byteLength)}
+            Owli sendet keine zusätzliche Sprachanfrage an das Owli-Backend. Der Browser oder das
+            Betriebssystem übernimmt die Sprachsynthese; Plattformstimmen können dabei ein eigenes
+            Verarbeitungsverhalten haben. Eine vollständig offline oder ausschließlich auf dem Gerät
+            ausgeführte Sprachausgabe wird nicht garantiert.
           </p>
-        </div>
-      )}
-
-      {state.status === 'prepared' && (
-        <div className="scene-actions">
-          <button
-            className="button button--primary"
-            type="button"
-            onClick={() => void workflow.describe()}
-          >
-            Szene beschreiben
-          </button>
-          <button className="button button--secondary" type="button" onClick={workflow.reset}>
-            Bild verwerfen
-          </button>
-        </div>
-      )}
-
-      {['requesting', 'streaming', 'terminal_waiting_for_eof'].includes(state.status) && (
-        <div className="scene-actions">
-          <p role="status">
-            {state.status === 'requesting'
-              ? 'Die Anfrage wird gesendet …'
-              : state.status === 'terminal_waiting_for_eof'
-                ? 'Die Antwort wird sicher abgeschlossen …'
-                : 'Die Beschreibung wird übertragen …'}
-          </p>
-          <button className="button button--secondary" type="button" onClick={workflow.cancel}>
-            Abbrechen
-          </button>
-        </div>
-      )}
-
-      {state.streamedText && (
-        <section className="scene-result" aria-labelledby="scene-result-title">
-          <h3 id="scene-result-title">
-            {state.status === 'complete' ? 'Szenenbeschreibung' : 'Laufende Beschreibung'}
-          </h3>
-          <p>{state.streamedText}</p>
+          {speechState === 'unsupported' && (
+            <p role="status">Sprachausgabe wird in diesem Browser nicht unterstützt.</p>
+          )}
+          {speechState === 'speaking' && <p role="status">Sprachausgabe läuft.</p>}
+          {speechState === 'error' && (
+            <p className="live-status" role="alert">
+              Die lokale Sprachausgabe konnte nicht gestartet oder abgeschlossen werden.
+            </p>
+          )}
         </section>
       )}
 
-      {(state.status === 'recoverable_error' ||
-        state.status === 'contract_error' ||
-        state.status === 'rate_limited') && (
-        <div>
-          <p className="live-status" role="alert">
-            {state.errorMessage}
-          </p>
-          {state.status === 'rate_limited' && retrySeconds > 0 && (
-            <p role="status">Erneut möglich in {retrySeconds} Sekunden.</p>
-          )}
-          <div className="scene-actions">
-            {retryableImage && (
-              <button
-                className="button button--primary"
-                type="button"
-                disabled={!canDescribe}
-                onClick={() => void workflow.describe()}
-              >
-                {state.status === 'rate_limited' && !retryReady
-                  ? 'Erneut versuchen, sobald freigegeben'
-                  : 'Mit dem vorbereiteten Bild erneut versuchen'}
-              </button>
-            )}
-            <button className="button button--secondary" type="button" onClick={workflow.reset}>
-              Zurücksetzen
-            </button>
-          </div>
-        </div>
-      )}
-
-      {state.status === 'cancelled' && (
-        <div>
-          <p className="live-status" role="status">
-            Der Vorgang wurde abgebrochen.
-          </p>
-          <div className="scene-actions">
-            {canDescribe && (
-              <button
-                className="button button--primary"
-                type="button"
-                onClick={() => void workflow.describe()}
-              >
-                Erneut senden
-              </button>
-            )}
-            <button className="button button--secondary" type="button" onClick={workflow.reset}>
-              Zurücksetzen
-            </button>
-          </div>
-        </div>
-      )}
-
-      {state.status === 'complete' && (
-        <button className="button button--secondary" type="button" onClick={workflow.reset}>
-          Neues Bild
+      {(state.status === 'complete' || followup.status === 'context_expired') && (
+        <button
+          ref={newSceneButtonRef}
+          className="button button--secondary"
+          type="button"
+          onClick={resetScene}
+        >
+          {followup.status === 'context_expired' ? 'Neue Szene beginnen' : 'Neues Bild'}
         </button>
       )}
 
       <p className="visually-hidden" aria-live="polite" aria-atomic="true">
-        {announcement}
+        {sceneAnnouncement}
+      </p>
+      <p className="visually-hidden" aria-live="polite" aria-atomic="true">
+        {followupAnnouncement}
       </p>
     </section>
   );
-}
-
-function formatBytes(bytes: number): string {
-  return `${Math.max(1, Math.round(bytes / 1024))} KiB`;
 }

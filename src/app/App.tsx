@@ -21,7 +21,7 @@ export function App() {
           <h1>Assist im Browser</h1>
           <p className="header-copy">
             {runtime.mode === 'remote'
-              ? 'Eine Szene aufnehmen oder auswählen und sicher beschreiben lassen.'
+              ? 'Eine Szene aufnehmen oder auswählen, beschreiben lassen und Rückfragen stellen.'
               : 'Szenen verstehen, Rückfragen stellen und Audio-Postcards erstellen – ohne App-Store.'}
           </p>
         </div>
@@ -63,11 +63,13 @@ function RemoteApplication({
 }) {
   const camera = useMemo(() => new RemoteCamera(), []);
   const normalizer = useMemo(() => new BrowserSceneImageNormalizer(), []);
+  const speech = useMemo(() => new BrowserSpeech(), []);
   return (
     <RemoteAssist
       client={runtime.assistClient}
       camera={camera}
       normalizer={normalizer}
+      speech={speech}
       locale={runtime.defaultLocale}
     />
   );

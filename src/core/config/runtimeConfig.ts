@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const STAGING_API_ROOT = 'https://owli-ai-backend-staging.michael-kreutzer-77.workers.dev/';
+export const STAGING_API_ROOT = 'https://api-staging.owli-ai.com/';
 export const PRODUCTION_API_ROOT = 'https://api.owli-ai.com/';
 
 export type RuntimeConfigurationErrorCode =

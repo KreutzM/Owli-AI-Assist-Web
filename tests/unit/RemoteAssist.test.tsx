@@ -1,5 +1,10 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type {
+  FollowupStreamCallbacks,
+  RemoteFollowupInput,
+  RemoteFollowupResult,
+} from '@/core/api/remoteFollowupContracts';
 import {
   RemoteClientError,
   type RemoteAssistClient,
@@ -13,9 +18,11 @@ import type {
 import { RemoteAssist } from '@/features/remote/RemoteAssist';
 import type { RemoteCamera } from '@/platform/camera/remoteCamera';
 import type { BrowserSceneImageNormalizer } from '@/platform/image/browserSceneImageNormalizer';
+import type { SpeechLifecycleGateway, SpeechState } from '@/platform/speech/browserSpeech';
 
 const readiness: RemoteReadiness = {
   sceneDescribeEnabled: true,
+  followupEnabled: true,
   catalog: {
     defaultProfileId: 'brief',
     profiles: [
@@ -24,7 +31,7 @@ const readiness: RemoteReadiness = {
         label: 'Kurz',
         description: 'Kurze Beschreibung',
         supportsStreaming: true,
-        supportsFollowup: false,
+        supportsFollowup: true,
       },
     ],
   },
@@ -93,9 +100,131 @@ describe('RemoteAssist', () => {
     if (!completedResult) throw new Error('Missing completed scene result');
     expect(within(completedResult).getByText('Eine helle Straße.')).toBeInTheDocument();
     expect(describeScene).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('Rückfrage zur aktuellen Szene')).toHaveFocus();
   });
 
-  it('cancels neutrally, aborts the attempt, and keeps explicit retry available', async () => {
+  it('commits a follow-up only after clean EOF and reads only completed answers', async () => {
+    let resolveFollowup: ((value: RemoteFollowupResult) => void) | undefined;
+    const followupScene = vi.fn(
+      async (_input: RemoteFollowupInput, callbacks: FollowupStreamCallbacks) => {
+        callbacks.onMetadata?.({
+          mode: 'followup',
+          modelAlias: 'scene-followup-v1',
+          profileId: 'brief',
+          locale: 'de-DE',
+        });
+        callbacks.onDelta?.('Auf dem Schild steht Ausgang.');
+        callbacks.onTerminal?.();
+        return await new Promise<RemoteFollowupResult>((resolve) => {
+          resolveFollowup = resolve;
+        });
+      },
+    );
+    const speech = createSpeech();
+    renderRemote({ followupScene }, speech);
+    await prepareAndDescribe();
+
+    fireEvent.change(screen.getByLabelText('Rückfrage zur aktuellen Szene'), {
+      target: { value: 'Was steht auf dem Schild?' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Rückfrage senden' }));
+
+    await screen.findByText('Die Antwort wird sicher abgeschlossen …');
+    const partial = screen.getByRole('heading', { name: 'Laufende Antwort' }).closest('section');
+    expect(partial).not.toHaveAttribute('aria-live');
+    expect(
+      screen.queryByRole('heading', { name: 'Abgeschlossene Rückfragen' }),
+    ).not.toBeInTheDocument();
+
+    resolveFollowup?.(followupResult());
+    const transcript = await screen.findByRole('heading', { name: 'Abgeschlossene Rückfragen' });
+    expect(transcript).toBeInTheDocument();
+    expect(screen.getByText('Was steht auf dem Schild?')).toBeInTheDocument();
+    expect(
+      within(transcript.parentElement as HTMLElement).getByText('Auf dem Schild steht Ausgang.'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Antwort vorlesen' }));
+    expect(speech.speak).toHaveBeenCalledWith('Auf dem Schild steht Ausgang.', 'de-DE');
+  });
+
+  it('cancels follow-up neutrally and retains the draft without committing partial text', async () => {
+    const followupScene = vi.fn(
+      async (
+        _input: RemoteFollowupInput,
+        callbacks: FollowupStreamCallbacks,
+        signal?: AbortSignal,
+      ) => {
+        callbacks.onMetadata?.({
+          mode: 'followup',
+          modelAlias: 'scene-followup-v1',
+          profileId: 'brief',
+          locale: 'de-DE',
+        });
+        callbacks.onDelta?.('Nicht vollständig');
+        return await new Promise<RemoteFollowupResult>((_, reject) => {
+          signal?.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError')),
+          );
+        });
+      },
+    );
+    renderRemote({ followupScene });
+    await prepareAndDescribe();
+
+    const question = screen.getByLabelText('Rückfrage zur aktuellen Szene');
+    fireEvent.change(question, { target: { value: 'Welche Farbe hat die Tür?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Rückfrage senden' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Rückfrage abbrechen' }));
+
+    await screen.findByText('Die Rückfrage wurde abgebrochen. Dein Entwurf bleibt erhalten.');
+    expect(question).toHaveValue('Welche Farbe hat die Tür?');
+    expect(screen.queryByText('Nicht vollständig')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Abgeschlossene Rückfragen' }),
+    ).not.toBeInTheDocument();
+    expect(question).toHaveFocus();
+  });
+
+  it('expires scene context at the token deadline and clears completed follow-up history', async () => {
+    const expiresAt = new Date(Date.now() + 1_500).toISOString();
+    renderRemote({ describeScene: vi.fn(async () => sceneResult(expiresAt)) });
+    await prepareAndDescribe();
+
+    fireEvent.change(screen.getByLabelText('Rückfrage zur aktuellen Szene'), {
+      target: { value: 'Was steht auf dem Schild?' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Rückfrage senden' }));
+    await screen.findByRole('heading', { name: 'Abgeschlossene Rückfragen' });
+
+    const newScene = await screen.findByRole(
+      'button',
+      { name: 'Neue Szene beginnen' },
+      { timeout: 4_000 },
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('Szenenkontext ist abgelaufen');
+    expect(screen.getByLabelText('Rückfrage zur aktuellen Szene')).toBeDisabled();
+    expect(
+      screen.queryByRole('heading', { name: 'Abgeschlossene Rückfragen' }),
+    ).not.toBeInTheDocument();
+    expect(newScene).toHaveFocus();
+  });
+
+  it('returns focus to the camera action after every shared reset path', async () => {
+    renderRemote();
+
+    fireEvent.change(await screen.findByLabelText('Oder ein Bild auswählen'), {
+      target: { files: [new File([new Uint8Array([1])], 'scene.png', { type: 'image/png' })] },
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Bild verwerfen' }));
+    expect(screen.getByRole('button', { name: 'Rückkamera öffnen' })).toHaveFocus();
+
+    await prepareAndDescribe();
+    fireEvent.click(screen.getByRole('button', { name: 'Neues Bild' }));
+    expect(screen.getByRole('button', { name: 'Rückkamera öffnen' })).toHaveFocus();
+  });
+
+  it('cancels scene describe neutrally, aborts the attempt, and keeps explicit retry available', async () => {
     const describeScene = vi.fn(
       async (
         _input: NormalizedSceneInput,
@@ -153,7 +282,7 @@ describe('RemoteAssist', () => {
       name: 'Erneut versuchen, sobald freigegeben',
     });
     expect(retry).toBeDisabled();
-    expect(screen.getByRole('status')).toHaveTextContent('Erneut möglich');
+    expect(screen.getByText(/Erneut möglich/)).toBeInTheDocument();
     await waitFor(() => expect(retry).toBeEnabled(), { timeout: 1_000 });
     fireEvent.click(retry);
 
@@ -162,11 +291,12 @@ describe('RemoteAssist', () => {
   });
 });
 
-function renderRemote(overrides: Partial<RemoteAssistClient> = {}) {
+function renderRemote(overrides: Partial<RemoteAssistClient> = {}, speech = createSpeech()) {
   const client = {
     initialize: vi.fn(async () => readiness),
     refreshCatalog: vi.fn(async () => readiness),
     describeScene: vi.fn(async () => sceneResult()),
+    followupScene: vi.fn(async () => followupResult()),
     ...overrides,
   } as unknown as RemoteAssistClient;
   const camera = {
@@ -186,18 +316,70 @@ function renderRemote(overrides: Partial<RemoteAssistClient> = {}) {
     })),
   } as unknown as BrowserSceneImageNormalizer;
   return render(
-    <RemoteAssist client={client} camera={camera} normalizer={normalizer} locale="de-DE" />,
+    <RemoteAssist
+      client={client}
+      camera={camera}
+      normalizer={normalizer}
+      speech={speech}
+      locale="de-DE"
+    />,
   );
 }
 
-function sceneResult(): RemoteSceneResult {
+async function prepareAndDescribe(): Promise<void> {
+  fireEvent.change(await screen.findByLabelText('Oder ein Bild auswählen'), {
+    target: { files: [new File([new Uint8Array([1])], 'scene.png', { type: 'image/png' })] },
+  });
+  fireEvent.click(await screen.findByRole('button', { name: 'Szene beschreiben' }));
+  await screen.findByRole('heading', { name: 'Szenenbeschreibung' });
+}
+
+function createSpeech(): SpeechLifecycleGateway & {
+  speak: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
+} {
+  let state: SpeechState = 'idle';
+  const listeners = new Set<(value: SpeechState) => void>();
+  return {
+    supported: true,
+    get state() {
+      return state;
+    },
+    speak: vi.fn(() => {
+      state = 'speaking';
+      for (const listener of listeners) listener(state);
+    }),
+    stop: vi.fn(() => {
+      state = 'idle';
+      for (const listener of listeners) listener(state);
+    }),
+    subscribe: vi.fn((listener: (value: SpeechState) => void) => {
+      listeners.add(listener);
+      listener(state);
+      return () => listeners.delete(listener);
+    }),
+    dispose: vi.fn(),
+  };
+}
+
+function sceneResult(sceneTokenExpiresAt = '2099-07-17T12:00:00.000Z'): RemoteSceneResult {
   return {
     answerText: 'Eine helle Straße.',
     sceneToken: 'scene-token',
-    sceneTokenExpiresAt: '2026-07-17T12:00:00.000Z',
+    sceneTokenExpiresAt,
     profileId: 'brief',
     locale: 'de-DE',
     modelAlias: 'scene-describe-v1',
     requestId: 'request-1',
+  };
+}
+
+function followupResult(): RemoteFollowupResult {
+  return {
+    answerText: 'Auf dem Schild steht Ausgang.',
+    profileId: 'brief',
+    locale: 'de-DE',
+    modelAlias: 'scene-followup-v1',
+    requestId: 'followup-request-1',
   };
 }

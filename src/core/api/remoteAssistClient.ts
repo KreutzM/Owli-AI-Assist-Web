@@ -3,7 +3,6 @@ import {
   remotePublicConfigSchema,
   webBootstrapResponseV2Schema,
   type RemoteProfileCatalog,
-  type RemoteProfilesResponse,
   type RemotePublicConfig,
   type WebBootstrapResponseV2,
 } from '@/core/api/remoteCatalogContracts';
@@ -13,55 +12,42 @@ import {
   createMemoryInstallationId,
   forwardAbort,
 } from '@/core/api/remoteClientSupport';
+import { consumeFollowupSse } from '@/core/api/followupSse';
+import {
+  buildWebSceneFollowupRequest,
+  FOLLOWUP_QUESTION_MAX_LENGTH,
+  type FollowupStreamCallbacks,
+  type RemoteFollowupInput,
+  type RemoteFollowupResult,
+} from '@/core/api/remoteFollowupContracts';
 import {
   webSceneDescribeRequestSchema,
   type NormalizedSceneInput,
   type RemoteSceneResult,
   type SceneStreamCallbacks,
 } from '@/core/api/remoteSceneContracts';
-import { consumeSceneSse, SCENE_RESPONSE_TIMEOUT_MS, SceneStreamError } from '@/core/api/sceneSse';
-import type { RuntimeConfig } from '@/core/config/runtimeConfig';
+import { consumeSceneSse } from '@/core/api/sceneSse';
 import { SCENE_IMAGE_MAX_BYTES } from '@/core/image/sceneImageInspection';
+import type { RemoteReadiness, RemoteRuntimeConfig } from '@/core/api/remoteAssistTypes';
 import { RemoteHttpError, RemoteSessionManager } from '@/core/session/remoteSessionManager';
+import {
+  assertEventStreamResponse,
+  projectCatalog,
+  projectReadiness,
+  throwFollowupUnauthorized,
+  withResponseTimeout,
+  type ProfileCatalogCacheEntry,
+  type RemoteAssistClientOptions,
+} from '@/core/api/remoteAssistClientSupport';
+import {
+  mapClientError,
+  rateLimitError,
+  RemoteClientError,
+  statusError,
+} from '@/core/api/remoteClientErrors';
 
-export type RemoteRuntimeConfig = Extract<RuntimeConfig, { mode: 'remote' }>;
-
-export type RemoteClientErrorCode =
-  | 'NETWORK_UNAVAILABLE'
-  | 'SERVICE_UNAVAILABLE'
-  | 'RATE_LIMITED'
-  | 'FORBIDDEN'
-  | 'UNAUTHORIZED'
-  | 'REQUEST_REJECTED'
-  | 'REMOTE_CONTRACT_INVALID'
-  | 'PROFILE_CACHE_INVALID'
-  | 'REQUEST_ABORTED';
-
-export class RemoteClientError extends Error {
-  constructor(
-    readonly code: RemoteClientErrorCode,
-    readonly retryAt?: number,
-    readonly status?: number,
-  ) {
-    super(code);
-    this.name = 'RemoteClientError';
-  }
-}
-
-export interface RemoteReadiness {
-  catalog: RemoteProfileCatalog;
-  sceneDescribeEnabled: boolean;
-}
-
-interface ProfileCatalogCacheEntry {
-  etag: string;
-  response: RemoteProfilesResponse;
-}
-
-interface RemoteAssistClientOptions {
-  installationId?: string;
-  fetch?: typeof fetch;
-}
+export type { RemoteReadiness, RemoteRuntimeConfig } from '@/core/api/remoteAssistTypes';
+export { RemoteClientError, type RemoteClientErrorCode } from '@/core/api/remoteClientErrors';
 
 export class RemoteAssistClient {
   readonly #sessions: RemoteSessionManager;
@@ -126,6 +112,53 @@ export class RemoteAssistClient {
     }
   }
 
+  async followupScene(
+    input: RemoteFollowupInput,
+    callbacks: FollowupStreamCallbacks = {},
+    signal?: AbortSignal,
+  ): Promise<RemoteFollowupResult> {
+    signal?.throwIfAborted();
+    const normalizedQuestion = input.questionText.trim();
+    if (
+      input.image.type !== 'image/jpeg' ||
+      input.image.size > SCENE_IMAGE_MAX_BYTES ||
+      !input.sceneToken.trim() ||
+      !input.profileId.trim() ||
+      !input.locale.trim() ||
+      !normalizedQuestion ||
+      normalizedQuestion.length > FOLLOWUP_QUESTION_MAX_LENGTH
+    ) {
+      throw new RemoteClientError('REQUEST_REJECTED');
+    }
+
+    const normalizedInput: RemoteFollowupInput = {
+      ...input,
+      questionText: normalizedQuestion,
+    };
+    let imageBase64: string | undefined = await blobToBase64(input.image, signal);
+    try {
+      return await this.#sessions.withUnauthorizedRetry((sessionToken) => {
+        if (!imageBase64) throw new RemoteClientError('REQUEST_ABORTED');
+        let request: ReturnType<typeof buildWebSceneFollowupRequest>;
+        try {
+          request = buildWebSceneFollowupRequest({
+            sessionToken,
+            installationId: this.#installationId,
+            imageBase64,
+            input: normalizedInput,
+          });
+        } catch {
+          throw new RemoteClientError('REQUEST_REJECTED');
+        }
+        return this.#followupAttempt(request, callbacks, signal);
+      }, signal);
+    } catch (error) {
+      throw mapClientError(error, signal);
+    } finally {
+      imageBase64 = undefined;
+    }
+  }
+
   async #describeAttempt(
     request: unknown,
     callbacks: SceneStreamCallbacks,
@@ -150,15 +183,9 @@ export class RemoteAssistClient {
           signal: controller.signal,
         },
       );
-      const response = await Promise.race([
-        responsePromise,
-        new Promise<never>((_, reject) => {
-          timer = setTimeout(() => {
-            controller.abort();
-            reject(new SceneStreamError('STREAM_RESPONSE_TIMEOUT'));
-          }, SCENE_RESPONSE_TIMEOUT_MS);
-        }),
-      ]);
+      const response = await withResponseTimeout(responsePromise, controller, (value) => {
+        timer = value;
+      });
       if (timer !== undefined) clearTimeout(timer);
       timer = undefined;
 
@@ -166,14 +193,60 @@ export class RemoteAssistClient {
       if (response.status === 403) throw new RemoteHttpError(403);
       if (response.status === 429) throw rateLimitError(response);
       if (!response.ok) throw statusError(response.status);
-      if (!response.headers.get('Content-Type')?.toLowerCase().startsWith('text/event-stream')) {
-        throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
-      }
-      if (!response.body) throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
+      assertEventStreamResponse(response);
 
       return await consumeSceneSse(response.body, {
         profileId: parsed.data.profileId,
         locale: parsed.data.locale,
+        requestStartedAt,
+        callbacks,
+        ...(signal ? { signal } : {}),
+        abort: () => controller.abort(),
+      });
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+      removeAbort();
+      body = undefined;
+    }
+  }
+
+  async #followupAttempt(
+    request: ReturnType<typeof buildWebSceneFollowupRequest>,
+    callbacks: FollowupStreamCallbacks,
+    signal?: AbortSignal,
+  ): Promise<RemoteFollowupResult> {
+    let body: string | undefined = JSON.stringify(request);
+    const controller = new AbortController();
+    const removeAbort = forwardAbort(signal, controller);
+    const requestStartedAt = Date.now();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    try {
+      const responsePromise = this.#fetchImplementation(
+        new URL('/api/v1/scene/followup', this.config.apiBaseUrl),
+        {
+          method: 'POST',
+          headers: { Accept: 'text/event-stream', 'Content-Type': 'application/json' },
+          body,
+          cache: 'no-store',
+          signal: controller.signal,
+        },
+      );
+      const response = await withResponseTimeout(responsePromise, controller, (value) => {
+        timer = value;
+      });
+      if (timer !== undefined) clearTimeout(timer);
+      timer = undefined;
+
+      if (response.status === 401) await throwFollowupUnauthorized(response);
+      if (response.status === 403) throw new RemoteHttpError(403);
+      if (response.status === 429) throw rateLimitError(response);
+      if (!response.ok) throw statusError(response.status);
+      assertEventStreamResponse(response);
+
+      return await consumeFollowupSse(response.body, {
+        profileId: request.profileId,
+        locale: request.locale,
         requestStartedAt,
         callbacks,
         ...(signal ? { signal } : {}),
@@ -195,8 +268,9 @@ export class RemoteAssistClient {
     assertNotAborted(signal);
     if (!parsed.success) throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
     const expected = this.config.target === 'staging' ? 'staging' : 'prod';
-    if (parsed.data.environment !== expected)
+    if (parsed.data.environment !== expected) {
       throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
+    }
     return parsed.data;
   }
 
@@ -272,71 +346,4 @@ export class RemoteAssistClient {
       throw new RemoteClientError('NETWORK_UNAVAILABLE');
     }
   }
-}
-
-function projectReadiness(
-  config: RemotePublicConfig,
-  bootstrap: WebBootstrapResponseV2,
-  catalog: RemoteProfileCatalog,
-): RemoteReadiness {
-  return {
-    catalog,
-    sceneDescribeEnabled:
-      config.features.sceneDescribe === true &&
-      bootstrap.featureFlags.sceneDescribe === true &&
-      catalog.profiles.some((profile) => profile.supportsStreaming),
-  };
-}
-
-function projectCatalog(
-  response: RemoteProfilesResponse,
-  config: RemotePublicConfig,
-): RemoteProfileCatalog {
-  const allowed = new Set(config.profiles.backendSupportedProfileIds);
-  const profiles = response.profiles
-    .filter(
-      (profile) =>
-        (profile.availability === 'backend' || profile.availability === 'both') &&
-        profile.transports.backend?.available === true &&
-        allowed.has(profile.id),
-    )
-    .map((profile) => ({
-      id: profile.id,
-      label: profile.label,
-      description: profile.description,
-      supportsStreaming: profile.transports.backend!.supportsStreaming,
-      supportsFollowup: profile.transports.backend!.supportsFollowup,
-    }));
-  const defaultProfileId = profiles.some((profile) => profile.id === response.defaultProfileId)
-    ? response.defaultProfileId
-    : undefined;
-  return { profiles, ...(defaultProfileId ? { defaultProfileId } : {}) };
-}
-
-function statusError(status: number): RemoteClientError {
-  if (status >= 500) return new RemoteClientError('SERVICE_UNAVAILABLE', undefined, status);
-  return new RemoteClientError('REQUEST_REJECTED', undefined, status);
-}
-
-function rateLimitError(response: Response): RemoteClientError {
-  const header = response.headers.get('Retry-After');
-  const retryAfter = header === null ? Number.NaN : Number(header);
-  return new RemoteClientError(
-    'RATE_LIMITED',
-    Number.isFinite(retryAfter) ? Date.now() + retryAfter * 1000 : undefined,
-    429,
-  );
-}
-
-function mapClientError(error: unknown, signal?: AbortSignal): Error {
-  if (error instanceof RemoteHttpError) {
-    return error.status === 403
-      ? new RemoteClientError('FORBIDDEN', undefined, 403)
-      : new RemoteClientError('UNAUTHORIZED', undefined, 401);
-  }
-  if (error instanceof RemoteClientError || error instanceof SceneStreamError) return error;
-  if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
-    return new RemoteClientError('REQUEST_ABORTED');
-  }
-  return new RemoteClientError('NETWORK_UNAVAILABLE');
 }

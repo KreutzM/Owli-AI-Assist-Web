@@ -10,6 +10,7 @@ import {
   type BrowserSceneImageNormalizer,
   type NormalizedSceneImage,
 } from '@/platform/image/browserSceneImageNormalizer';
+import type { SpeechLifecycleGateway } from '@/platform/speech/browserSpeech';
 import {
   cameraMessage,
   imageErrorIsContract,
@@ -19,88 +20,62 @@ import {
   remoteSceneErrorStatus,
   sceneMessage,
 } from '@/features/remote/remoteSceneErrors';
+import { useRemoteFollowup } from '@/features/remote/useRemoteFollowup';
+import { useRemoteRequestLifecycle } from '@/features/remote/useRemoteRequestLifecycle';
+import {
+  createCancelledSceneState,
+  createResetSceneState,
+  INITIAL_REMOTE_SCENE_STATE,
+  selectStreamingProfileId,
+  type RemoteSceneState,
+} from '@/features/remote/remoteSceneState';
 
-export type RemoteSceneStatus =
-  | 'readiness_loading'
-  | 'readiness_unavailable'
-  | 'ready_idle'
-  | 'camera_starting'
-  | 'camera_ready'
-  | 'normalizing'
-  | 'prepared'
-  | 'requesting'
-  | 'streaming'
-  | 'terminal_waiting_for_eof'
-  | 'complete'
-  | 'cancelled'
-  | 'rate_limited'
-  | 'recoverable_error'
-  | 'contract_error';
-
-export interface RemoteSceneState {
-  status: RemoteSceneStatus;
-  readiness?: RemoteReadiness;
-  selectedProfileId?: string;
-  image?: NormalizedSceneImage;
-  streamedText: string;
-  finalText?: string;
-  errorMessage?: string;
-  retryAt?: number;
-  announcementRun?: number;
-}
-
-const INITIAL_STATE: RemoteSceneState = {
-  status: 'readiness_loading',
-  streamedText: '',
-};
+export type { RemoteSceneState, RemoteSceneStatus } from '@/features/remote/remoteSceneState';
 
 export function useRemoteScene(
   client: RemoteAssistClient,
   camera: RemoteCamera,
   normalizer: BrowserSceneImageNormalizer,
+  speech: SpeechLifecycleGateway,
   locale: string,
 ) {
-  const [state, setState] = useState<RemoteSceneState>(INITIAL_STATE);
-  const activeController = useRef<AbortController | undefined>(undefined);
-  const attempt = useRef(0);
+  const [state, setState] = useState<RemoteSceneState>(INITIAL_REMOTE_SCENE_STATE);
   const readiness = useRef<RemoteReadiness | undefined>(undefined);
   const selectedProfileId = useRef<string | undefined>(undefined);
   const image = useRef<NormalizedSceneImage | undefined>(undefined);
   const retryAt = useRef<number | undefined>(undefined);
+  const { activeControllerRef, activeKindRef, attemptRef, clearAttempt } =
+    useRemoteRequestLifecycle(camera, speech, image);
 
-  const clearAttempt = useCallback(
-    (retainImage: boolean) => {
-      attempt.current += 1;
-      activeController.current?.abort();
-      activeController.current = undefined;
-      camera.stop();
-      if (!retainImage) {
-        revokeNormalizedSceneImage(image.current);
-        image.current = undefined;
-      }
-    },
-    [camera],
-  );
+  const followupWorkflow = useRemoteFollowup({
+    client,
+    speech,
+    activeControllerRef,
+    activeKindRef,
+    attemptRef,
+    readinessRef: readiness,
+    imageRef: image,
+    clearAttempt,
+  });
+  const { clearSceneContext, clearSceneContextRefs } = followupWorkflow;
 
   const loadReadiness = useCallback(
     async (refresh = false) => {
       clearAttempt(false);
+      clearSceneContext(true);
       retryAt.current = undefined;
-      const id = attempt.current;
+      const id = attemptRef.current;
       const controller = new AbortController();
-      activeController.current = controller;
+      activeControllerRef.current = controller;
+      activeKindRef.current = 'readiness';
       setState({ status: 'readiness_loading', streamedText: '' });
       try {
         const next = refresh
           ? await client.refreshCatalog(controller.signal)
           : await client.initialize(controller.signal);
-        if (id !== attempt.current || controller.signal.aborted) return;
+        if (id !== attemptRef.current || controller.signal.aborted) return;
         readiness.current = next;
-        const preferred = next.catalog.profiles.find(
-          (profile) => profile.id === next.catalog.defaultProfileId && profile.supportsStreaming,
-        );
-        const fallback = next.catalog.profiles.find((profile) => profile.supportsStreaming);
-        selectedProfileId.current = preferred?.id ?? fallback?.id;
+        selectedProfileId.current = selectStreamingProfileId(next);
         setState({
           status:
             next.sceneDescribeEnabled && selectedProfileId.current
@@ -111,17 +86,20 @@ export function useRemoteScene(
           streamedText: '',
         });
       } catch (error) {
-        if (id !== attempt.current || isRemoteSceneAbort(error)) return;
+        if (id !== attemptRef.current || isRemoteSceneAbort(error)) return;
         setState({
           status: 'readiness_unavailable',
           streamedText: '',
           errorMessage: readinessMessage(error),
         });
       } finally {
-        if (activeController.current === controller) activeController.current = undefined;
+        if (activeControllerRef.current === controller) {
+          activeControllerRef.current = undefined;
+          activeKindRef.current = undefined;
+        }
       }
     },
-    [clearAttempt, client],
+    [activeControllerRef, activeKindRef, attemptRef, clearAttempt, clearSceneContext, client],
   );
 
   useEffect(() => {
@@ -129,34 +107,42 @@ export function useRemoteScene(
     queueMicrotask(() => {
       if (mounted) void loadReadiness();
     });
-    const cleanup = () => clearAttempt(false);
+    const cleanup = () => {
+      clearAttempt(false);
+      clearSceneContextRefs(true);
+      readiness.current = undefined;
+      selectedProfileId.current = undefined;
+      retryAt.current = undefined;
+    };
     window.addEventListener('pagehide', cleanup);
     return () => {
       mounted = false;
       window.removeEventListener('pagehide', cleanup);
       cleanup();
-      readiness.current = undefined;
-      selectedProfileId.current = undefined;
-      retryAt.current = undefined;
     };
-  }, [clearAttempt, loadReadiness]);
+  }, [clearAttempt, clearSceneContextRefs, loadReadiness]);
 
-  const selectProfile = useCallback((profileId: string) => {
-    const profile = readiness.current?.catalog.profiles.find(
-      (candidate) => candidate.id === profileId && candidate.supportsStreaming,
-    );
-    if (!profile) return;
-    selectedProfileId.current = profile.id;
-    setState((current) => ({ ...current, selectedProfileId: profile.id }));
-  }, []);
+  const selectProfile = useCallback(
+    (profileId: string) => {
+      if (image.current || activeControllerRef.current) return;
+      const profile = readiness.current?.catalog.profiles.find(
+        (candidate) => candidate.id === profileId && candidate.supportsStreaming,
+      );
+      if (!profile) return;
+      selectedProfileId.current = profile.id;
+      setState((current) => ({ ...current, selectedProfileId: profile.id }));
+    },
+    [activeControllerRef],
+  );
 
   const startCamera = useCallback(
     async (video: HTMLVideoElement) => {
       const currentReadiness = readiness.current;
       if (!currentReadiness?.sceneDescribeEnabled || !selectedProfileId.current) return;
       clearAttempt(false);
+      clearSceneContext(true);
       retryAt.current = undefined;
-      const id = attempt.current;
+      const id = attemptRef.current;
       setState({
         status: 'camera_starting',
         readiness: currentReadiness,
@@ -165,10 +151,10 @@ export function useRemoteScene(
       });
       try {
         await camera.start(video);
-        if (id !== attempt.current) return;
+        if (id !== attemptRef.current) return;
         setState((current) => ({ ...current, status: 'camera_ready' }));
       } catch (error) {
-        if (id !== attempt.current) return;
+        if (id !== attemptRef.current) return;
         setState((current) => ({
           ...current,
           status: 'recoverable_error',
@@ -176,7 +162,7 @@ export function useRemoteScene(
         }));
       }
     },
-    [camera, clearAttempt],
+    [attemptRef, camera, clearAttempt, clearSceneContext],
   );
 
   const prepare = useCallback(
@@ -185,10 +171,12 @@ export function useRemoteScene(
       const profileId = selectedProfileId.current;
       if (!currentReadiness?.sceneDescribeEnabled || !profileId) return;
       clearAttempt(false);
+      clearSceneContext(true);
       retryAt.current = undefined;
-      const id = attempt.current;
+      const id = attemptRef.current;
       const controller = new AbortController();
-      activeController.current = controller;
+      activeControllerRef.current = controller;
+      activeKindRef.current = 'normalizing';
       setState({
         status: 'normalizing',
         readiness: currentReadiness,
@@ -197,7 +185,7 @@ export function useRemoteScene(
       });
       try {
         const normalized = await normalizer.normalize(source, controller.signal);
-        if (id !== attempt.current || controller.signal.aborted) {
+        if (id !== attemptRef.current || controller.signal.aborted) {
           revokeNormalizedSceneImage(normalized);
           return;
         }
@@ -210,7 +198,7 @@ export function useRemoteScene(
           streamedText: '',
         });
       } catch (error) {
-        if (id !== attempt.current || isRemoteSceneAbort(error)) return;
+        if (id !== attemptRef.current || isRemoteSceneAbort(error)) return;
         setState({
           status: imageErrorIsContract(error) ? 'contract_error' : 'recoverable_error',
           readiness: currentReadiness,
@@ -219,27 +207,30 @@ export function useRemoteScene(
           errorMessage: imageMessage(error),
         });
       } finally {
-        if (activeController.current === controller) activeController.current = undefined;
+        if (activeControllerRef.current === controller) {
+          activeControllerRef.current = undefined;
+          activeKindRef.current = undefined;
+        }
       }
     },
-    [clearAttempt, normalizer],
+    [activeControllerRef, activeKindRef, attemptRef, clearAttempt, clearSceneContext, normalizer],
   );
 
   const capture = useCallback(async () => {
-    const id = attempt.current;
+    const id = attemptRef.current;
     try {
       const source = await camera.capture();
-      if (id !== attempt.current) return;
+      if (id !== attemptRef.current) return;
       await prepare(source);
     } catch (error) {
-      if (id !== attempt.current) return;
+      if (id !== attemptRef.current) return;
       setState((current) => ({
         ...current,
         status: 'recoverable_error',
         errorMessage: cameraMessage(error),
       }));
     }
-  }, [camera, prepare]);
+  }, [attemptRef, camera, prepare]);
 
   const describe = useCallback(async () => {
     const currentImage = image.current;
@@ -249,9 +240,11 @@ export function useRemoteScene(
     if (retryAt.current !== undefined && Date.now() < retryAt.current) return;
     retryAt.current = undefined;
     clearAttempt(true);
-    const id = attempt.current;
+    clearSceneContext(true);
+    const id = attemptRef.current;
     const controller = new AbortController();
-    activeController.current = controller;
+    activeControllerRef.current = controller;
+    activeKindRef.current = 'scene';
     setState({
       status: 'requesting',
       readiness: currentReadiness,
@@ -265,12 +258,12 @@ export function useRemoteScene(
         { image: currentImage.blob, profileId, locale },
         {
           onMetadata: () => {
-            if (id === attempt.current) {
+            if (id === attemptRef.current) {
               setState((current) => ({ ...current, status: 'streaming' }));
             }
           },
           onDelta: (textDelta) => {
-            if (id === attempt.current) {
+            if (id === attemptRef.current) {
               setState((current) => ({
                 ...current,
                 status: 'streaming',
@@ -279,23 +272,25 @@ export function useRemoteScene(
             }
           },
           onTerminal: () => {
-            if (id === attempt.current) {
+            if (id === attemptRef.current) {
               setState((current) => ({ ...current, status: 'terminal_waiting_for_eof' }));
             }
           },
         },
         controller.signal,
       );
-      if (id !== attempt.current || controller.signal.aborted) return;
+      if (id !== attemptRef.current || controller.signal.aborted) return;
       retryAt.current = undefined;
+      followupWorkflow.completeScene(currentReadiness, currentImage, result);
       setState((current) => ({
         ...current,
         status: 'complete',
         finalText: result.answerText,
+        resultLocale: result.locale,
         streamedText: result.answerText,
       }));
     } catch (error) {
-      if (id !== attempt.current || isRemoteSceneAbort(error)) return;
+      if (id !== attemptRef.current || isRemoteSceneAbort(error)) return;
       const nextRetryAt =
         error instanceof RemoteClientError && error.code === 'RATE_LIMITED'
           ? error.retryAt
@@ -308,48 +303,56 @@ export function useRemoteScene(
         ...(nextRetryAt !== undefined ? { retryAt: nextRetryAt } : {}),
       }));
     } finally {
-      if (activeController.current === controller) activeController.current = undefined;
+      if (activeControllerRef.current === controller) {
+        activeControllerRef.current = undefined;
+        activeKindRef.current = undefined;
+      }
     }
-  }, [clearAttempt, client, locale]);
+  }, [
+    activeControllerRef,
+    activeKindRef,
+    attemptRef,
+    clearAttempt,
+    clearSceneContext,
+    client,
+    followupWorkflow,
+    locale,
+  ]);
 
   const cancel = useCallback(() => {
     const currentImage = image.current;
     retryAt.current = undefined;
     clearAttempt(true);
-    setState((current) => ({
-      status: 'cancelled',
-      ...(current.readiness ? { readiness: current.readiness } : {}),
-      ...(current.selectedProfileId ? { selectedProfileId: current.selectedProfileId } : {}),
-      ...(currentImage ? { image: currentImage } : {}),
-      streamedText: '',
-    }));
-  }, [clearAttempt]);
+    clearSceneContext(true);
+    setState((current) => createCancelledSceneState(current, currentImage));
+  }, [clearAttempt, clearSceneContext]);
 
   const reset = useCallback(() => {
     retryAt.current = undefined;
     clearAttempt(false);
+    clearSceneContext(true);
     const currentReadiness = readiness.current;
     const profileId = selectedProfileId.current;
-    setState({
-      status:
-        currentReadiness?.sceneDescribeEnabled && profileId
-          ? 'ready_idle'
-          : 'readiness_unavailable',
-      ...(currentReadiness ? { readiness: currentReadiness } : {}),
-      ...(profileId ? { selectedProfileId: profileId } : {}),
-      streamedText: '',
-    });
-  }, [clearAttempt]);
+    setState(createResetSceneState(currentReadiness, profileId));
+  }, [clearAttempt, clearSceneContext]);
 
   return {
     state,
+    followup: followupWorkflow.followup,
+    speechState: followupWorkflow.speechState,
     loadReadiness,
     selectProfile,
     startCamera,
     prepare,
     capture,
     describe,
+    updateQuestionDraft: followupWorkflow.updateQuestionDraft,
+    submitFollowup: followupWorkflow.submitFollowup,
+    cancelFollowup: followupWorkflow.cancelFollowup,
     cancel,
     reset,
+    readSceneDescription: followupWorkflow.readSceneDescription,
+    readFollowupAnswer: followupWorkflow.readFollowupAnswer,
+    stopSpeech: followupWorkflow.stopSpeech,
   };
 }
