@@ -1,4 +1,4 @@
-name: Build PR39 browser-fixed commit object
+name: Build final PR39 review-fix commit
 
 on:
   pull_request:
@@ -15,6 +15,7 @@ jobs:
     timeout-minutes: 35
     env:
       EXPECTED_HEAD: ec18af1bf79aa7c0d4f6f0dc8b6364be29009fe5
+      TEST_BLOB_SHA: 689cfae742447b6a1c6f15e5681520dfcbc60d51
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Check out exact PR39 head
@@ -35,77 +36,36 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium webkit
 
-      - name: Install target browsers
-        run: pnpm exec playwright install --with-deps chromium webkit
-
-      - name: Apply robust browser assertions
+      - name: Materialize final browser test blob
+        shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('tests/e2e/remote-followup.spec.ts')
-          source = path.read_text()
+          gh api "repos/${GITHUB_REPOSITORY}/git/blobs/${TEST_BLOB_SHA}" --jq .content \
+            | tr -d '\n' \
+            | base64 --decode \
+            > tests/e2e/remote-followup.spec.ts
+          test "$(git hash-object tests/e2e/remote-followup.spec.ts)" = "$TEST_BLOB_SHA"
 
-          replacements = [
-              (
-                  "    await page.getByRole('button', { name: 'Beschreibung vorlesen' }).click();\n    await expect\n      .poll(() => speechSnapshot(page))\n      .toMatchObject({ cancelCount: 1, spoken: [{ text: 'Eine helle Straße.', lang: 'de-DE' }] });\n",
-                  "    const sceneSpeechBefore = await speechSnapshot(page);\n    await page.getByRole('button', { name: 'Beschreibung vorlesen' }).click();\n    await expect\n      .poll(async () => speechDelta(page, sceneSpeechBefore))\n      .toMatchObject({ cancelCount: 1, spoken: [{ text: 'Eine helle Straße.', lang: 'de-DE' }] });\n",
-              ),
-              (
-                  "    await page.getByRole('button', { name: 'Antwort vorlesen' }).click();\n    await expect\n      .poll(() => speechSnapshot(page))\n      .toMatchObject({\n        cancelCount: 2,\n        spoken: [\n          { text: 'Eine helle Straße.', lang: 'de-DE' },\n          { text: 'Auf dem Schild steht Ausgang.', lang: 'de-DE' },\n        ],\n      });\n    await page.getByRole('button', { name: 'Vorlesen stoppen' }).click();\n    await expect.poll(() => speechSnapshot(page)).toMatchObject({ cancelCount: 3 });\n",
-                  "    const answerSpeechBefore = await speechSnapshot(page);\n    await page.getByRole('button', { name: 'Antwort vorlesen' }).click();\n    await expect\n      .poll(async () => speechDelta(page, answerSpeechBefore))\n      .toMatchObject({\n        cancelCount: 1,\n        spoken: [{ text: 'Auf dem Schild steht Ausgang.', lang: 'de-DE' }],\n      });\n    const stopSpeechBefore = await speechSnapshot(page);\n    await page.getByRole('button', { name: 'Vorlesen stoppen' }).click();\n    await expect\n      .poll(async () => speechDelta(page, stopSpeechBefore))\n      .toMatchObject({ cancelCount: 1, spoken: [] });\n",
-              ),
-              (
-                  "    await expect(page.getByText('Die Tür neben dem Schild ist blau.')).toBeVisible();\n",
-                  "    await expect(\n      page.getByRole('listitem').nth(1).getByText('Die Tür neben dem Schild ist blau.', { exact: true }),\n    ).toBeVisible();\n",
-              ),
-              (
-                  "    await expect(page.getByText('Auf dem Schild steht Ausgang.')).toBeVisible();\n    expect(followupCalls).toBe(2);\n",
-                  "    await expect(\n      page.getByRole('listitem').getByText('Auf dem Schild steht Ausgang.', { exact: true }),\n    ).toBeVisible();\n    expect(followupCalls).toBe(2);\n",
-              ),
-          ]
-          for old, new in replacements:
-              if old not in source:
-                  raise SystemExit(f'Missing expected source block: {old[:80]!r}')
-              source = source.replace(old, new, 1)
-
-          first_answer = "    await expect(page.getByText('Auf dem Schild steht Ausgang.')).toBeVisible();\n"
-          first_answer_replacement = "    await expect(\n      page.getByRole('listitem').nth(0).getByText('Auf dem Schild steht Ausgang.', { exact: true }),\n    ).toBeVisible();\n"
-          if first_answer not in source:
-              raise SystemExit('Missing first answer assertion')
-          source = source.replace(first_answer, first_answer_replacement, 1)
-
-          marker = "async function speechSnapshot(page: Page) {\n"
-          helper = "async function speechDelta(\n  page: Page,\n  baseline: { cancelCount: number; spoken: { text: string; lang: string }[] },\n) {\n  const current = await speechSnapshot(page);\n  return {\n    cancelCount: current.cancelCount - baseline.cancelCount,\n    spoken: current.spoken.slice(baseline.spoken.length),\n  };\n}\n\n"
-          if helper not in source:
-              if marker not in source:
-                  raise SystemExit('Missing speech snapshot helper marker')
-              source = source.replace(marker, helper + marker, 1)
-          path.write_text(source)
-          PY
-
-      - name: Format, regenerate index, and run static checks
+      - name: Regenerate index and run checks
         run: |
           set -euo pipefail
-          pnpm exec prettier --write tests/e2e/remote-followup.spec.ts
           pnpm ai:index
           pnpm format:check
           pnpm lint
           pnpm typecheck
           pnpm guardrails
           pnpm exec vitest run tests/unit/RemoteAssist.test.tsx
+          pnpm exec playwright test tests/e2e/remote-followup.spec.ts --project=chromium --project=webkit
           git diff --check
-
-      - name: Validate follow-up flow in Chromium and WebKit
-        run: pnpm exec playwright test tests/e2e/remote-followup.spec.ts --project=chromium --project=webkit
 
       - name: Upload Playwright diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: pr39-browser-fix-playwright-report-${{ github.run_id }}
+          name: pr39-final-browser-diagnostics-${{ github.run_id }}
           path: |
             playwright-report
             test-results
@@ -113,48 +73,34 @@ jobs:
           if-no-files-found: warn
           retention-days: 1
 
-      - name: Create Git tree and commit object without updating the branch
+      - name: Create unattached commit
         id: commit
         shell: bash
         run: |
           set -euo pipefail
           mapfile -t files < <(git diff --name-only --diff-filter=ACMRT)
-          if [[ "${#files[@]}" -eq 0 ]]; then
-            echo 'No changes were produced.' >&2
-            exit 1
-          fi
-
+          test "${#files[@]}" -gt 0
           base_tree="$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${EXPECTED_HEAD}" --jq .tree.sha)"
           entries='[]'
           : > changed-files.txt
           for path in "${files[@]}"; do
             printf '%s\n' "$path" >> changed-files.txt
-            blob_sha="$({
-              printf '{"content":"'
-              base64 -w0 "$path"
-              printf '","encoding":"base64"}'
-            } | gh api --method POST "repos/${GITHUB_REPOSITORY}/git/blobs" --input - --jq .sha)"
+            blob_sha="$({ printf '{"content":"'; base64 -w0 "$path"; printf '","encoding":"base64"}'; } \
+              | gh api --method POST "repos/${GITHUB_REPOSITORY}/git/blobs" --input - --jq .sha)"
             entries="$(jq --arg path "$path" --arg sha "$blob_sha" '. + [{path: $path, mode: "100644", type: "blob", sha: $sha}]' <<<"$entries")"
           done
-
-          jq -n --arg base_tree "$base_tree" --argjson tree "$entries" \
-            '{base_tree: $base_tree, tree: $tree}' > tree-payload.json
-          tree_sha="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/trees" --input tree-payload.json --jq .sha)"
-
-          jq -n \
-            --arg message 'test(web): stabilize follow-up browser assertions' \
-            --arg tree "$tree_sha" \
-            --arg parent "$EXPECTED_HEAD" \
-            '{message: $message, tree: $tree, parents: [$parent]}' > commit-payload.json
-          commit_sha="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/commits" --input commit-payload.json --jq .sha)"
+          jq -n --arg base_tree "$base_tree" --argjson tree "$entries" '{base_tree: $base_tree, tree: $tree}' > tree.json
+          tree_sha="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/trees" --input tree.json --jq .sha)"
+          jq -n --arg message 'test(web): stabilize follow-up browser assertions' --arg tree "$tree_sha" --arg parent "$EXPECTED_HEAD" \
+            '{message: $message, tree: $tree, parents: [$parent]}' > commit.json
+          commit_sha="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/commits" --input commit.json --jq .sha)"
           printf '%s\n' "$commit_sha" > commit-sha.txt
           printf 'commit_sha=%s\n' "$commit_sha" >> "$GITHUB_OUTPUT"
-          echo "Created unattached commit: $commit_sha"
 
       - name: Upload commit handoff
         uses: actions/upload-artifact@v4
         with:
-          name: pr39-browser-fixed-commit-${{ steps.commit.outputs.commit_sha }}
+          name: pr39-final-review-fix-commit-${{ steps.commit.outputs.commit_sha }}
           path: |
             commit-sha.txt
             changed-files.txt
