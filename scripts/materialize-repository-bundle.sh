@@ -25,6 +25,7 @@ if [[ -e "$destination" ]]; then
 fi
 
 cleanup=''
+verify_repo=$(mktemp -d)
 if [[ -d "$source_path" ]]; then
   artifact_dir=$(cd "$source_path" && pwd)
 elif [[ -f "$source_path" ]]; then
@@ -36,7 +37,7 @@ else
   exit 1
 fi
 
-trap '[[ -n "$cleanup" ]] && rm -rf "$cleanup"' EXIT
+trap '[[ -n "$cleanup" ]] && rm -rf "$cleanup"; rm -rf "$verify_repo"' EXIT
 
 manifest="$artifact_dir/bundle-manifest.json"
 if [[ ! -f "$manifest" ]]; then
@@ -82,7 +83,8 @@ if [[ -n "$expected_head" && "$manifest_head" != "$expected_head" ]]; then
   exit 1
 fi
 
-git bundle verify "$bundle"
+git init --bare "$verify_repo" > /dev/null
+git -C "$verify_repo" bundle verify "$bundle"
 git clone --branch "$checkout_branch" "$bundle" "$destination"
 actual_head=$(git -C "$destination" rev-parse HEAD)
 if [[ "$actual_head" != "$manifest_head" ]]; then
