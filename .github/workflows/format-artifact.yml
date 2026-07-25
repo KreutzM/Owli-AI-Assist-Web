@@ -12,10 +12,9 @@ jobs:
   build-commit:
     if: ${{ github.event.pull_request.head.ref == 'agent/pr39-format-artifact-head' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     env:
-      TARGET_BRANCH: pwa-mvp/slice-4-followup-local-speech
-      EXPECTED_HEAD: 68b3e2a909196e068150609ac933e7120a670025
+      EXPECTED_HEAD: ec18af1bf79aa7c0d4f6f0dc8b6364be29009fe5
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Check out exact PR39 head
@@ -37,22 +36,57 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Format and regenerate index
+      - name: Install target browsers
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Apply test fix, format, regenerate index, and validate
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
-          pnpm exec prettier --write \
-            src/features/remote/RemoteAssist.tsx \
-            src/features/remote/RemoteSceneContent.tsx \
-            src/features/remote/useRemoteFollowup.ts \
-            tests/unit/RemoteAssist.test.tsx \
-            tests/e2e/remote-followup.spec.ts
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('tests/e2e/remote-followup.spec.ts')
+          source = path.read_text()
+          source = source.replace(
+              "    await page.getByRole('button', { name: 'Beschreibung vorlesen' }).click();\n    await expect\n      .poll(() => speechSnapshot(page))\n      .toMatchObject({ cancelCount: 1, spoken: [{ text: 'Eine helle Straße.', lang: 'de-DE' }] });\n",
+              "    const speechBaseline = await speechSnapshot(page);\n    await page.getByRole('button', { name: 'Beschreibung vorlesen' }).click();\n    await expect\n      .poll(async () => speechDelta(page, speechBaseline))\n      .toMatchObject({ cancelCount: 1, spoken: [{ text: 'Eine helle Straße.', lang: 'de-DE' }] });\n",
+          )
+          source = source.replace(
+              "    await expect(page.getByText('Auf dem Schild steht Ausgang.')).toBeVisible();\n",
+              "    await expect(\n      page.getByRole('listitem').nth(0).getByText('Auf dem Schild steht Ausgang.', { exact: true }),\n    ).toBeVisible();\n",
+              1,
+          )
+          source = source.replace(
+              "      .poll(() => speechSnapshot(page))\n",
+              "      .poll(async () => speechDelta(page, speechBaseline))\n",
+              1,
+          )
+          source = source.replace(
+              "    await expect.poll(() => speechSnapshot(page)).toMatchObject({ cancelCount: 3 });\n",
+              "    await expect.poll(async () => speechDelta(page, speechBaseline)).toMatchObject({ cancelCount: 3 });\n",
+          )
+          source = source.replace(
+              "    await expect(page.getByText('Die Tür neben dem Schild ist blau.')).toBeVisible();\n",
+              "    await expect(\n      page.getByRole('listitem').nth(1).getByText('Die Tür neben dem Schild ist blau.', { exact: true }),\n    ).toBeVisible();\n",
+          )
+          source = source.replace(
+              "    await expect(page.getByText('Auf dem Schild steht Ausgang.')).toBeVisible();\n    expect(followupCalls).toBe(2);\n",
+              "    await expect(\n      page.getByRole('listitem').getByText('Auf dem Schild steht Ausgang.', { exact: true }),\n    ).toBeVisible();\n    expect(followupCalls).toBe(2);\n",
+          )
+          marker = "async function speechSnapshot(page: Page) {\n"
+          helper = "async function speechDelta(\n  page: Page,\n  baseline: { cancelCount: number; spoken: { text: string; lang: string }[] },\n) {\n  const current = await speechSnapshot(page);\n  return {\n    cancelCount: current.cancelCount - baseline.cancelCount,\n    spoken: current.spoken.slice(baseline.spoken.length),\n  };\n}\n\n"
+          if helper not in source:
+              source = source.replace(marker, helper + marker)
+          path.write_text(source)
+          PY
+          pnpm exec prettier --write tests/e2e/remote-followup.spec.ts
           pnpm ai:index
           pnpm format:check
           pnpm lint
           pnpm typecheck
           pnpm guardrails
           pnpm exec vitest run tests/unit/RemoteAssist.test.tsx
+          pnpm exec playwright test tests/e2e/remote-followup.spec.ts --project=chromium --project=webkit
           git diff --check
 
       - name: Create Git tree and commit object without updating the branch
@@ -62,7 +96,7 @@ jobs:
           set -euo pipefail
           mapfile -t files < <(git diff --name-only --diff-filter=ACMRT)
           if [[ "${#files[@]}" -eq 0 ]]; then
-            echo 'No formatting changes were produced.' >&2
+            echo 'No changes were produced.' >&2
             exit 1
           fi
 
@@ -84,7 +118,7 @@ jobs:
           tree_sha="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/trees" --input tree-payload.json --jq .sha)"
 
           jq -n \
-            --arg message 'style(web): format independent review fixes' \
+            --arg message 'test(web): stabilize follow-up browser assertions' \
             --arg tree "$tree_sha" \
             --arg parent "$EXPECTED_HEAD" \
             '{message: $message, tree: $tree, parents: [$parent]}' > commit-payload.json
@@ -96,7 +130,7 @@ jobs:
       - name: Upload commit handoff
         uses: actions/upload-artifact@v4
         with:
-          name: pr39-formatted-commit-${{ steps.commit.outputs.commit_sha }}
+          name: pr39-browser-fixed-commit-${{ steps.commit.outputs.commit_sha }}
           path: |
             commit-sha.txt
             changed-files.txt
