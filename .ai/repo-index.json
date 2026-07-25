@@ -256,7 +256,7 @@
     { "path": "src/features/remote/README.md", "bytes": 730, "area": "src" },
     {
       "path": "src/features/remote/RemoteAssist.tsx",
-      "bytes": 7900,
+      "bytes": 8297,
       "area": "src"
     },
     {
@@ -266,7 +266,7 @@
     },
     {
       "path": "src/features/remote/RemoteSceneContent.tsx",
-      "bytes": 9512,
+      "bytes": 9525,
       "area": "src"
     },
     {
@@ -302,7 +302,7 @@
     },
     {
       "path": "src/features/remote/useRemoteFollowup.ts",
-      "bytes": 10263,
+      "bytes": 11637,
       "area": "src"
     },
     {
@@ -401,6 +401,11 @@
       "area": "tests"
     },
     {
+      "path": "tests/e2e/remote-followup.spec.ts",
+      "bytes": 14358,
+      "area": "tests"
+    },
+    {
       "path": "tests/e2e/remote-media-layout-staging.spec.ts",
       "bytes": 20262,
       "area": "tests"
@@ -427,7 +432,7 @@
     },
     {
       "path": "tests/unit/RemoteAssist.test.tsx",
-      "bytes": 12781,
+      "bytes": 14522,
       "area": "tests"
     },
     {

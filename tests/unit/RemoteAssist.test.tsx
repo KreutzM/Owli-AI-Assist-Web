@@ -186,6 +186,44 @@ describe('RemoteAssist', () => {
     expect(question).toHaveFocus();
   });
 
+  it('expires scene context at the token deadline and clears completed follow-up history', async () => {
+    const expiresAt = new Date(Date.now() + 1_500).toISOString();
+    renderRemote({ describeScene: vi.fn(async () => sceneResult(expiresAt)) });
+    await prepareAndDescribe();
+
+    fireEvent.change(screen.getByLabelText('Rückfrage zur aktuellen Szene'), {
+      target: { value: 'Was steht auf dem Schild?' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Rückfrage senden' }));
+    await screen.findByRole('heading', { name: 'Abgeschlossene Rückfragen' });
+
+    const newScene = await screen.findByRole(
+      'button',
+      { name: 'Neue Szene beginnen' },
+      { timeout: 4_000 },
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('Szenenkontext ist abgelaufen');
+    expect(screen.getByLabelText('Rückfrage zur aktuellen Szene')).toBeDisabled();
+    expect(
+      screen.queryByRole('heading', { name: 'Abgeschlossene Rückfragen' }),
+    ).not.toBeInTheDocument();
+    expect(newScene).toHaveFocus();
+  });
+
+  it('returns focus to the camera action after every shared reset path', async () => {
+    renderRemote();
+
+    fireEvent.change(await screen.findByLabelText('Oder ein Bild auswählen'), {
+      target: { files: [new File([new Uint8Array([1])], 'scene.png', { type: 'image/png' })] },
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Bild verwerfen' }));
+    expect(screen.getByRole('button', { name: 'Rückkamera öffnen' })).toHaveFocus();
+
+    await prepareAndDescribe();
+    fireEvent.click(screen.getByRole('button', { name: 'Neues Bild' }));
+    expect(screen.getByRole('button', { name: 'Rückkamera öffnen' })).toHaveFocus();
+  });
+
   it('cancels scene describe neutrally, aborts the attempt, and keeps explicit retry available', async () => {
     const describeScene = vi.fn(
       async (
@@ -324,11 +362,11 @@ function createSpeech(): SpeechLifecycleGateway & {
   };
 }
 
-function sceneResult(): RemoteSceneResult {
+function sceneResult(sceneTokenExpiresAt = '2099-07-17T12:00:00.000Z'): RemoteSceneResult {
   return {
     answerText: 'Eine helle Straße.',
     sceneToken: 'scene-token',
-    sceneTokenExpiresAt: '2099-07-17T12:00:00.000Z',
+    sceneTokenExpiresAt,
     profileId: 'brief',
     locale: 'de-DE',
     modelAlias: 'scene-describe-v1',

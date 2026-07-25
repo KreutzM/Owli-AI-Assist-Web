@@ -15,6 +15,7 @@ interface RemoteSceneContentProps {
   canDescribe: boolean;
   sceneRetrySeconds: number;
   sceneRetryReady: boolean;
+  onReset: () => void;
 }
 
 export function RemoteSceneContent({
@@ -31,6 +32,7 @@ export function RemoteSceneContent({
   canDescribe,
   sceneRetrySeconds,
   sceneRetryReady,
+  onReset,
 }: RemoteSceneContentProps) {
   const { state, speechState } = workflow;
 
@@ -180,7 +182,7 @@ export function RemoteSceneContent({
           >
             Szene beschreiben
           </button>
-          <button className="button button--secondary" type="button" onClick={workflow.reset}>
+          <button className="button button--secondary" type="button" onClick={onReset}>
             Bild verwerfen
           </button>
         </div>
@@ -252,7 +254,7 @@ export function RemoteSceneContent({
                   : 'Mit dem vorbereiteten Bild erneut versuchen'}
               </button>
             )}
-            <button className="button button--secondary" type="button" onClick={workflow.reset}>
+            <button className="button button--secondary" type="button" onClick={onReset}>
               Zurücksetzen
             </button>
           </div>
@@ -274,7 +276,7 @@ export function RemoteSceneContent({
                 Erneut senden
               </button>
             )}
-            <button className="button button--secondary" type="button" onClick={workflow.reset}>
+            <button className="button button--secondary" type="button" onClick={onReset}>
               Zurücksetzen
             </button>
           </div>

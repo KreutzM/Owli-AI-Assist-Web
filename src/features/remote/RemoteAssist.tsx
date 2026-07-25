@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { FOLLOWUP_QUESTION_MAX_LENGTH } from '@/core/api/remoteFollowupContracts';
 import type { RemoteAssistClient } from '@/core/api/remoteAssistClient';
 import type { RemoteCamera } from '@/platform/camera/remoteCamera';
@@ -22,13 +22,14 @@ interface RemoteAssistProps {
 
 export function RemoteAssist({ client, camera, normalizer, speech, locale }: RemoteAssistProps) {
   const workflow = useRemoteScene(client, camera, normalizer, speech, locale);
-  const { state, followup, speechState } = workflow;
+  const { state, followup, speechState, reset } = workflow;
   const sceneAnnouncement = useSceneAnnouncements(state);
   const followupAnnouncement = useFollowupAnnouncements(followup);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraButtonRef = useRef<HTMLButtonElement>(null);
   const questionRef = useRef<HTMLTextAreaElement>(null);
   const newSceneButtonRef = useRef<HTMLButtonElement>(null);
+  const focusAfterResetRef = useRef(false);
   const previousSceneStatus = useRef(state.status);
   const [videoReady, setVideoReady] = useState(false);
   const [retryClock, setRetryClock] = useState(() => Date.now());
@@ -73,6 +74,11 @@ export function RemoteAssist({ client, camera, normalizer, speech, locale }: Rem
     Boolean(followup.questionDraft.trim());
   const remainingQuestionCharacters = FOLLOWUP_QUESTION_MAX_LENGTH - followup.questionDraft.length;
 
+  const resetScene = useCallback(() => {
+    focusAfterResetRef.current = true;
+    reset();
+  }, [reset]);
+
   useEffect(() => {
     const unlockAt = [state.retryAt, followup.retryAt]
       .filter((value): value is number => value !== undefined)
@@ -94,6 +100,12 @@ export function RemoteAssist({ client, camera, normalizer, speech, locale }: Rem
     ) {
       cameraButtonRef.current?.focus();
     }
+  }, [state.status]);
+
+  useEffect(() => {
+    if (!focusAfterResetRef.current || state.status !== 'ready_idle') return;
+    focusAfterResetRef.current = false;
+    cameraButtonRef.current?.focus();
   }, [state.status]);
 
   useEffect(() => {
@@ -135,6 +147,7 @@ export function RemoteAssist({ client, camera, normalizer, speech, locale }: Rem
         canDescribe={canDescribe}
         sceneRetrySeconds={sceneRetrySeconds}
         sceneRetryReady={sceneRetryReady}
+        onReset={resetScene}
       />
 
       <RemoteFollowupPanel
@@ -174,7 +187,7 @@ export function RemoteAssist({ client, camera, normalizer, speech, locale }: Rem
           ref={newSceneButtonRef}
           className="button button--secondary"
           type="button"
-          onClick={workflow.reset}
+          onClick={resetScene}
         >
           {followup.status === 'context_expired' ? 'Neue Szene beginnen' : 'Neues Bild'}
         </button>

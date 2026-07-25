@@ -54,6 +54,7 @@ export function useRemoteFollowup({
   const [speechState, setSpeechState] = useState<SpeechState>(speech.state);
   const focusRun = useRef(0);
   const followupRetryAt = useRef<number | undefined>(undefined);
+  const sceneContextExpiryTimer = useRef<number | undefined>(undefined);
   const sceneContext = useRef<FollowupSceneContext | undefined>(undefined);
   const transcript = useRef<FollowupTranscriptPair[]>([]);
   const questionDraft = useRef('');
@@ -62,14 +63,24 @@ export function useRemoteFollowup({
 
   useEffect(() => speech.subscribe(setSpeechState), [speech]);
 
-  const clearSceneContextRefs = useCallback((clearDraft: boolean) => {
-    sceneContext.current = undefined;
-    transcript.current = [];
-    followupRetryAt.current = undefined;
-    completedSceneText.current = undefined;
-    completedSceneLocale.current = undefined;
-    if (clearDraft) questionDraft.current = '';
+  const clearSceneContextExpiryTimer = useCallback(() => {
+    if (sceneContextExpiryTimer.current === undefined) return;
+    window.clearTimeout(sceneContextExpiryTimer.current);
+    sceneContextExpiryTimer.current = undefined;
   }, []);
+
+  const clearSceneContextRefs = useCallback(
+    (clearDraft: boolean) => {
+      clearSceneContextExpiryTimer();
+      sceneContext.current = undefined;
+      transcript.current = [];
+      followupRetryAt.current = undefined;
+      completedSceneText.current = undefined;
+      completedSceneLocale.current = undefined;
+      if (clearDraft) questionDraft.current = '';
+    },
+    [clearSceneContextExpiryTimer],
+  );
 
   const clearSceneContext = useCallback(
     (clearDraft: boolean) => {
@@ -78,6 +89,57 @@ export function useRemoteFollowup({
     },
     [clearSceneContextRefs],
   );
+
+  const expireSceneContext = useCallback(
+    (
+      message =
+        'Der Szenenkontext ist abgelaufen. Bitte erstelle eine neue Szenenbeschreibung.',
+    ) => {
+      if (activeKindRef.current === 'followup') clearAttempt(true);
+      clearSceneContextExpiryTimer();
+      sceneContext.current = undefined;
+      transcript.current = [];
+      followupRetryAt.current = undefined;
+      dispatchFollowup({
+        type: 'context_expired',
+        message,
+        focusRun: ++focusRun.current,
+      });
+    },
+    [activeKindRef, clearAttempt, clearSceneContextExpiryTimer],
+  );
+
+  useEffect(() => {
+    clearSceneContextExpiryTimer();
+    const expiresAtValue = followup.sceneTokenExpiresAt;
+    if (!expiresAtValue) return;
+
+    const expiresAt = Date.parse(expiresAtValue);
+    if (!Number.isFinite(expiresAt)) {
+      queueMicrotask(() => expireSceneContext());
+      return;
+    }
+
+    let disposed = false;
+    const scheduleExpiry = () => {
+      if (disposed) return;
+      const remaining = expiresAt - Date.now();
+      if (remaining <= 0) {
+        expireSceneContext();
+        return;
+      }
+      sceneContextExpiryTimer.current = window.setTimeout(
+        scheduleExpiry,
+        Math.min(remaining, 2_147_483_647),
+      );
+    };
+
+    scheduleExpiry();
+    return () => {
+      disposed = true;
+      clearSceneContextExpiryTimer();
+    };
+  }, [clearSceneContextExpiryTimer, expireSceneContext, followup.sceneTokenExpiresAt]);
 
   const completeScene = useCallback(
     (
@@ -127,14 +189,7 @@ export function useRemoteFollowup({
 
     const sceneExpiresAt = Date.parse(currentContext.sceneTokenExpiresAt);
     if (!Number.isFinite(sceneExpiresAt) || sceneExpiresAt <= Date.now()) {
-      sceneContext.current = undefined;
-      transcript.current = [];
-      followupRetryAt.current = undefined;
-      dispatchFollowup({
-        type: 'context_expired',
-        message: 'Der Szenenkontext ist abgelaufen. Bitte erstelle eine neue Szenenbeschreibung.',
-        focusRun: nextFocusRun,
-      });
+      expireSceneContext();
       return;
     }
     if (!isFollowupReady(currentReadiness, currentContext)) {
@@ -193,14 +248,7 @@ export function useRemoteFollowup({
       if (id !== attemptRef.current || isRemoteSceneAbort(error)) return;
       const status = remoteFollowupErrorStatus(error);
       if (status === 'context_expired') {
-        sceneContext.current = undefined;
-        transcript.current = [];
-        followupRetryAt.current = undefined;
-        dispatchFollowup({
-          type: 'context_expired',
-          message: followupMessage(error),
-          focusRun: ++focusRun.current,
-        });
+        expireSceneContext(followupMessage(error));
         return;
       }
       const nextRetryAt =
@@ -227,6 +275,7 @@ export function useRemoteFollowup({
     attemptRef,
     clearAttempt,
     client,
+    expireSceneContext,
     followup.status,
     imageRef,
     readinessRef,
