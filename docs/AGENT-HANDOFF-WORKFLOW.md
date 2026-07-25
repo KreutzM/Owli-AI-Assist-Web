@@ -8,15 +8,17 @@ GitHub is the durable handoff layer.
 
 ## Planner
 
-Plans without editing code. In the OpenAI web interface this normally uses `gpt-5.6-sol`; the local Codex planner sub-agent uses `gpt-5.4`. Defines narrow scope, non-goals, acceptance criteria, affected repositories, required checks, and manual accessibility gates.
+Plans without editing code. Defines narrow scope, non-goals, acceptance criteria, affected repositories, required checks, and manual accessibility gates.
 
 ## Builder
 
-Uses the repository-local `gpt-5.4` Codex configuration, with high reasoning for architecture-heavy work. Reads issues and repository instructions, creates a thematic branch, implements only the child scope, runs checks, opens the PR, and posts a top-level `## Builder Handoff / Run Review` comment.
+Reads issues and repository instructions, acquires a verified local clone or exact-head bundle, creates a thematic branch/worktree, and prepares the complete logical patch locally. Formatting, relevant tests, generated artifacts, and diff review happen before the feature-branch ref moves. Normal Git push is preferred; the atomic Git Data API fallback is documented in `docs/AGENT-REPOSITORY-WORKFLOW.md`.
+
+The Builder opens a draft PR and posts a top-level `## Builder handoff` comment containing branch, base, exact head, commits, files, local and CI checks, trigger matrix, bundle/atomic-publication evidence, risks, and reviewer focus.
 
 ## Reviewer
 
-In the OpenAI web interface this normally uses `gpt-5.6-sol`; the local Codex reviewer sub-agent uses `gpt-5.4`. Reads the complete durable context, checks diff and CI against acceptance criteria, and records `APPROVE`, `REQUEST_CHANGES`, or `COMMENT`. The Reviewer does not merge by default.
+Reads the complete durable context, checks diff and CI against acceptance criteria, and records `APPROVE`, `REQUEST_CHANGES`, or `COMMENT`. The Reviewer does not merge by default.
 
 ## PR description
 
@@ -50,7 +52,7 @@ Part of #<tracking>
 ## Merge gate
 
 - PR is not draft.
-- CI is green or an explicit exception exists.
+- Final exact-head CI is green or an explicit exception exists.
 - Scope matches the child issue.
 - Builder handoff is present.
 - Reviewer result is persisted in GitHub.
