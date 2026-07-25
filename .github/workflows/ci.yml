@@ -73,18 +73,12 @@ jobs:
           mkdir -p artifacts/ci
           pnpm check:fast 2>&1 | tee artifacts/ci/check-fast.log
 
-      - name: Prepare formatter patch on failure
-        if: failure()
-        run: |
-          pnpm exec prettier --write tools/check-workflow-policy.mjs
-          git diff -- tools/check-workflow-policy.mjs > artifacts/ci/prettier.patch
-
       - name: Upload quick failure log
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: quick-ci-log-${{ github.event.pull_request.head.sha || github.sha }}
-          path: artifacts/ci/
+          path: artifacts/ci/check-fast.log
           if-no-files-found: warn
           retention-days: 1
 
