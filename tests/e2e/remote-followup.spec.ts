@@ -20,7 +20,7 @@ test.describe('remote follow-up and local speech', () => {
     await mockReadiness(page);
   });
 
-  test('completes multiple clean-EOF turns and supports live speech, replace, stop, and reset', async ({
+  test('completes multiple clean-EOF turns and supports speak, replace, stop, and reset', async ({
     page,
   }) => {
     await mockDescribe(page);
@@ -46,22 +46,22 @@ test.describe('remote follow-up and local speech', () => {
     await expect(page.getByRole('listitem').nth(0)).toContainText('Auf dem Schild steht Ausgang.');
     await expect(question).toBeFocused();
 
-    const sceneBase = await speechSnapshot(page);
+    const sceneState = await speechSnapshot(page);
     await page.getByRole('button', { name: 'Beschreibung vorlesen' }).click();
-    await expect.poll(async () => speechDelta(page, sceneBase)).toEqual([
+    await expect.poll(async () => speechDelta(page, sceneState)).toEqual([
       { type: 'cancel', text: null },
       { type: 'speak', text: 'Eine helle Straße.', lang: 'de-DE' },
     ]);
 
-    const answerBase = await speechSnapshot(page);
+    const answerState = await speechSnapshot(page);
     await page.getByRole('button', { name: 'Antwort vorlesen' }).click();
-    await expect.poll(async () => speechDelta(page, answerBase)).toEqual([
+    await expect.poll(async () => speechDelta(page, answerState)).toEqual([
       { type: 'cancel', text: 'Eine helle Straße.' },
       { type: 'speak', text: 'Auf dem Schild steht Ausgang.', lang: 'de-DE' },
     ]);
-    const stopBase = await speechSnapshot(page);
+    const stopState = await speechSnapshot(page);
     await page.getByRole('button', { name: 'Vorlesen stoppen' }).click();
-    await expect.poll(async () => speechDelta(page, stopBase)).toEqual([
+    await expect.poll(async () => speechDelta(page, stopState)).toEqual([
       { type: 'cancel', text: 'Auf dem Schild steht Ausgang.' },
     ]);
     await expect(page.getByText('Sprachausgabe läuft.')).toHaveCount(0);
