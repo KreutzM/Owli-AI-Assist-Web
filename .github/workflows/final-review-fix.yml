@@ -1,0 +1,91 @@
+name: Final PR39 review-fix validator
+
+on:
+  pull_request:
+    branches: [agent/pr39-format-artifact]
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-build:
+    if: ${{ github.event.pull_request.head.ref == 'agent/pr39-format-artifact-head' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      EXPECTED_HEAD: ec18af1bf79aa7c0d4f6f0dc8b6364be29009fe5
+      TEST_BLOB_SHA: 689cfae742447b6a1c6f15e5681520dfcbc60d51
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Materialize, format, and index
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          gh api "repos/${GITHUB_REPOSITORY}/git/blobs/${TEST_BLOB_SHA}" --jq .content | tr -d '\n' | base64 --decode > tests/e2e/remote-followup.spec.ts
+          test "$(git hash-object tests/e2e/remote-followup.spec.ts)" = "$TEST_BLOB_SHA"
+          pnpm exec prettier --write tests/e2e/remote-followup.spec.ts
+          pnpm ai:index
+      - name: Validate
+        run: |
+          set -euo pipefail
+          pnpm format:check
+          pnpm lint
+          pnpm typecheck
+          pnpm guardrails
+          pnpm exec vitest run tests/unit/RemoteAssist.test.tsx
+          pnpm exec playwright test tests/e2e/remote-followup.spec.ts --project=chromium --project=webkit
+          git diff --check
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr39-final-v2-diagnostics-${{ github.run_id }}
+          path: |
+            playwright-report
+            test-results
+            tests/e2e/remote-followup.spec.ts
+          if-no-files-found: warn
+          retention-days: 1
+      - name: Create unattached commit
+        id: commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMRT)
+          test "${#files[@]}" -gt 0
+          base_tree="$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${EXPECTED_HEAD}" --jq .tree.sha)"
+          entries='[]'
+          : > changed-files.txt
+          for path in "${files[@]}"; do
+            printf '%s\n' "$path" >> changed-files.txt
+            blob_sha="$({ printf '{"content":"'; base64 -w0 "$path"; printf '","encoding":"base64"}'; } | gh api --method POST "repos/${GITHUB_REPOSITORY}/git/blobs" --input - --jq .sha)"
+            entries="$(jq --arg path "$path" --arg sha "$blob_sha" '. + [{path: $path, mode: "100644", type: "blob", sha: $sha}]' <<<"$entries")"
+          done
+          jq -n --arg base_tree "$base_tree" --argjson tree "$entries" '{base_tree: $base_tree, tree: $tree}' > tree.json
+          tree_sha="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/trees" --input tree.json --jq .sha)"
+          jq -n --arg message 'test(web): stabilize follow-up browser assertions' --arg tree "$tree_sha" --arg parent "$EXPECTED_HEAD" '{message: $message, tree: $tree, parents: [$parent]}' > commit.json
+          commit_sha="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/commits" --input commit.json --jq .sha)"
+          printf '%s\n' "$commit_sha" > commit-sha.txt
+          printf 'commit_sha=%s\n' "$commit_sha" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr39-final-v2-commit-${{ steps.commit.outputs.commit_sha }}
+          path: |
+            commit-sha.txt
+            changed-files.txt
+          retention-days: 1
