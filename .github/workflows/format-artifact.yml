@@ -1,4 +1,4 @@
-name: Build PR39 formatted commit object
+name: Build PR39 browser-fixed commit object
 
 on:
   pull_request:
@@ -39,7 +39,7 @@ jobs:
       - name: Install target browsers
         run: pnpm exec playwright install --with-deps chromium webkit
 
-      - name: Apply test fix, format, regenerate index, and validate
+      - name: Apply robust browser assertions
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
@@ -47,38 +47,48 @@ jobs:
           from pathlib import Path
           path = Path('tests/e2e/remote-followup.spec.ts')
           source = path.read_text()
-          source = source.replace(
-              "    await page.getByRole('button', { name: 'Beschreibung vorlesen' }).click();\n    await expect\n      .poll(() => speechSnapshot(page))\n      .toMatchObject({ cancelCount: 1, spoken: [{ text: 'Eine helle Straße.', lang: 'de-DE' }] });\n",
-              "    const speechBaseline = await speechSnapshot(page);\n    await page.getByRole('button', { name: 'Beschreibung vorlesen' }).click();\n    await expect\n      .poll(async () => speechDelta(page, speechBaseline))\n      .toMatchObject({ cancelCount: 1, spoken: [{ text: 'Eine helle Straße.', lang: 'de-DE' }] });\n",
-          )
-          source = source.replace(
-              "    await expect(page.getByText('Auf dem Schild steht Ausgang.')).toBeVisible();\n",
-              "    await expect(\n      page.getByRole('listitem').nth(0).getByText('Auf dem Schild steht Ausgang.', { exact: true }),\n    ).toBeVisible();\n",
-              1,
-          )
-          source = source.replace(
-              "      .poll(() => speechSnapshot(page))\n",
-              "      .poll(async () => speechDelta(page, speechBaseline))\n",
-              1,
-          )
-          source = source.replace(
-              "    await expect.poll(() => speechSnapshot(page)).toMatchObject({ cancelCount: 3 });\n",
-              "    await expect.poll(async () => speechDelta(page, speechBaseline)).toMatchObject({ cancelCount: 3 });\n",
-          )
-          source = source.replace(
-              "    await expect(page.getByText('Die Tür neben dem Schild ist blau.')).toBeVisible();\n",
-              "    await expect(\n      page.getByRole('listitem').nth(1).getByText('Die Tür neben dem Schild ist blau.', { exact: true }),\n    ).toBeVisible();\n",
-          )
-          source = source.replace(
-              "    await expect(page.getByText('Auf dem Schild steht Ausgang.')).toBeVisible();\n    expect(followupCalls).toBe(2);\n",
-              "    await expect(\n      page.getByRole('listitem').getByText('Auf dem Schild steht Ausgang.', { exact: true }),\n    ).toBeVisible();\n    expect(followupCalls).toBe(2);\n",
-          )
+
+          replacements = [
+              (
+                  "    await page.getByRole('button', { name: 'Beschreibung vorlesen' }).click();\n    await expect\n      .poll(() => speechSnapshot(page))\n      .toMatchObject({ cancelCount: 1, spoken: [{ text: 'Eine helle Straße.', lang: 'de-DE' }] });\n",
+                  "    const sceneSpeechBefore = await speechSnapshot(page);\n    await page.getByRole('button', { name: 'Beschreibung vorlesen' }).click();\n    await expect\n      .poll(async () => speechDelta(page, sceneSpeechBefore))\n      .toMatchObject({ cancelCount: 1, spoken: [{ text: 'Eine helle Straße.', lang: 'de-DE' }] });\n",
+              ),
+              (
+                  "    await page.getByRole('button', { name: 'Antwort vorlesen' }).click();\n    await expect\n      .poll(() => speechSnapshot(page))\n      .toMatchObject({\n        cancelCount: 2,\n        spoken: [\n          { text: 'Eine helle Straße.', lang: 'de-DE' },\n          { text: 'Auf dem Schild steht Ausgang.', lang: 'de-DE' },\n        ],\n      });\n    await page.getByRole('button', { name: 'Vorlesen stoppen' }).click();\n    await expect.poll(() => speechSnapshot(page)).toMatchObject({ cancelCount: 3 });\n",
+                  "    const answerSpeechBefore = await speechSnapshot(page);\n    await page.getByRole('button', { name: 'Antwort vorlesen' }).click();\n    await expect\n      .poll(async () => speechDelta(page, answerSpeechBefore))\n      .toMatchObject({\n        cancelCount: 1,\n        spoken: [{ text: 'Auf dem Schild steht Ausgang.', lang: 'de-DE' }],\n      });\n    const stopSpeechBefore = await speechSnapshot(page);\n    await page.getByRole('button', { name: 'Vorlesen stoppen' }).click();\n    await expect\n      .poll(async () => speechDelta(page, stopSpeechBefore))\n      .toMatchObject({ cancelCount: 1, spoken: [] });\n",
+              ),
+              (
+                  "    await expect(page.getByText('Die Tür neben dem Schild ist blau.')).toBeVisible();\n",
+                  "    await expect(\n      page.getByRole('listitem').nth(1).getByText('Die Tür neben dem Schild ist blau.', { exact: true }),\n    ).toBeVisible();\n",
+              ),
+              (
+                  "    await expect(page.getByText('Auf dem Schild steht Ausgang.')).toBeVisible();\n    expect(followupCalls).toBe(2);\n",
+                  "    await expect(\n      page.getByRole('listitem').getByText('Auf dem Schild steht Ausgang.', { exact: true }),\n    ).toBeVisible();\n    expect(followupCalls).toBe(2);\n",
+              ),
+          ]
+          for old, new in replacements:
+              if old not in source:
+                  raise SystemExit(f'Missing expected source block: {old[:80]!r}')
+              source = source.replace(old, new, 1)
+
+          first_answer = "    await expect(page.getByText('Auf dem Schild steht Ausgang.')).toBeVisible();\n"
+          first_answer_replacement = "    await expect(\n      page.getByRole('listitem').nth(0).getByText('Auf dem Schild steht Ausgang.', { exact: true }),\n    ).toBeVisible();\n"
+          if first_answer not in source:
+              raise SystemExit('Missing first answer assertion')
+          source = source.replace(first_answer, first_answer_replacement, 1)
+
           marker = "async function speechSnapshot(page: Page) {\n"
           helper = "async function speechDelta(\n  page: Page,\n  baseline: { cancelCount: number; spoken: { text: string; lang: string }[] },\n) {\n  const current = await speechSnapshot(page);\n  return {\n    cancelCount: current.cancelCount - baseline.cancelCount,\n    spoken: current.spoken.slice(baseline.spoken.length),\n  };\n}\n\n"
           if helper not in source:
-              source = source.replace(marker, helper + marker)
+              if marker not in source:
+                  raise SystemExit('Missing speech snapshot helper marker')
+              source = source.replace(marker, helper + marker, 1)
           path.write_text(source)
           PY
+
+      - name: Format, regenerate index, and run static checks
+        run: |
+          set -euo pipefail
           pnpm exec prettier --write tests/e2e/remote-followup.spec.ts
           pnpm ai:index
           pnpm format:check
@@ -86,8 +96,22 @@ jobs:
           pnpm typecheck
           pnpm guardrails
           pnpm exec vitest run tests/unit/RemoteAssist.test.tsx
-          pnpm exec playwright test tests/e2e/remote-followup.spec.ts --project=chromium --project=webkit
           git diff --check
+
+      - name: Validate follow-up flow in Chromium and WebKit
+        run: pnpm exec playwright test tests/e2e/remote-followup.spec.ts --project=chromium --project=webkit
+
+      - name: Upload Playwright diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr39-browser-fix-playwright-report-${{ github.run_id }}
+          path: |
+            playwright-report
+            test-results
+            tests/e2e/remote-followup.spec.ts
+          if-no-files-found: warn
+          retention-days: 1
 
       - name: Create Git tree and commit object without updating the branch
         id: commit
