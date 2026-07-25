@@ -20,7 +20,7 @@ test.describe('remote follow-up and local speech', () => {
     await mockReadiness(page);
   });
 
-  test('completes multiple clean-EOF turns and supports speak, replace, stop and reset', async ({
+  test('completes multiple clean-EOF turns and supports live speech, replace, stop, and reset', async ({
     page,
   }) => {
     await mockDescribe(page);
@@ -269,10 +269,7 @@ async function installCancellableFollowupFetch(page: Page): Promise<void> {
   });
 }
 
-async function speechDelta(
-  page: Page,
-  prior: Awaited<ReturnType<typeof speechSnapshot>>,
-) {
+async function speechDelta(page: Page, prior: Awaited<ReturnType<typeof speechSnapshot>>) {
   const state = await speechSnapshot(page);
   return state.log.slice(prior.log.length);
 }
