@@ -67,7 +67,20 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run quick repository checks
-        run: pnpm check:fast
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/ci
+          pnpm check:fast 2>&1 | tee artifacts/ci/check-fast.log
+
+      - name: Upload quick failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quick-ci-log-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/ci/check-fast.log
+          if-no-files-found: warn
+          retention-days: 1
 
       - name: Build mock PWA
         run: pnpm build
@@ -111,7 +124,20 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium webkit
 
       - name: Run final aggregate checks once
-        run: pnpm check:all
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/ci
+          pnpm check:all 2>&1 | tee artifacts/ci/check-all.log
+
+      - name: Upload full failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-ci-log-${{ steps.revision.outputs.sha }}
+          path: artifacts/ci/check-all.log
+          if-no-files-found: warn
+          retention-days: 1
 
       - name: Check Safari diagnostics syntax
         run: |
