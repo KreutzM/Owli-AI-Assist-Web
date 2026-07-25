@@ -2,26 +2,54 @@ name: Web CI
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
   push:
     branches:
       - main
+  merge_group:
   workflow_dispatch:
+    inputs:
+      tier:
+        description: Validation tier
+        required: true
+        default: full
+        type: choice
+        options:
+          - quick
+          - full
+      ref:
+        description: Optional branch, tag, or SHA to validate
+        required: false
+        default: main
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: web-ci-${{ github.ref }}
+  group: web-ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  CHECKOUT_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event_name == 'workflow_dispatch' && inputs.ref || github.sha }}
+
 jobs:
-  validate:
-    name: Type, lint, unit, guardrails, builds
+  quick:
+    name: Quick format, type, unit, and build checks
+    if: >-
+      (github.event_name == 'pull_request' && github.event.action == 'synchronize' && github.event.pull_request.draft == true) ||
+      (github.event_name == 'workflow_dispatch' && inputs.tier == 'quick')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Check out repository
+      - name: Check out exact revision
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -38,69 +66,31 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check formatting
-        run: pnpm format:check
-
-      - name: Run lint
-        run: pnpm lint
-
-      - name: Run typecheck
-        run: pnpm typecheck
-
-      - name: Run architecture guardrails
-        run: pnpm guardrails
-
-      - name: Run unit tests
-        run: pnpm test
-
-      - name: Check Safari diagnostics syntax
-        run: |
-          python3 -m py_compile tools/safari-smoke.py tools/safari-jpeg-diagnostic.py
-          node tools/check-safari-smoke-guards.mjs
-          rm -rf tools/__pycache__
+      - name: Run quick repository checks
+        run: pnpm check:fast
 
       - name: Build mock PWA
         run: pnpm build
 
-      - name: Verify occupied ports fail fast
-        run: pnpm test:ports
-
-      - name: Build staging PWA and headers
-        run: pnpm build:staging
-
-      - name: Build production PWA and headers
-        run: pnpm build:production
-
-      - name: Build deterministic Safari JPEG harness
-        run: |
-          pnpm build:safari-jpeg-harness
-          if grep -qE 'api-staging\.owli-ai\.com|https://api\.owli-ai\.com' dist/_headers; then
-            echo 'Safari JPEG harness headers contain a remote API origin.' >&2
-            exit 1
-          fi
-
-      - name: Generate agent index
-        run: pnpm ai:index
-
-      - name: Upload generated agent index
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-agent-index
-          path: |
-            .ai/file-tree.md
-            .ai/repo-index.json
-          retention-days: 1
-
-      - name: Verify agent index
-        run: git diff --exit-code -- .ai/file-tree.md .ai/repo-index.json
-
-  aggregate:
-    name: Aggregate pnpm check:all
+  full-linux:
+    name: Full Linux aggregate and browser validation
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'merge_group' ||
+      (github.event_name == 'workflow_dispatch' && inputs.tier == 'full') ||
+      (github.event_name == 'pull_request' &&
+        (github.event.action != 'synchronize' || github.event.pull_request.draft == false))
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
     steps:
-      - name: Check out repository
+      - name: Check out exact revision
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CHECKOUT_REF }}
+
+      - name: Resolve exact checkout SHA
+        id: revision
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -120,16 +110,49 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium webkit
 
-      - name: Run aggregate checks
+      - name: Run final aggregate checks once
         run: pnpm check:all
 
-  windows-builds:
-    name: Windows mock, staging, and production builds
+      - name: Check Safari diagnostics syntax
+        run: |
+          python3 -m py_compile tools/safari-smoke.py tools/safari-jpeg-diagnostic.py
+          node tools/check-safari-smoke-guards.mjs
+          rm -rf tools/__pycache__
+
+      - name: Build deterministic Safari JPEG harness
+        run: |
+          pnpm build:safari-jpeg-harness
+          if grep -qE 'api-staging\.owli-ai\.com|https://api\.owli-ai\.com' dist/_headers; then
+            echo 'Safari JPEG harness headers contain a remote API origin.' >&2
+            exit 1
+          fi
+
+      - name: Generate optional agent index artifact
+        run: pnpm ai:index
+
+      - name: Upload optional agent index artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-index-${{ steps.revision.outputs.sha }}
+          path: artifacts/agent-index/
+          if-no-files-found: error
+          retention-days: 1
+
+  full-windows:
+    name: Full Windows mock, staging, and production builds
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'merge_group' ||
+      (github.event_name == 'workflow_dispatch' && inputs.tier == 'full') ||
+      (github.event_name == 'pull_request' &&
+        (github.event.action != 'synchronize' || github.event.pull_request.draft == false))
     runs-on: windows-latest
     timeout-minutes: 25
     steps:
-      - name: Check out repository
+      - name: Check out exact revision
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -168,44 +191,3 @@ jobs:
           $headers = Get-Content dist/_headers -Raw
           if (-not $headers.Contains('connect-src ''self'' https://api.owli-ai.com')) { throw 'Production connect-src is missing.' }
           if ($headers.Contains('api-staging.owli-ai.com')) { throw 'Production headers contain the staging API origin.' }
-
-  browser:
-    name: Browser, built staging, and accessibility matrix
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    needs: validate
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.12.1
-          run_install: false
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium webkit
-
-      - name: Run isolated Chromium and WebKit remote-state matrix
-        run: pnpm test:e2e
-
-      - name: Run built staging Chromium and WebKit matrix
-        run: pnpm test:e2e:staging
-
-      - name: Upload Playwright report on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
