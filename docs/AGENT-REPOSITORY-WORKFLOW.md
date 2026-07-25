@@ -27,7 +27,7 @@ Equivalent GitHub Actions REST calls may be used by a connector or runtime. The 
 ### Materialize
 
 ```bash
-scripts/materialize-repository-bundle.sh \
+bash scripts/materialize-repository-bundle.sh \
   artifacts/repository-bundle \
   ../owli-worktree \
   <expected-head-sha>
