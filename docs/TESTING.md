@@ -2,7 +2,7 @@
 
 ## Fast local checks
 
-`pnpm check:fast` runs formatting, ESLint, TypeScript, architecture guardrails, workflow-policy checks, and Vitest. During draft development, run the smallest relevant command first and complete `check:fast` before publishing a logical patch.
+`pnpm check:fast` runs formatting, ESLint, TypeScript, architecture guardrails, workflow-policy checks, the lightweight atomic-publisher API regression test, and Vitest. During draft development, run the smallest relevant command first and complete `check:fast` before declaring a logical patch ready for review.
 
 ## Final aggregate check
 
@@ -10,9 +10,15 @@
 
 ## CI tiers
 
-- **Quick CI** runs on synchronized draft PR heads and explicit quick dispatches. It executes `check:fast` plus one Linux mock build.
-- **Full CI** runs when a PR is opened or reopened, becomes ready for review, receives a new commit while non-draft, enters a merge queue, is explicitly dispatched as full, or reaches `main`. It executes `check:all` once, Safari diagnostic syntax/harness checks, optional agent-index artifact generation, and Windows builds.
-- **Apple CI** skips drafts and test-only changes. It runs only for ready/non-draft Apple-, browser-, image-, camera-, speech-, or platform-sensitive heads and gates on successful exact-head Web CI.
+- **Quick CI** runs for draft PR events and explicit quick dispatches. It executes `check:fast` plus one Linux mock build. Superseded runs are canceled through workflow concurrency.
+- **Full CI** runs for non-draft PR heads, merge queue entries, explicit full dispatches, and `main`. It executes `check:all` once, Safari diagnostic syntax/harness checks, optional agent-index artifact generation, and Windows builds.
+- **Apple CI** skips drafts and broad test-only changes. It runs only for non-draft Apple-, browser-, image-, camera-, speech-, or platform-sensitive heads and starts only after the exact-head Full Linux and Full Windows jobs both succeed.
+
+## Connector-publication tests
+
+`pnpm atomic:publish:test` uses a local temporary Git repository and mock HTTP API. It verifies additions, modifications, deletions, executable and symlink tree entries, exact remote-tree identity, stale-parent failure, and non-force ref updates without contacting GitHub.
+
+The Git Data publisher is a specialized path for binary, byte-critical, mode-critical, high-volume, reproducible-tree, or explicitly atomic publication. Ordinary UTF-8 connector edits use the faster Contents API workflow documented in `docs/AGENT-REPOSITORY-WORKFLOW.md`.
 
 ## Optional agent index
 
