@@ -99,11 +99,7 @@ requireText(
   'Manual Apple CI requires successful',
   'Manual Apple CI must verify both required Full jobs',
 );
-forbidText(
-  apple,
-  "web_ci_run_id='manual'",
-  'Manual Apple CI must not bypass the Full Web CI gate',
-);
+forbidText(apple, "web_ci_run_id='manual'", 'Manual Apple CI must not bypass the Full Web CI gate');
 
 const bundleRequirements = [
   'workflow_dispatch:',
