@@ -12,9 +12,11 @@ Plans without editing code. Defines narrow scope, non-goals, acceptance criteria
 
 ## Builder
 
-Reads issues and repository instructions, acquires a verified local clone or exact-head bundle, creates a thematic branch/worktree, and prepares the complete logical patch locally. Formatting, relevant tests, generated artifacts, and diff review happen before the feature-branch ref moves. Normal Git push is preferred; the atomic Git Data API fallback is documented in `docs/AGENT-REPOSITORY-WORKFLOW.md`.
+Reads issues and repository instructions, resolves the exact base and feature head, and chooses the simplest safe acquisition and publication path from `docs/AGENT-REPOSITORY-WORKFLOW.md`.
 
-The Builder opens a draft PR and posts a top-level `## Builder handoff` comment containing branch, base, exact head, commits, files, local and CI checks, trigger matrix, bundle/atomic-publication evidence, risks, and reviewer focus.
+Normal Git remains preferred. When normal push is unavailable, ordinary UTF-8 text may be published through sequential Contents API writes after all affected files and blob SHAs have been read. Multiple focused feature-branch commits are acceptable because the PR can be squash-merged. Binary, byte-critical, mode-critical, high-volume, or explicitly atomic work uses the verified bundle and Git Data path instead.
+
+The Builder runs the smallest relevant local checks available, compares the final branch once against its target, opens or updates a draft PR, and posts a top-level `## Builder handoff` comment containing branch, base, exact head, commits, files, local and CI checks, trigger matrix, acquisition/publication method, risks, and reviewer focus.
 
 ## Reviewer
 
