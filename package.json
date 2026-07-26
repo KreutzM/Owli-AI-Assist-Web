@@ -28,9 +28,11 @@
     "test:ports": "node tools/check-vite-port-policy.mjs",
     "guardrails": "node tools/check-architecture.mjs",
     "ai:index": "node tools/generate-repo-index.mjs",
-    "ai:index:check": "node tools/generate-repo-index.mjs --check",
-    "check:fast": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm guardrails && pnpm test",
-    "check:all": "pnpm check:fast && pnpm build && pnpm test:ports && pnpm test:e2e && pnpm test:e2e:staging && pnpm ai:index:check"
+    "workflow:check": "node tools/check-workflow-policy.mjs",
+    "atomic:publish": "node tools/publish-atomic-git-data.mjs",
+    "atomic:publish:test": "node tools/publish-atomic-git-data.test.mjs",
+    "check:fast": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm guardrails && pnpm workflow:check && pnpm atomic:publish:test && pnpm test",
+    "check:all": "pnpm check:fast && pnpm build && pnpm test:ports && pnpm test:e2e && pnpm test:e2e:staging"
   },
   "dependencies": {
     "react": "19.2.7",

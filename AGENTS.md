@@ -94,10 +94,10 @@ For UI, platform, PWA, build, dependency, or API-boundary changes also run:
 ```text
 pnpm build
 pnpm test:e2e
-pnpm ai:index:check
+pnpm workflow:check
 ```
 
-Before merge, prefer `pnpm check:all`. Browser tests do not replace real iPhone VoiceOver and Android TalkBack smoke tests.
+Before merge, prefer `pnpm check:all`. The generated repository index is optional and produced only as a short-lived full-CI artifact. Browser tests do not replace real iPhone VoiceOver and Android TalkBack smoke tests.
 
 For bug fixes add a regression test. Tests must be deterministic: no real provider calls, no arbitrary sleeps, and no dependence on local browser state.
 

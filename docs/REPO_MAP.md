@@ -24,10 +24,12 @@
 ## Quality
 
 - `tools/check-architecture.mjs` — architectural boundary checks.
-- `tools/generate-repo-index.mjs` — deterministic agent index generation.
+- `tools/generate-repo-index.mjs` — optional short-lived agent-index artifact generation.
 - `src/**/*.test.*` — unit/component tests.
 - `tests/e2e/` — Chromium/WebKit and axe smoke tests.
-- `.github/workflows/ci.yml` — hosted CI.
+- `.github/workflows/ci.yml` — mutually exclusive quick and full hosted CI tiers.
+- `.github/workflows/repository-bundle.yml` — exact-head Git-bundle artifact workflow.
+- `tools/publish-atomic-git-data.mjs` — non-force atomic Git Data API fallback.
 
 ## Deployment
 

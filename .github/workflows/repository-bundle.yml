@@ -1,0 +1,160 @@
+name: Repository bundle
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag, or commit SHA to bundle
+        required: true
+        default: main
+        type: string
+      base_ref:
+        description: Target base branch or ref to include
+        required: true
+        default: main
+        type: string
+  workflow_call:
+    inputs:
+      ref:
+        description: Branch, tag, or commit SHA to bundle
+        required: true
+        type: string
+      base_ref:
+        description: Target base branch or ref to include
+        required: false
+        default: main
+        type: string
+    outputs:
+      artifact_name:
+        description: Uploaded artifact name
+        value: ${{ jobs.bundle.outputs.artifact_name }}
+      head_sha:
+        description: Exact bundled head SHA
+        value: ${{ jobs.bundle.outputs.head_sha }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repository-bundle-${{ inputs.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    name: Create verified exact-head Git bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      artifact_name: ${{ steps.resolve.outputs.artifact_name }}
+      head_sha: ${{ steps.resolve.outputs.head_sha }}
+    steps:
+      - name: Check out requested revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: Resolve exact revisions
+        id: resolve
+        env:
+          BASE_REF: ${{ inputs.base_ref }}
+        run: |
+          set -euo pipefail
+          head_sha="$(git rev-parse HEAD)"
+          git fetch --no-tags origin "${BASE_REF}"
+          base_sha="$(git rev-parse FETCH_HEAD)"
+          artifact_name="repository-bundle-${head_sha}"
+          printf 'head_sha=%s\n' "$head_sha" >> "$GITHUB_OUTPUT"
+          printf 'base_sha=%s\n' "$base_sha" >> "$GITHUB_OUTPUT"
+          printf 'artifact_name=%s\n' "$artifact_name" >> "$GITHUB_OUTPUT"
+
+      - name: Create and verify bundle
+        env:
+          REQUESTED_REF: ${{ inputs.ref }}
+          BASE_REF: ${{ inputs.base_ref }}
+          HEAD_SHA: ${{ steps.resolve.outputs.head_sha }}
+          BASE_SHA: ${{ steps.resolve.outputs.base_sha }}
+        run: |
+          set -euo pipefail
+          output_dir="$RUNNER_TEMP/repository-bundle"
+          bundle_name="repository-${HEAD_SHA}.bundle"
+          mkdir -p "$output_dir"
+
+          git update-ref refs/heads/agent-head "$HEAD_SHA"
+          git update-ref refs/heads/agent-base "$BASE_SHA"
+          git bundle create "$output_dir/$bundle_name" refs/heads/agent-head refs/heads/agent-base
+          git bundle verify "$output_dir/$bundle_name"
+
+          python3 - "$output_dir/bundle-manifest.json" <<'PY'
+          import json
+          import os
+          import sys
+
+          target = sys.argv[1]
+          manifest = {
+              "schemaVersion": 1,
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "requestedRef": os.environ["REQUESTED_REF"],
+              "baseRef": os.environ["BASE_REF"],
+              "headSha": os.environ["HEAD_SHA"],
+              "baseSha": os.environ["BASE_SHA"],
+              "bundleFile": f"repository-{os.environ['HEAD_SHA']}.bundle",
+              "checkoutBranch": "agent-head",
+              "baseBranch": "agent-base",
+          }
+          with open(target, "w", encoding="utf-8") as handle:
+              json.dump(manifest, handle, indent=2)
+              handle.write("\n")
+          PY
+
+      - name: Record bundle checksum
+        id: checksum
+        env:
+          HEAD_SHA: ${{ steps.resolve.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          output_dir="$RUNNER_TEMP/repository-bundle"
+          bundle="$output_dir/repository-${HEAD_SHA}.bundle"
+          checksum="$(sha256sum "$bundle" | awk '{print $1}')"
+          python3 - "$output_dir/bundle-manifest.json" "$checksum" <<'PY'
+          import json
+          import sys
+
+          path, checksum = sys.argv[1:]
+          with open(path, encoding="utf-8") as handle:
+              manifest = json.load(handle)
+          manifest["bundleSha256"] = checksum
+          with open(path, "w", encoding="utf-8") as handle:
+              json.dump(manifest, handle, indent=2)
+              handle.write("\n")
+          PY
+          printf '%s  repository-%s.bundle\n' "$checksum" "$HEAD_SHA" > "$output_dir/SHA256SUMS"
+          printf 'bundle_sha256=%s\n' "$checksum" >> "$GITHUB_OUTPUT"
+
+      - name: Upload short-lived repository bundle
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.resolve.outputs.artifact_name }}
+          path: ${{ runner.temp }}/repository-bundle/
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Write exact-head summary
+        env:
+          ARTIFACT_NAME: ${{ steps.resolve.outputs.artifact_name }}
+          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+          HEAD_SHA: ${{ steps.resolve.outputs.head_sha }}
+          BASE_SHA: ${{ steps.resolve.outputs.base_sha }}
+          BUNDLE_SHA256: ${{ steps.checksum.outputs.bundle_sha256 }}
+        run: |
+          {
+            echo '## Repository bundle'
+            echo
+            echo "- Artifact: \`$ARTIFACT_NAME\`"
+            echo "- Exact head: \`$HEAD_SHA\`"
+            echo "- Included base: \`$BASE_SHA\`"
+            echo "- Bundle SHA-256: \`$BUNDLE_SHA256\`"
+            echo "- Artifact digest: \`$ARTIFACT_DIGEST\`"
+            echo '- Retention: 1 day'
+          } >> "$GITHUB_STEP_SUMMARY"

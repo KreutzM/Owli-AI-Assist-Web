@@ -8,15 +8,19 @@ GitHub is the durable handoff layer.
 
 ## Planner
 
-Plans without editing code. In the OpenAI web interface this normally uses `gpt-5.6-sol`; the local Codex planner sub-agent uses `gpt-5.4`. Defines narrow scope, non-goals, acceptance criteria, affected repositories, required checks, and manual accessibility gates.
+Plans without editing code. Defines narrow scope, non-goals, acceptance criteria, affected repositories, required checks, and manual accessibility gates.
 
 ## Builder
 
-Uses the repository-local `gpt-5.4` Codex configuration, with high reasoning for architecture-heavy work. Reads issues and repository instructions, creates a thematic branch, implements only the child scope, runs checks, opens the PR, and posts a top-level `## Builder Handoff / Run Review` comment.
+Reads issues and repository instructions, resolves the exact base and feature head, and chooses the simplest safe acquisition and publication path from `docs/AGENT-REPOSITORY-WORKFLOW.md`.
+
+Normal Git remains preferred. When normal push is unavailable, ordinary UTF-8 text may be published through sequential Contents API writes after all affected files and blob SHAs have been read. Multiple focused feature-branch commits are acceptable because the PR can be squash-merged. Binary, byte-critical, mode-critical, high-volume, or explicitly atomic work uses the verified bundle and Git Data path instead.
+
+The Builder runs the smallest relevant local checks available, compares the final branch once against its target, opens or updates a draft PR, and posts a top-level `## Builder handoff` comment containing branch, base, exact head, commits, files, local and CI checks, trigger matrix, acquisition/publication method, risks, and reviewer focus.
 
 ## Reviewer
 
-In the OpenAI web interface this normally uses `gpt-5.6-sol`; the local Codex reviewer sub-agent uses `gpt-5.4`. Reads the complete durable context, checks diff and CI against acceptance criteria, and records `APPROVE`, `REQUEST_CHANGES`, or `COMMENT`. The Reviewer does not merge by default.
+Reads the complete durable context, checks diff and CI against acceptance criteria, and records `APPROVE`, `REQUEST_CHANGES`, or `COMMENT`. The Reviewer does not merge by default.
 
 ## PR description
 
@@ -50,7 +54,7 @@ Part of #<tracking>
 ## Merge gate
 
 - PR is not draft.
-- CI is green or an explicit exception exists.
+- Final exact-head CI is green or an explicit exception exists.
 - Scope matches the child issue.
 - Builder handoff is present.
 - Reviewer result is persisted in GitHub.

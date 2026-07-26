@@ -1,8 +1,28 @@
 # Testing
 
-## Fast checks
+## Fast local checks
 
-`pnpm check:fast` runs formatting, ESLint, TypeScript, architecture guardrails, and Vitest.
+`pnpm check:fast` runs formatting, ESLint, TypeScript, architecture guardrails, workflow-policy checks, the lightweight atomic-publisher API regression test, and Vitest. During draft development, run the smallest relevant command first and complete `check:fast` before declaring a logical patch ready for review.
+
+## Final aggregate check
+
+`pnpm check:all` runs the fast checks once, builds the mock PWA, verifies the Vite port policy, and runs both isolated and built-staging Playwright matrices. It is the final Linux aggregate check; CI must not run the same suites again in parallel jobs.
+
+## CI tiers
+
+- **Quick CI** runs for draft PR events and explicit quick dispatches. It executes `check:fast` plus one Linux mock build. Superseded runs are canceled through workflow concurrency.
+- **Full CI** runs for non-draft PR heads, merge queue entries, explicit full dispatches, and `main`. It executes `check:all` once, Safari diagnostic syntax/harness checks, optional agent-index artifact generation, and Windows builds.
+- **Apple CI** skips drafts and broad test-only changes. It runs only for non-draft Apple-, browser-, image-, camera-, speech-, or platform-sensitive heads and starts only after the exact-head Full Linux and Full Windows jobs both succeed.
+
+## Connector-publication tests
+
+`pnpm atomic:publish:test` uses a local temporary Git repository and mock HTTP API. It verifies additions, modifications, deletions, executable and symlink tree entries, exact remote-tree identity, stale-parent failure, and non-force ref updates without contacting GitHub.
+
+The Git Data publisher is a specialized path for binary, byte-critical, mode-critical, high-volume, reproducible-tree, or explicitly atomic publication. Ordinary UTF-8 connector edits use the faster Contents API workflow documented in `docs/AGENT-REPOSITORY-WORKFLOW.md`.
+
+## Optional agent index
+
+`pnpm ai:index` writes `file-tree.md` and `repo-index.json` to `artifacts/agent-index/`. The directory is ignored and the output is uploaded for one day by full CI. The generated files are not committed and do not gate ordinary PR updates.
 
 ## Coverage report
 
