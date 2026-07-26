@@ -103,7 +103,8 @@ async function runScenario({
 
     if (request.method === 'GET' && request.url.includes('/git/ref/heads/feature/test')) {
       refReads += 1;
-      return json(response, 200, { object: { sha: refReads > 1 && movedRef ? movedRef : parent } });
+      const branchSha = refReads > 1 && movedRef ? movedRef : parent;
+      return json(response, 200, { object: { sha: branchSha } });
     }
     if (request.method === 'GET' && request.url.endsWith(`/git/commits/${parent}`)) {
       return json(response, 200, { tree: { sha: parentTree } });
@@ -205,8 +206,12 @@ function run(command, args, options) {
     const child = spawn(command, args, options);
     let stdout = '';
     let stderr = '';
-    child.stdout.on('data', (chunk) => (stdout += chunk));
-    child.stderr.on('data', (chunk) => (stderr += chunk));
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
     child.on('error', reject);
     child.on('close', (code, signal) => resolve({ code, signal, stdout, stderr }));
   });
