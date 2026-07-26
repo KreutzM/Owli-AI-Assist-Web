@@ -32,8 +32,10 @@ const plan = {
   repository: options.repo,
   branch: options.branch,
   expectedParent: options.expectedParent,
+  expectedParentTree: git(['rev-parse', `${options.expectedParent}^{tree}`]),
   sourceRef,
   sourceCommit: git(['rev-parse', sourceRef]),
+  sourceTree: git(['rev-parse', `${sourceRef}^{tree}`]),
   commitMessage: options.message || git(['log', '-1', '--format=%B', sourceRef]).trim(),
   changes,
 };
@@ -45,13 +47,24 @@ if (options.dryRun) {
 
 if (!token) fail('GITHUB_TOKEN is required unless --dry-run is used.');
 
-const api = createGitHubClient(options.repo, token);
+const api = createGitHubClient(
+  options.repo,
+  token,
+  process.env.GITHUB_API_URL || 'https://api.github.com',
+);
 const initialRef = await api.getBranch(options.branch);
 if (initialRef && initialRef.sha !== options.expectedParent) {
   fail(`Branch moved: expected ${options.expectedParent}, found ${initialRef.sha}.`);
 }
 
 const parentCommit = await api.request('GET', `/git/commits/${options.expectedParent}`);
+if (parentCommit.tree?.sha !== plan.expectedParentTree) {
+  fail(
+    `Remote parent tree mismatch: expected ${plan.expectedParentTree}, ` +
+      `found ${parentCommit.tree?.sha || 'missing'}.`,
+  );
+}
+
 const treeEntries = [];
 for (const change of changes) {
   if (change.status === 'D') {
@@ -93,6 +106,10 @@ const tree = await api.request('POST', '/git/trees', {
   base_tree: parentCommit.tree.sha,
   tree: treeEntries,
 });
+if (tree.sha !== plan.sourceTree) {
+  fail(`Remote tree mismatch: expected ${plan.sourceTree}, found ${tree.sha || 'missing'}.`);
+}
+
 const commit = await api.request('POST', '/git/commits', {
   message: plan.commitMessage,
   tree: tree.sha,
@@ -227,8 +244,8 @@ function gitBuffer(args) {
   }
 }
 
-function createGitHubClient(repo, authToken) {
-  const base = `https://api.github.com/repos/${repo}`;
+function createGitHubClient(repo, authToken, apiRoot) {
+  const base = `${apiRoot.replace(/\/$/u, '')}/repos/${repo}`;
   return {
     async getBranch(branch) {
       const response = await fetch(`${base}/git/ref/heads/${encodeRef(branch)}`, {
