@@ -79,6 +79,31 @@ requireText(
   'actions/runs/${run_id}/jobs?per_page=100',
   'Apple CI must inspect job conclusions instead of accepting any successful Web CI run',
 );
+requireText(
+  apple,
+  'src/platform/speech/**',
+  'Apple CI must run for browser speech adapter changes',
+);
+requireText(
+  apple,
+  'MANUAL_WEB_CI_RUN_ID',
+  'Manual Apple CI must require an explicit Full Web CI run ID',
+);
+requireText(
+  apple,
+  'Manual Apple CI head mismatch',
+  'Manual Apple CI must verify the selected run against the exact checkout SHA',
+);
+requireText(
+  apple,
+  'Manual Apple CI requires successful',
+  'Manual Apple CI must verify both required Full jobs',
+);
+forbidText(
+  apple,
+  "web_ci_run_id='manual'",
+  'Manual Apple CI must not bypass the Full Web CI gate',
+);
 
 const bundleRequirements = [
   'workflow_dispatch:',
