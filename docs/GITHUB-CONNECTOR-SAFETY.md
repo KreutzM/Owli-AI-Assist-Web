@@ -1,10 +1,15 @@
 # GitHub Connector Safety
 
 - Resolve the exact repository, issue, PR, target branch, feature branch, and head SHA before write actions.
-- Prefer a local clone and normal Git. Use the permanent exact-head bundle workflow when clone/fetch is unavailable; do not reconstruct a repository from many connector file reads.
-- Prepare formatting, tests, generated artifacts, and the complete diff before moving a feature-branch ref.
-- For related multi-file API publication, use one tree, one commit, and one non-forced ref update based on a freshly re-read expected parent. A moved branch must fail safely.
-- Use the Contents API only for an intentional isolated single-file change.
+- Prefer a local clone and normal Git. Use the permanent exact-head bundle workflow when clone/fetch is unavailable and a real working tree is needed.
+- For ordinary UTF-8 source, tests, Markdown, JSON, YAML, TOML, configuration, and small scripts, the Contents API is the default connector publication path.
+- Before any `update_file`, read the current file and retain its blob SHA. Never overwrite an unconfirmed or stale SHA.
+- Read all affected existing files first, then publish the intended changes. Serialize writes to the same path; unrelated paths may be handled independently.
+- Multiple focused Contents API commits on a feature branch are acceptable. Use a squash merge when one clean commit is desired on `main`.
+- Do not perform a complete branch comparison after every file. Compare once after the intended writes and verify target movement, expected paths, sizes, and deletions.
+- Use the Git Data API only for binary, byte-critical, mode-critical, high-volume, reproducible-tree, or explicitly atomic publication.
+- For Git Data publication, verify expected-parent ancestry, remote parent tree identity, returned tree identity, and a non-forced ref update. A moved branch or tree mismatch must fail safely.
+- Never write directly to `main` through connector publication tools.
 - Never add temporary bundle, formatter, diagnostic, or repair workflows to the feature branch being prepared.
 - Read the child issue, tracking issue, PR description, Builder handoff, diff, and CI before review.
 - Builder handoffs are top-level PR conversation comments, not formal reviews.
