@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -29,9 +29,10 @@ try {
   await writeFile(path.join(repository, 'run.sh'), '#!/usr/bin/env bash\necho ok\n', {
     mode: 0o755,
   });
-  await symlink('keep.txt', path.join(repository, 'keep-link'));
   git(repository, ['add', '-A']);
+  addGitSymlink(repository, 'keep-link', 'keep.txt');
   git(repository, ['commit', '-qm', 'source']);
+  git(repository, ['checkout', '-q', '--', 'keep-link']);
   const sourceTree = git(repository, ['rev-parse', 'HEAD^{tree}']);
   const expectedTreeEntries = readExpectedTreeEntries(repository, parent, 'HEAD');
 
@@ -219,6 +220,15 @@ function run(command, args, options) {
 
 function git(cwd, args) {
   return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
+}
+
+function addGitSymlink(repository, filePath, target) {
+  const blob = execFileSync('git', ['hash-object', '-w', '--stdin'], {
+    cwd: repository,
+    encoding: 'utf8',
+    input: target,
+  }).trim();
+  git(repository, ['update-index', '--add', '--cacheinfo', `120000,${blob},${filePath}`]);
 }
 
 async function readBody(request) {

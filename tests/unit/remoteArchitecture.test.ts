@@ -10,15 +10,21 @@ describe('remote capability isolation', () => {
     ]);
     const remoteSource = sources.slice(0, 2).join('\n');
     expect(remoteSource).not.toMatch(
-      /features\/(?:song|postcard)|generateAudioPostcard|share|SpeechRecognition|MediaRecorder|playAudio|playVideo/iu,
+      /features\/(?:song|postcard)|\bshare\b|SpeechRecognition|MediaRecorder|playVideo/iu,
     );
+    expect(remoteSource).toContain('RemoteAudioPostcardPanel');
     expect(sources[2]).toContain("runtime.mode === 'mock'");
     expect(sources[2]).toContain('<AudioPostcardPanel');
     expect(sources[2]).toContain('<RemoteAssist');
   });
 
   it('keeps the shared client route allowlist exact', async () => {
-    const source = await readFile('src/core/api/remoteAssistClient.ts', 'utf8');
+    const source = (
+      await Promise.all([
+        readFile('src/core/api/remoteAssistClient.ts', 'utf8'),
+        readFile('src/core/api/remoteAudioPostcardClient.ts', 'utf8'),
+      ])
+    ).join('\n');
     const routes = [...source.matchAll(/'\/(api\/v1\/[^']+)'/gu)].map((match) => `/${match[1]}`);
     expect(new Set(routes)).toEqual(
       new Set([
@@ -27,10 +33,13 @@ describe('remote capability isolation', () => {
         '/api/v1/profiles',
         '/api/v1/scene/describe',
         '/api/v1/scene/followup',
+        '/api/v1/song/options',
+        '/api/v1/song/generate',
       ]),
     );
     expect(source).not.toContain('Authorization');
     expect(source).not.toContain('X-Request-Id');
+    expect(source).not.toContain('Authorization');
   });
 
   it('keeps fetch, camera, and speech access in their approved layers', async () => {

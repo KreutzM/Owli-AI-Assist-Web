@@ -6,7 +6,7 @@ const origins = {
   mock: { connect: '', media: '' },
   staging: {
     connect: ' https://api-staging.owli-ai.com',
-    media: '',
+    media: ' https://api-staging.owli-ai.com',
   },
   production: {
     connect: ' https://api.owli-ai.com',

@@ -7,4 +7,5 @@ export interface RemoteReadiness {
   catalog: RemoteProfileCatalog;
   sceneDescribeEnabled: boolean;
   followupEnabled: boolean;
+  audioPostcardEnabled: boolean;
 }

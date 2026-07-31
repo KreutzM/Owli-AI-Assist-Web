@@ -16,7 +16,7 @@ const config = {
 
 const publicConfig = {
   environment: 'staging',
-  features: { sceneDescribe: true, followup: false },
+  features: { sceneDescribe: true, followup: false, audioPostcard: false },
   profiles: { backendSupportedProfileIds: ['brief'] },
 };
 
@@ -242,7 +242,7 @@ function bootstrap(sessionToken: string, sceneDescribe: boolean) {
   return {
     sessionToken,
     expiresAt: new Date(Date.now() + 120_000).toISOString(),
-    featureFlags: { sceneDescribe, followup: false },
+    featureFlags: { sceneDescribe, followup: false, audioPostcard: false },
     bootstrapInfo: {
       environment: 'staging',
       sessionTtlSeconds: 120,

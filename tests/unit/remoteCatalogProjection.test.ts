@@ -14,7 +14,7 @@ const config = {
 const bootstrap = {
   sessionToken: 'private',
   expiresAt: new Date(Date.now() + 120_000).toISOString(),
-  featureFlags: { sceneDescribe: false, followup: false },
+  featureFlags: { sceneDescribe: false, followup: false, audioPostcard: false },
   bootstrapInfo: {
     environment: 'staging',
     sessionTtlSeconds: 120,
@@ -38,7 +38,7 @@ describe('RemoteAssistClient catalog projection', () => {
       if (url.endsWith('/config')) {
         return Response.json({
           environment: 'staging',
-          features: { sceneDescribe: false, followup: false },
+          features: { sceneDescribe: false, followup: false, audioPostcard: false },
           profiles: { backendSupportedProfileIds: ['allowed'] },
         });
       }

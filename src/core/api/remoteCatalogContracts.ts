@@ -7,6 +7,7 @@ export const remotePublicConfigSchema = z.object({
   features: z.object({
     sceneDescribe: z.boolean(),
     followup: z.boolean(),
+    audioPostcard: z.boolean(),
   }),
   profiles: z.object({
     backendSupportedProfileIds: z.array(z.string().min(1)),
@@ -14,7 +15,7 @@ export const remotePublicConfigSchema = z.object({
 });
 
 const featureFlagsSchema = z.record(z.string(), z.boolean()).superRefine((flags, context) => {
-  for (const required of ['sceneDescribe', 'followup'] as const) {
+  for (const required of ['sceneDescribe', 'followup', 'audioPostcard'] as const) {
     if (!(required in flags)) {
       context.addIssue({ code: 'custom', message: `Missing required feature flag: ${required}` });
     }

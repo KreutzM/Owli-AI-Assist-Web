@@ -35,6 +35,8 @@ export function projectReadiness(
       config.features.followup === true &&
       bootstrap.featureFlags.followup === true &&
       catalog.profiles.some((profile) => profile.supportsStreaming && profile.supportsFollowup),
+    audioPostcardEnabled:
+      config.features.audioPostcard === true && bootstrap.featureFlags.audioPostcard === true,
   };
 }
 

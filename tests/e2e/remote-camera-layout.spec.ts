@@ -48,10 +48,24 @@ for (const viewport of [
 
 async function mockCamera(page: Page): Promise<void> {
   await page.addInitScript(() => {
+    const assignedStreams = new WeakMap<HTMLMediaElement, MediaStream | null>();
+    Object.defineProperty(HTMLMediaElement.prototype, 'srcObject', {
+      configurable: true,
+      get(this: HTMLMediaElement) {
+        return assignedStreams.get(this) ?? null;
+      },
+      set(this: HTMLMediaElement, value: MediaStream | null) {
+        assignedStreams.set(this, value);
+      },
+    });
+
     Object.defineProperty(navigator, 'mediaDevices', {
       configurable: true,
       value: {
-        getUserMedia: () => Promise.resolve(new MediaStream()),
+        getUserMedia: () =>
+          Promise.resolve({
+            getTracks: () => [],
+          } as unknown as MediaStream),
       },
     });
 
@@ -77,7 +91,7 @@ async function mockReadiness(page: Page): Promise<void> {
   await page.route('**/api/v1/config', (route) =>
     json(route, {
       environment: 'staging',
-      features: { sceneDescribe: true, followup: false },
+      features: { sceneDescribe: true, followup: false, audioPostcard: false },
       profiles: { backendSupportedProfileIds: ['brief'] },
     }),
   );
@@ -86,7 +100,7 @@ async function mockReadiness(page: Page): Promise<void> {
     await json(route, {
       sessionToken: 'session-1',
       expiresAt: '2030-01-01T00:00:00.000Z',
-      featureFlags: { sceneDescribe: true, followup: false },
+      featureFlags: { sceneDescribe: true, followup: false, audioPostcard: false },
       bootstrapInfo: {
         environment: 'staging',
         sessionTtlSeconds: 120,

@@ -9,7 +9,7 @@ describe('remote session abort', () => {
       return {
         sessionToken: 'secret',
         expiresAt: new Date(Date.now() + 120_000).toISOString(),
-        featureFlags: { sceneDescribe: false, followup: false },
+        featureFlags: { sceneDescribe: false, followup: false, audioPostcard: false },
         bootstrapInfo: {
           environment: 'staging',
           sessionTtlSeconds: 120,

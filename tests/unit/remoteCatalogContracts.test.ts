@@ -8,7 +8,7 @@ import {
 const valid = {
   sessionToken: 'token',
   expiresAt: new Date(Date.now() + 120_000).toISOString(),
-  featureFlags: { sceneDescribe: false, followup: false },
+  featureFlags: { sceneDescribe: false, followup: false, audioPostcard: false },
   bootstrapInfo: {
     environment: 'staging',
     sessionTtlSeconds: 120,
@@ -42,12 +42,16 @@ const validProfiles = {
 describe('Web bootstrap v2 contract', () => {
   it('requires sceneDescribe and followup boolean flags', () => {
     expect(
-      webBootstrapResponseV2Schema.safeParse({ ...valid, featureFlags: { followup: false } })
-        .success,
+      webBootstrapResponseV2Schema.safeParse({
+        ...valid,
+        featureFlags: { followup: false, audioPostcard: false },
+      }).success,
     ).toBe(false);
     expect(
-      webBootstrapResponseV2Schema.safeParse({ ...valid, featureFlags: { sceneDescribe: false } })
-        .success,
+      webBootstrapResponseV2Schema.safeParse({
+        ...valid,
+        featureFlags: { sceneDescribe: false, audioPostcard: false },
+      }).success,
     ).toBe(false);
   });
 

@@ -64,7 +64,7 @@ export const deltaEventSchema = z.object({
 
 export const songGenerateResponseSchema = z.object({
   songId: z.string().nullish(),
-  status: z.enum(['ready', 'pending']).catch('pending'),
+  status: z.enum(['ready', 'pending']),
   expiresAt: z.string().nullish(),
   pollAfterMs: z.number().nullish(),
   audio: z

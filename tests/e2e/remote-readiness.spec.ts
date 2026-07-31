@@ -184,7 +184,7 @@ async function mockReadiness(page: Page, options: ReadinessOptions = {}): Promis
   await page.route('**/api/v1/config', (route) =>
     json(route, {
       environment: 'staging',
-      features: { sceneDescribe: configScene, followup: false },
+      features: { sceneDescribe: configScene, followup: false, audioPostcard: false },
       profiles: { backendSupportedProfileIds: ['brief'] },
     }),
   );
@@ -223,7 +223,7 @@ function bootstrap(sessionToken: string, sceneDescribe: boolean): Record<string,
   return {
     sessionToken,
     expiresAt: '2030-01-01T00:00:00.000Z',
-    featureFlags: { sceneDescribe, followup: false },
+    featureFlags: { sceneDescribe, followup: false, audioPostcard: false },
     bootstrapInfo: {
       environment: 'staging',
       sessionTtlSeconds: 120,

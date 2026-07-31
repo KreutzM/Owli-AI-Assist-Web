@@ -23,6 +23,7 @@ import type { SpeechLifecycleGateway, SpeechState } from '@/platform/speech/brow
 const readiness: RemoteReadiness = {
   sceneDescribeEnabled: true,
   followupEnabled: true,
+  audioPostcardEnabled: false,
   catalog: {
     defaultProfileId: 'brief',
     profiles: [

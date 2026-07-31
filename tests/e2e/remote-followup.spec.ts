@@ -297,7 +297,7 @@ async function mockReadiness(page: Page): Promise<void> {
   await page.route('**/api/v1/config', (route) =>
     json(route, {
       environment: 'staging',
-      features: { sceneDescribe: true, followup: true },
+      features: { sceneDescribe: true, followup: true, audioPostcard: false },
       profiles: { backendSupportedProfileIds: ['brief'] },
     }),
   );
@@ -306,7 +306,7 @@ async function mockReadiness(page: Page): Promise<void> {
     await json(route, {
       sessionToken: 'session-1',
       expiresAt: '2030-01-01T00:00:00.000Z',
-      featureFlags: { sceneDescribe: true, followup: true },
+      featureFlags: { sceneDescribe: true, followup: true, audioPostcard: false },
       bootstrapInfo: {
         environment: 'staging',
         sessionTtlSeconds: 120,

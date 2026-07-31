@@ -10,7 +10,7 @@ const ALLOWED_ROUTES = new Set([
   '/api/v1/scene/describe',
 ]);
 const EXPECTED_CSP =
-  "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self' https://api-staging.owli-ai.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests";
+  "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; media-src 'self' blob: https://api-staging.owli-ai.com; connect-src 'self' https://api-staging.owli-ai.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests";
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGOs2HKHgYGBiYGBgYGBAQAYJgIMiYqd0gAAAABJRU5ErkJggg==',
   'base64',
@@ -479,7 +479,7 @@ async function installHarness(
         if (url.pathname === '/api/v1/config') {
           return jsonResponse({
             environment: 'staging',
-            features: { sceneDescribe: configScene, followup: false },
+            features: { sceneDescribe: configScene, followup: false, audioPostcard: false },
             profiles: { backendSupportedProfileIds: ['brief'] },
           });
         }
@@ -487,7 +487,7 @@ async function installHarness(
           return jsonResponse({
             sessionToken: 'session-1',
             expiresAt: '2030-01-01T00:00:00.000Z',
-            featureFlags: { sceneDescribe: configScene, followup: false },
+            featureFlags: { sceneDescribe: configScene, followup: false, audioPostcard: false },
             bootstrapInfo: {
               environment: 'staging',
               sessionTtlSeconds: 120,
@@ -578,7 +578,7 @@ async function installNetworkRoutes(
     if (pathname === '/api/v1/config') {
       await jsonRoute(route, {
         environment: 'staging',
-        features: { sceneDescribe: true, followup: false },
+        features: { sceneDescribe: true, followup: false, audioPostcard: false },
         profiles: { backendSupportedProfileIds: ['brief'] },
       });
       return;
@@ -587,7 +587,7 @@ async function installNetworkRoutes(
       await jsonRoute(route, {
         sessionToken: 'session-1',
         expiresAt: '2030-01-01T00:00:00.000Z',
-        featureFlags: { sceneDescribe: true, followup: false },
+        featureFlags: { sceneDescribe: true, followup: false, audioPostcard: false },
         bootstrapInfo: {
           environment: 'staging',
           sessionTtlSeconds: 120,

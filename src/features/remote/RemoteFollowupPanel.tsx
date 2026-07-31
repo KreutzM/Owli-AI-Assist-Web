@@ -11,6 +11,7 @@ interface RemoteFollowupPanelProps {
   retrySeconds: number;
   retryReady: boolean;
   remainingQuestionCharacters: number;
+  blocked?: boolean;
 }
 
 export function RemoteFollowupPanel({
@@ -22,6 +23,7 @@ export function RemoteFollowupPanel({
   retrySeconds,
   retryReady,
   remainingQuestionCharacters,
+  blocked = false,
 }: RemoteFollowupPanelProps) {
   if (!visible) return null;
   const { followup, speechState } = workflow;
@@ -42,7 +44,7 @@ export function RemoteFollowupPanel({
           value={followup.questionDraft}
           maxLength={FOLLOWUP_QUESTION_MAX_LENGTH}
           rows={3}
-          disabled={active || followup.status === 'context_expired'}
+          disabled={active || blocked || followup.status === 'context_expired'}
           aria-invalid={Boolean(followup.errorMessage)}
           aria-describedby="followup-character-count followup-help"
           placeholder="Zum Beispiel: Was steht auf dem Schild?"
