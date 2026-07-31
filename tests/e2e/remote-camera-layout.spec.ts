@@ -51,10 +51,10 @@ async function mockCamera(page: Page): Promise<void> {
     const assignedStreams = new WeakMap<HTMLMediaElement, MediaStream | null>();
     Object.defineProperty(HTMLMediaElement.prototype, 'srcObject', {
       configurable: true,
-      get() {
+      get(this: HTMLMediaElement) {
         return assignedStreams.get(this) ?? null;
       },
-      set(value: MediaStream | null) {
+      set(this: HTMLMediaElement, value: MediaStream | null) {
         assignedStreams.set(this, value);
       },
     });
