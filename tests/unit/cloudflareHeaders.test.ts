@@ -61,6 +61,7 @@ describe('Cloudflare header artifacts', () => {
 
     const staging = await generate('staging');
     expect(staging).toContain("connect-src 'self' https://api-staging.owli-ai.com");
+    expect(staging).toContain("media-src 'self' blob: https://api-staging.owli-ai.com");
     expect(staging).not.toContain('https://api.owli-ai.com');
     expect(staging).not.toMatch(/media-src[^;]*workers\.dev/);
 

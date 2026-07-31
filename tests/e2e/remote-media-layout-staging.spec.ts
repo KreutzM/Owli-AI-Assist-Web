@@ -501,7 +501,7 @@ async function installHarness(page: Page): Promise<void> {
       if (url.pathname === '/api/v1/config') {
         return json({
           environment: 'staging',
-          features: { sceneDescribe: true, followup: false },
+          features: { sceneDescribe: true, followup: false, audioPostcard: false },
           profiles: { backendSupportedProfileIds: ['brief'] },
         });
       }
@@ -509,7 +509,7 @@ async function installHarness(page: Page): Promise<void> {
         return json({
           sessionToken: 'session-1',
           expiresAt: '2030-01-01T00:00:00.000Z',
-          featureFlags: { sceneDescribe: true, followup: false },
+          featureFlags: { sceneDescribe: true, followup: false, audioPostcard: false },
           bootstrapInfo: {
             environment: 'staging',
             sessionTtlSeconds: 120,

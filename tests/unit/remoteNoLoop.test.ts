@@ -5,7 +5,7 @@ import { RemoteHttpError, RemoteSessionManager } from '@/core/session/remoteSess
 const session = (): WebBootstrapResponseV2 => ({
   sessionToken: 'private',
   expiresAt: new Date(Date.now() + 120_000).toISOString(),
-  featureFlags: { sceneDescribe: true, followup: false },
+  featureFlags: { sceneDescribe: true, followup: false, audioPostcard: false },
   bootstrapInfo: {
     environment: 'staging',
     sessionTtlSeconds: 120,

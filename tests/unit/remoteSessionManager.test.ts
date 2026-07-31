@@ -6,7 +6,7 @@ function session(token = 'private-token'): WebBootstrapResponseV2 {
   return {
     sessionToken: token,
     expiresAt: new Date(Date.now() + 120_000).toISOString(),
-    featureFlags: { sceneDescribe: false, followup: false },
+    featureFlags: { sceneDescribe: false, followup: false, audioPostcard: false },
     bootstrapInfo: {
       environment: 'staging',
       sessionTtlSeconds: 120,

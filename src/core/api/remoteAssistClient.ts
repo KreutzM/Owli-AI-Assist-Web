@@ -45,11 +45,13 @@ import {
   RemoteClientError,
   statusError,
 } from '@/core/api/remoteClientErrors';
+import { RemoteAudioPostcardClient } from '@/core/api/remoteAudioPostcardClient';
 
 export type { RemoteReadiness, RemoteRuntimeConfig } from '@/core/api/remoteAssistTypes';
 export { RemoteClientError, type RemoteClientErrorCode } from '@/core/api/remoteClientErrors';
 
 export class RemoteAssistClient {
+  readonly audioPostcard: RemoteAudioPostcardClient;
   readonly #sessions: RemoteSessionManager;
   readonly #installationId: string;
   readonly #fetchImplementation: typeof fetch;
@@ -63,6 +65,12 @@ export class RemoteAssistClient {
     if (!this.#installationId.trim()) throw new RemoteClientError('REMOTE_CONTRACT_INVALID');
     this.#fetchImplementation = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.#sessions = new RemoteSessionManager((signal) => this.#bootstrap(signal));
+    this.audioPostcard = new RemoteAudioPostcardClient(
+      config,
+      this.#fetchImplementation,
+      this.#installationId,
+      this.#sessions,
+    );
   }
 
   async initialize(signal?: AbortSignal): Promise<RemoteReadiness> {

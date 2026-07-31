@@ -5,9 +5,12 @@ import type { RemoteCamera } from '@/platform/camera/remoteCamera';
 import type { BrowserSceneImageNormalizer } from '@/platform/image/browserSceneImageNormalizer';
 import type { SpeechLifecycleGateway } from '@/platform/speech/browserSpeech';
 import { isFollowupActive } from '@/features/remote/followupState';
+import { isAudioPostcardActive } from '@/features/remote/audioPostcardState';
+import { RemoteAudioPostcardPanel } from '@/features/remote/RemoteAudioPostcardPanel';
 import { RemoteFollowupPanel } from '@/features/remote/RemoteFollowupPanel';
 import { RemoteSceneContent } from '@/features/remote/RemoteSceneContent';
 import { useFollowupAnnouncements } from '@/features/remote/useFollowupAnnouncements';
+import { useAudioPostcard } from '@/features/remote/useAudioPostcard';
 import { useRemoteScene } from '@/features/remote/useRemoteScene';
 import { useSceneAnnouncements } from '@/features/remote/useSceneAnnouncements';
 import '@/features/remote/remote.css';
@@ -44,7 +47,15 @@ export function RemoteAssist({ client, camera, normalizer, speech, locale }: Rem
     'terminal_waiting_for_eof',
   ].includes(state.status);
   const followupActive = isFollowupActive(followup.status);
-  const active = sceneActive || followupActive;
+  const postcard = useAudioPostcard(client, {
+    enabled: state.readiness?.audioPostcardEnabled === true,
+    sceneComplete: state.status === 'complete',
+    ...(state.image ? { image: state.image } : {}),
+    locale: state.resultLocale ?? locale,
+    conflictingRequest: sceneActive || followupActive,
+  });
+  const postcardActive = isAudioPostcardActive(postcard.state.status);
+  const active = sceneActive || followupActive || postcardActive;
   const cameraVisible = state.status === 'camera_starting' || state.status === 'camera_ready';
   const sceneRetrySeconds =
     state.status === 'rate_limited' && state.retryAt !== undefined
@@ -71,13 +82,15 @@ export function RemoteAssist({ client, camera, normalizer, speech, locale }: Rem
     followup.status !== 'context_expired' &&
     !followupActive &&
     followupRetryReady &&
-    Boolean(followup.questionDraft.trim());
+    Boolean(followup.questionDraft.trim()) &&
+    !postcardActive;
   const remainingQuestionCharacters = FOLLOWUP_QUESTION_MAX_LENGTH - followup.questionDraft.length;
 
   const resetScene = useCallback(() => {
     focusAfterResetRef.current = true;
+    postcard.reset();
     reset();
-  }, [reset]);
+  }, [postcard, reset]);
 
   useEffect(() => {
     const unlockAt = [state.retryAt, followup.retryAt]
@@ -159,7 +172,16 @@ export function RemoteAssist({ client, camera, normalizer, speech, locale }: Rem
         retrySeconds={followupRetrySeconds}
         retryReady={followupRetryReady}
         remainingQuestionCharacters={remainingQuestionCharacters}
+        blocked={postcardActive}
       />
+
+      {state.status === 'complete' && (
+        <RemoteAudioPostcardPanel
+          workflow={postcard}
+          conflictingRequest={sceneActive || followupActive}
+          onNewImage={resetScene}
+        />
+      )}
 
       {state.status === 'complete' && (
         <section className="speech-disclosure" aria-labelledby="speech-title">

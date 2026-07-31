@@ -241,7 +241,7 @@ function bootstrap(sessionToken: string) {
   return {
     sessionToken,
     expiresAt: new Date(Date.now() + 120_000).toISOString(),
-    featureFlags: { sceneDescribe: true, followup: true },
+    featureFlags: { sceneDescribe: true, followup: true, audioPostcard: false },
     bootstrapInfo: {
       environment: 'staging',
       sessionTtlSeconds: 120,

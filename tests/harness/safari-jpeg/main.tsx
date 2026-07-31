@@ -9,6 +9,7 @@ import '@/app/app.css';
 const readiness: RemoteReadiness = {
   sceneDescribeEnabled: true,
   followupEnabled: false,
+  audioPostcardEnabled: false,
   catalog: {
     defaultProfileId: 'brief',
     profiles: [

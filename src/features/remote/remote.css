@@ -16,6 +16,58 @@
   gap: 0.55rem;
 }
 
+.audio-postcard-panel,
+.audio-postcard-options,
+.audio-postcard-progress,
+.audio-postcard-result,
+.audio-postcard-descriptions,
+.audio-postcard-quota {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.audio-postcard-panel {
+  margin-block: 1rem;
+  border: 1px solid #5f7f74;
+  border-radius: 0.8rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgb(24 61 55 / 45%), transparent 55%), #091525;
+}
+
+.audio-postcard-panel audio {
+  width: 100%;
+}
+
+.audio-postcard-options select {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid #709187;
+  border-radius: 0.65rem;
+  padding-inline: 0.65rem;
+  background: #08111f;
+  color: white;
+  font: inherit;
+}
+
+.audio-postcard-result,
+.audio-postcard-quota {
+  border-top: 1px solid var(--border);
+  padding-top: 0.85rem;
+}
+
+.audio-postcard-descriptions p,
+.audio-postcard-quota p {
+  margin-bottom: 0;
+  overflow-wrap: anywhere;
+}
+
+.audio-postcard-quota ul {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding-left: 1.4rem;
+}
+
 .scene-controls,
 .remote-scene-preview,
 .scene-result,
@@ -177,5 +229,9 @@
   .scene-source-actions .button,
   .followup-transcript .button {
     width: 100%;
+  }
+
+  .audio-postcard-panel {
+    padding: 0.8rem;
   }
 }
