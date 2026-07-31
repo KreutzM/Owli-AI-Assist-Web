@@ -30,15 +30,28 @@ const targetConfig = {
     VITE_OWLI_VERSION_CODE: '1',
     VITE_OWLI_DEFAULT_LOCALE: 'de-DE',
   },
+  'staging-mediarecorder-prototype': {
+    VITE_OWLI_API_MODE: 'remote',
+    VITE_OWLI_API_BASE_URL: STAGING_API_ROOT,
+    VITE_OWLI_APP_VERSION: '0.1.0',
+    VITE_OWLI_VERSION_CODE: '1',
+    VITE_OWLI_DEFAULT_LOCALE: 'de-DE',
+    VITE_OWLI_STAGING_PROTOTYPE_MEDIARECORDER: 'enabled',
+  },
 };
 
 if (!target || !Object.hasOwn(targetConfig, target)) {
   throw new Error(
-    'Build target must be exactly mock, staging, production, or safari-jpeg-harness.',
+    'Build target must be exactly mock, staging, production, safari-jpeg-harness, or staging-mediarecorder-prototype.',
   );
 }
 
-const headerTarget = target === 'safari-jpeg-harness' ? 'mock' : target;
+const headerTarget =
+  target === 'safari-jpeg-harness'
+    ? 'mock'
+    : target === 'staging-mediarecorder-prototype'
+      ? 'staging'
+      : target;
 const environment = { ...process.env };
 for (const key of Object.keys(environment)) {
   if (key.startsWith('VITE_OWLI_')) delete environment[key];

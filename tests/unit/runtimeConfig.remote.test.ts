@@ -15,7 +15,11 @@ describe('remote runtime configuration', () => {
       readRuntimeConfig(
         env({ VITE_OWLI_API_MODE: 'remtoe', VITE_OWLI_API_BASE_URL: STAGING_API_ROOT }),
       ),
-    ).toEqual({ mode: 'invalid_configuration', reason: 'API_MODE_INVALID' });
+    ).toEqual({
+      mode: 'invalid_configuration',
+      reason: 'API_MODE_INVALID',
+      prototype: { mediaRecorderLabEnabled: false },
+    });
   });
 
   it('accepts the exact staging root', () => {
@@ -48,5 +52,32 @@ describe('remote runtime configuration', () => {
       readRuntimeConfig(env({ VITE_OWLI_API_MODE: 'remote', VITE_OWLI_API_BASE_URL: baseUrl }))
         .mode,
     ).toBe('invalid_configuration');
+  });
+
+  it('enables the media recorder lab only for explicit staging prototype configuration', () => {
+    expect(
+      readRuntimeConfig(
+        env({
+          VITE_OWLI_API_MODE: 'remote',
+          VITE_OWLI_API_BASE_URL: STAGING_API_ROOT,
+          VITE_OWLI_STAGING_PROTOTYPE_MEDIARECORDER: 'enabled',
+        }),
+      ),
+    ).toMatchObject({
+      mode: 'remote',
+      target: 'staging',
+      prototype: { mediaRecorderLabEnabled: true },
+    });
+    expect(
+      readRuntimeConfig(
+        env({
+          VITE_OWLI_API_MODE: 'mock',
+          VITE_OWLI_STAGING_PROTOTYPE_MEDIARECORDER: 'enabled',
+        }),
+      ),
+    ).toMatchObject({
+      mode: 'mock',
+      prototype: { mediaRecorderLabEnabled: false },
+    });
   });
 });

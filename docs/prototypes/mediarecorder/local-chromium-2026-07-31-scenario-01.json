@@ -1,0 +1,195 @@
+{
+  "generatedAt": "2026-07-31T22:05:57.342Z",
+  "routePath": "/lab/mediarecorder-prototype",
+  "prototypeConfigEnabled": true,
+  "probes": [
+    {
+      "candidate": {
+        "id": "webm-vp9-opus",
+        "mimeType": "video/webm;codecs=vp9,opus",
+        "fileExtension": "webm"
+      },
+      "supported": true
+    },
+    {
+      "candidate": {
+        "id": "webm-vp8-opus",
+        "mimeType": "video/webm;codecs=vp8,opus",
+        "fileExtension": "webm"
+      },
+      "supported": true
+    },
+    {
+      "candidate": {
+        "id": "webm-default",
+        "mimeType": "video/webm",
+        "fileExtension": "webm"
+      },
+      "supported": true
+    },
+    {
+      "candidate": {
+        "id": "mp4-h264-aac",
+        "mimeType": "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+        "fileExtension": "mp4"
+      },
+      "supported": true
+    }
+  ],
+  "results": [
+    {
+      "scenarioId": "scenario-01",
+      "scenarioOrder": 1,
+      "imageId": "landscape-jpeg",
+      "audioId": "audio-mpeg-10s",
+      "candidateId": "webm-vp9-opus",
+      "requestedMimeType": "video/webm;codecs=vp9,opus",
+      "status": "FAIL",
+      "attempt": {
+        "attemptId": 1,
+        "scenarioId": "scenario-01",
+        "scenarioOrder": 1,
+        "imageId": "landscape-jpeg",
+        "audioId": "audio-mpeg-10s",
+        "candidateId": "webm-vp9-opus",
+        "requestedMimeType": "video/webm;codecs=vp9,opus",
+        "outputMimeType": "video/webm;codecs=vp9,opus",
+        "outputFileName": "scenario-01.webm",
+        "outputBytes": 157644,
+        "status": "FAIL",
+        "startedAt": "2026-07-31T22:05:45.717Z",
+        "finishedAt": "2026-07-31T22:05:57.342Z",
+        "cancelled": false,
+        "initializationMs": 91,
+        "renderMs": 10004,
+        "finalizationMs": 1530,
+        "totalMs": 11624,
+        "chunkIntervalsMs": [
+          10004,
+          0
+        ],
+        "chunkSizes": [
+          1,
+          157643
+        ],
+        "requestedChunkCadenceMs": 1000,
+        "validation": {
+          "expectedDurationMs": 10000,
+          "measuredDurationMs": 9942,
+          "durationDriftMs": 58,
+          "width": 1280,
+          "height": 720,
+          "aspectRatioDelta": 0,
+          "playbackSupported": true,
+          "seekingSupported": true,
+          "audioNonSilent": false,
+          "startMarkerDetected": false,
+          "endMarkerDetected": false,
+          "trackEvidence": {
+            "hasVisualFrames": true,
+            "hasAudibleFrames": false
+          },
+          "sampleChecks": [
+            {
+              "id": "northwest",
+              "expected": [
+                225,
+                29,
+                72
+              ],
+              "actual": [
+                223,
+                30,
+                70
+              ],
+              "distance": 3,
+              "withinTolerance": true
+            },
+            {
+              "id": "northeast",
+              "expected": [
+                14,
+                165,
+                233
+              ],
+              "actual": [
+                14,
+                165,
+                229
+              ],
+              "distance": 4,
+              "withinTolerance": true
+            },
+            {
+              "id": "southwest",
+              "expected": [
+                34,
+                197,
+                94
+              ],
+              "actual": [
+                36,
+                196,
+                92
+              ],
+              "distance": 3,
+              "withinTolerance": true
+            },
+            {
+              "id": "southeast",
+              "expected": [
+                250,
+                204,
+                21
+              ],
+              "actual": [
+                249,
+                206,
+                24
+              ],
+              "distance": 3.7416573867739413,
+              "withinTolerance": true
+            },
+            {
+              "id": "center",
+              "expected": [
+                71,
+                85,
+                105
+              ],
+              "actual": [
+                68,
+                86,
+                101
+              ],
+              "distance": 5.0990195135927845,
+              "withinTolerance": true
+            }
+          ]
+        },
+        "memory": {
+          "highWaterBytes": 8011269,
+          "finalBytes": 157644,
+          "estimatedDecodedPcmBytes": 3840000,
+          "inputBytes": 169581,
+          "chunkBytes": 157644,
+          "canvasBytes": 3686400
+        },
+        "playbackCapability": {
+          "download": true,
+          "fileShare": false
+        },
+        "notes": [
+          "Output remains within the 16 MiB target."
+        ]
+      }
+    }
+  ],
+  "normalFlowUnchanged": true,
+  "notes": [
+    "Requested chunk cadence uses MediaRecorder.start(1000) and does not assert guaranteed delivery frequency.",
+    "Measurements remain local to this prototype harness and are not sent to analytics or backend services.",
+    "Browser-internal MediaRecorder buffering cannot be hard-bounded by application code."
+  ],
+  "preferredCandidateId": "webm-vp9-opus"
+}

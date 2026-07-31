@@ -145,14 +145,20 @@ function contentType(file) {
   return (
     {
       '.css': 'text/css; charset=utf-8',
+      '.flac': 'audio/flac',
       '.html': 'text/html; charset=utf-8',
       '.ico': 'image/x-icon',
       '.jpeg': 'image/jpeg',
       '.jpg': 'image/jpeg',
       '.js': 'text/javascript; charset=utf-8',
+      '.mp3': 'audio/mpeg',
+      '.mp4': 'video/mp4',
       '.json': 'application/json; charset=utf-8',
+      '.opus': 'audio/opus',
       '.png': 'image/png',
       '.svg': 'image/svg+xml',
+      '.wav': 'audio/wav',
+      '.webm': 'video/webm',
       '.webmanifest': 'application/manifest+json; charset=utf-8',
       '.woff2': 'font/woff2',
     }[extension] ?? 'application/octet-stream'

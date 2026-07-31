@@ -50,6 +50,21 @@ export default defineConfig({
         VITE_OWLI_DEFAULT_LOCALE: 'de-DE',
       },
     },
+    {
+      command: 'pnpm exec vite --host 127.0.0.1 --port 5175 --strictPort',
+      url: 'http://127.0.0.1:5175',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: {
+        ...process.env,
+        VITE_OWLI_API_MODE: 'remote',
+        VITE_OWLI_API_BASE_URL: 'https://api-staging.owli-ai.com/',
+        VITE_OWLI_APP_VERSION: '0.1.0',
+        VITE_OWLI_VERSION_CODE: '1',
+        VITE_OWLI_DEFAULT_LOCALE: 'de-DE',
+        VITE_OWLI_STAGING_PROTOTYPE_MEDIARECORDER: 'enabled',
+      },
+    },
   ],
   projects: [
     {
