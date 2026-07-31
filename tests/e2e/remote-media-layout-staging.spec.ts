@@ -289,7 +289,9 @@ async function expectPanelBeforeFooter(panel: Locator, footer: Locator): Promise
 
 async function expectActionsReachable(...actions: Locator[]): Promise<void> {
   for (const action of actions) {
-    await action.scrollIntoViewIfNeeded();
+    await action.evaluate((element) =>
+      element.scrollIntoView({ block: 'center', inline: 'nearest' }),
+    );
     await expect(action).toBeInViewport();
   }
 }
