@@ -1,6 +1,8 @@
 # Owli-AI Assist Web
 
-Accessible progressive web client for Owli-AI Assist. The project is intended to be checked out as `web/` in `KreutzM/Owli-AI-Assist-WS` and deployed to `https://assist.owli-ai.com` through Cloudflare Pages.
+Accessible progressive web client for Owli-AI Assist. The project is intended to be checked out as `web/` in `KreutzM/Owli-AI-Assist-WS`.
+
+The current `main` branch is automatically built and deployed by Cloudflare Pages to the staging site at `https://assist-staging.owli-ai.com`. Product production is not deployed from this repository state.
 
 ## MVP scope
 
@@ -11,11 +13,11 @@ Accessible progressive web client for Owli-AI Assist. The project is intended to
 - streaming scene description
 - text follow-up questions
 - local browser speech output
-- Audio-Postcard generation, playback, download, and share entry points
+- Audio-Postcard generation and temporary accessible playback
 - anonymous installation-scoped rate limits enforced by the backend
 - VoiceOver, TalkBack, keyboard, and desktop screen-reader support
 
-The checked-in starter runs in `mock` mode because the backend still needs `platform: "web"` and public PWA CORS support. See `docs/MVP-IMPLEMENTATION-PLAN.md`.
+The local default build remains in `mock` mode. The staging build uses the reviewed remote backend at `https://api-staging.owli-ai.com`.
 
 ## Stack
 
@@ -68,9 +70,10 @@ pnpm check:all
 
 Copy `.env.example` to `.env.local`.
 
-- `VITE_OWLI_API_MODE=mock` keeps development independent from pending backend work.
+- `VITE_OWLI_API_MODE=mock` keeps local development independent from remote services.
 - `VITE_OWLI_API_MODE=remote` uses `VITE_OWLI_API_BASE_URL`.
 - Values prefixed with `VITE_` are public build-time configuration and must never contain secrets.
+- Repository build scripts sanitize inherited `VITE_OWLI_*` variables and inject the target-specific values.
 
 ## Agent entry points
 
@@ -82,11 +85,19 @@ Copy `.env.example` to `.env.local`.
 
 ## Deployment
 
-Cloudflare Pages build configuration:
+Cloudflare Pages is connected directly to this GitHub repository.
 
-- Build command: `pnpm build`
+- Pages project: `owli-ai-assist-web`
+- Cloudflare Pages production branch: `main`
+- Trigger: automatic after a push or merge to `main`
+- Build command: `pnpm build:staging`
 - Output directory: `dist`
 - Node.js: 22
-- Production domain: `assist.owli-ai.com`
+- Staging custom domain: `assist-staging.owli-ai.com`
+- Immutable deployment form: `<deployment-id>.owli-ai-assist-web.pages.dev`
 
-See `docs/CLOUDFLARE-PAGES-SETUP.md` for the complete checklist.
+Cloudflare calls the deployment from its configured production branch a **Production deployment**. In Owli-AI environment terminology this project currently serves **staging only**. The label must not be interpreted as a deployment to `assist.owli-ai.com` or as production readiness.
+
+A normal staging rollout requires no manual Cloudflare deployment: merge to `main`, then verify the exact commit and immutable Pages deployment before acceptance testing.
+
+See `docs/CLOUDFLARE-PAGES-SETUP.md` for the complete configuration and verification checklist.
