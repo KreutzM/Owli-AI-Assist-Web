@@ -48,10 +48,24 @@ for (const viewport of [
 
 async function mockCamera(page: Page): Promise<void> {
   await page.addInitScript(() => {
+    const assignedStreams = new WeakMap<HTMLMediaElement, MediaStream | null>();
+    Object.defineProperty(HTMLMediaElement.prototype, 'srcObject', {
+      configurable: true,
+      get() {
+        return assignedStreams.get(this) ?? null;
+      },
+      set(value: MediaStream | null) {
+        assignedStreams.set(this, value);
+      },
+    });
+
     Object.defineProperty(navigator, 'mediaDevices', {
       configurable: true,
       value: {
-        getUserMedia: () => Promise.resolve(new MediaStream()),
+        getUserMedia: () =>
+          Promise.resolve({
+            getTracks: () => [],
+          } as unknown as MediaStream),
       },
     });
 
