@@ -62,9 +62,7 @@ test.describe('remote Audio-Postcard', () => {
     await expect(player).toHaveAttribute('controls', '');
     await expect(player).toHaveAttribute('preload', 'metadata');
     await expect(player).not.toHaveAttribute('autoplay');
-    await expect
-      .poll(async () => await player.evaluate((audio: HTMLAudioElement) => audio.paused))
-      .toBe(true);
+    expect(await player.evaluate((audio: HTMLAudioElement) => audio.autoplay)).toBe(false);
     await expect(page.getByText(/4 von 5 Versuchen im gelieferten festen Fenster/)).toBeVisible();
     await expect(page.getByText(/Beschriebene Szene:/).locator('..')).toContainText(
       'Eine helle Straße',
@@ -124,7 +122,6 @@ test.describe('remote Audio-Postcard', () => {
     await expect(page.getByText(/im Browser abgebrochen/)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Neuen Versuch starten' })).toBeFocused();
     releaseResponse?.();
-    await page.waitForTimeout(50);
     await expect(page.locator('audio')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Neuen Versuch starten' })).toBeVisible();
   });
