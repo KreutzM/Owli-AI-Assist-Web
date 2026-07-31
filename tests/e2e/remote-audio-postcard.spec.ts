@@ -10,7 +10,7 @@ const png = Buffer.from(
   'base64',
 );
 const corsHeaders = {
-  'Access-Control-Allow-Headers': 'Accept, Accept-Language, Content-Type',
+  'Access-Control-Allow-Headers': 'Accept, Accept-Language, Content-Type, Range',
   'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Expose-Headers':
@@ -48,6 +48,20 @@ test.describe('remote Audio-Postcard', () => {
       };
       if (route.request().method() === 'HEAD') {
         await route.fulfill({ status: 200, headers });
+        return;
+      }
+      const range = parseRange(route.request().headers().range, audioBytes.byteLength);
+      if (range) {
+        const body = audioBytes.subarray(range.start, range.end + 1);
+        await route.fulfill({
+          status: 206,
+          headers: {
+            ...headers,
+            'Content-Length': String(body.byteLength),
+            'Content-Range': `bytes ${range.start}-${range.end}/${audioBytes.byteLength}`,
+          },
+          body,
+        });
         return;
       }
       await route.fulfill({ status: 200, headers, body: audioBytes });
@@ -339,4 +353,17 @@ async function fulfillPreflight(route: Route): Promise<boolean> {
 
 function event(name: string, payload: unknown): string {
   return `event: ${name}\ndata: ${JSON.stringify(payload)}\n\n`;
+}
+
+function parseRange(
+  value: string | undefined,
+  totalBytes: number,
+): { start: number; end: number } | undefined {
+  if (!value) return undefined;
+  const match = /^bytes=(\d+)-(\d*)$/u.exec(value);
+  if (!match) return undefined;
+  const start = Number(match[1]);
+  const requestedEnd = match[2] ? Number(match[2]) : totalBytes - 1;
+  if (!Number.isInteger(start) || start < 0 || start >= totalBytes) return undefined;
+  return { start, end: Math.min(requestedEnd, totalBytes - 1) };
 }
