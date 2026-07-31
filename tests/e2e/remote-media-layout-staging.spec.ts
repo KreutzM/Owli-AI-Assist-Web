@@ -406,13 +406,27 @@ async function installHarness(page: Page): Promise<void> {
     const encoder = new TextEncoder();
     let resolveCamera: (() => void) | undefined;
     let stream: ReadableStreamDefaultController<Uint8Array> | undefined;
+    const assignedStreams = new WeakMap<HTMLMediaElement, MediaStream | null>();
+
+    Object.defineProperty(HTMLMediaElement.prototype, 'srcObject', {
+      configurable: true,
+      get(this: HTMLMediaElement) {
+        return assignedStreams.get(this) ?? null;
+      },
+      set(this: HTMLMediaElement, value: MediaStream | null) {
+        assignedStreams.set(this, value);
+      },
+    });
 
     Object.defineProperty(navigator, 'mediaDevices', {
       configurable: true,
       value: {
         getUserMedia: () =>
           new Promise<MediaStream>((resolve) => {
-            resolveCamera = () => resolve(new MediaStream());
+            resolveCamera = () =>
+              resolve({
+                getTracks: () => [],
+              } as unknown as MediaStream);
           }),
       },
     });
