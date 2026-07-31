@@ -311,11 +311,11 @@ export function validateAudioCapability(
   const apiOrigin = new URL(apiBaseUrl).origin;
   const expiresAt = Date.parse(result.expiresAt);
   const maxExpiry = now + options.generation.playbackTtlSeconds * 1_000 + 5_000;
+  const audioRoutePattern = /^\/api\/v1\/song\/audio\/[^/]+$/u;
   if (
     capability.protocol !== 'https:' ||
     capability.origin !== apiOrigin ||
-    !capability.pathname.startsWith('/api/v1/song/audio/') ||
-    capability.pathname === '/api/v1/song/audio/' ||
+    !audioRoutePattern.test(capability.pathname) ||
     capability.username ||
     capability.password ||
     capability.hash ||

@@ -97,6 +97,7 @@ describe('Audio-Postcard remote contracts', () => {
       'https://evil.example/api/v1/song/audio/123e4567-e89b-42d3-a456-426614174000',
       'https://api-staging.owli-ai.com/api/v1/scene/123e4567-e89b-42d3-a456-426614174000',
       'https://api-staging.owli-ai.com/api/v1/song/audio/short',
+      'https://api-staging.owli-ai.com/api/v1/song/audio/123e4567-e89b-42d3-a456-426614174000/extra',
     ]) {
       expect(() =>
         validateAudioCapability(
