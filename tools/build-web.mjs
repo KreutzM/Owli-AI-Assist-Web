@@ -7,9 +7,11 @@ const STAGING_API_ROOT = 'https://api-staging.owli-ai.com/';
 const GIT_SHA = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 const GIT_DIRTY = readGitDirty();
 const SOURCE_DIGEST = readSourceDigest();
-const OUT_DIR = process.env.OWLI_WEB_OUT_DIR ?? 'dist';
-
 const target = process.argv[2];
+const OUT_DIR =
+  process.env.OWLI_WEB_OUT_DIR ??
+  (target === 'safari-jpeg-harness' ? path.resolve('tests/harness/safari-jpeg/dist') : 'dist');
+
 const printConfigOnly = process.argv.includes('--print-config');
 const targetConfig = {
   mock: {
