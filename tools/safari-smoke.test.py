@@ -54,6 +54,40 @@ class LocalHttpsReadinessTests(unittest.TestCase):
         self.assertLess(clock.value, 90)
         self.assertGreater(attempts, 30)
 
+    def test_successful_response_is_accepted(self) -> None:
+        clock = FakeClock()
+        safari_smoke.wait_for_local_https(
+            "https://127.0.0.1:4180/",
+            123,
+            Path("server.log"),
+            timeout=90,
+            clock=clock,
+            sleep=clock.sleep,
+            probe=lambda _url: None,
+            process_alive=lambda _pid: True,
+            log_reader=lambda _path: "ready",
+        )
+        self.assertEqual(clock.value, 0)
+
+    def test_http_404_is_not_accepted_as_readiness(self) -> None:
+        clock = FakeClock()
+
+        def probe(url: str) -> None:
+            raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+
+        with self.assertRaisesRegex(TimeoutError, "HTTP Error 404"):
+            safari_smoke.wait_for_local_https(
+                "https://127.0.0.1:4180/",
+                123,
+                Path("server.log"),
+                timeout=2,
+                clock=clock,
+                sleep=clock.sleep,
+                probe=probe,
+                process_alive=lambda _pid: True,
+                log_reader=lambda _path: "server running with wrong root",
+            )
+
     def test_server_exit_before_readiness_includes_log(self) -> None:
         clock = FakeClock()
         states = iter([True, False])
@@ -101,7 +135,12 @@ class FakeResponse:
 
 
 class FakeDriver:
-    def __init__(self, *, start_error: Exception | None = None, navigate_error: Exception | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        start_error: Exception | None = None,
+        navigate_error: Exception | None = None,
+    ) -> None:
         self.start_error = start_error
         self.navigate_error = navigate_error
         self.started = False
@@ -236,24 +275,75 @@ class WorkflowPolicyTests(unittest.TestCase):
     def setUp(self) -> None:
         self.workflow = (ROOT / ".github/workflows/apple-smoke.yml").read_text()
 
+    def step(self, name: str) -> str:
+        step = self.workflow.split(f"- name: {name}", 1)[1]
+        return step.split("- name:", 1)[0]
+
     def test_focused_python_tests_are_mandatory(self) -> None:
-        self.assertIn("python3 tools/safari-smoke.test.py", self.workflow)
-        step = self.workflow.split("- name: Run focused Safari smoke tests", 1)[1]
-        step = step.split("- name:", 1)[0]
+        step = self.step("Run focused Safari smoke tests")
+        self.assertIn("python3 tools/safari-smoke.test.py", step)
         self.assertNotIn("continue-on-error", step)
         self.assertNotIn("if:", step)
 
-    def test_remote_diagnostic_skips_only_on_inconclusive(self) -> None:
-        self.assertIn("id: remote_readiness", self.workflow)
+    def test_workflow_serves_actual_harness_root(self) -> None:
+        step = self.step("Start local HTTPS harness")
+        self.assertIn("tools/serve-built-web.mjs", step)
+        self.assertIn("--root tests/harness/safari-jpeg/dist", step)
+        self.assertIn("--target-url https://127.0.0.1:4180/", step)
+
+    def test_remote_readiness_requires_successful_mandatory_local_path(self) -> None:
+        step = self.step("Run live readiness/privacy Safari smoke")
+        self.assertNotIn("always()", step)
+        self.assertNotIn("continue-on-error", step)
+
+    def test_remote_readiness_does_not_bypass_failed_local_https(self) -> None:
+        self.assertLess(
+            self.workflow.index("- name: Start local HTTPS harness"),
+            self.workflow.index("- name: Run live readiness/privacy Safari smoke"),
+        )
+        self.assertNotIn("always()", self.step("Run live readiness/privacy Safari smoke"))
+
+    def test_remote_readiness_does_not_bypass_failed_safaridriver(self) -> None:
+        self.assertLess(
+            self.workflow.index("- name: Enable and start SafariDriver"),
+            self.workflow.index("- name: Run live readiness/privacy Safari smoke"),
+        )
+        self.assertNotIn("always()", self.step("Run live readiness/privacy Safari smoke"))
+
+    def test_remote_readiness_does_not_bypass_failed_local_jpeg(self) -> None:
+        self.assertLess(
+            self.workflow.index("- name: Run deterministic local Safari JPEG gate"),
+            self.workflow.index("- name: Run live readiness/privacy Safari smoke"),
+        )
+        self.assertNotIn("always()", self.step("Run live readiness/privacy Safari smoke"))
+
+    def test_live_remote_jpeg_requires_successful_remote_readiness(self) -> None:
+        step = self.step("Run live Safari JPEG gate")
+        self.assertNotIn("always()", step)
+        self.assertIn("steps.remote_readiness.outcome == 'success'", step)
         self.assertIn(
             "steps.remote_readiness.outputs.status != 'INCONCLUSIVE_REMOTE_READINESS'",
-            self.workflow,
+            step,
         )
-        self.assertIn("Run deterministic local Safari JPEG gate", self.workflow)
+
+    def test_inconclusive_skips_live_remote_jpeg(self) -> None:
+        self.assertIn(
+            "steps.remote_readiness.outputs.status != 'INCONCLUSIVE_REMOTE_READINESS'",
+            self.step("Run live Safari JPEG gate"),
+        )
+        self.assertIn(
+            "steps.remote_readiness.outputs.status == 'INCONCLUSIVE_REMOTE_READINESS'",
+            self.step("Preserve inconclusive remote JPEG artifact"),
+        )
+
+    def test_cleanup_and_artifact_uploads_remain_always(self) -> None:
+        self.assertIn("if: always()", self.step("Stop local browser services"))
+        self.assertIn("if: always()", self.step("Upload local Safari JPEG diagnostic"))
+        self.assertIn("if: always()", self.step("Upload live readiness/privacy Safari smoke"))
+        self.assertIn("if: always()", self.step("Upload live Safari JPEG diagnostic"))
 
     def test_mandatory_local_gate_is_not_softened(self) -> None:
-        local_gate = self.workflow.split("- name: Run deterministic local Safari JPEG gate", 1)[1]
-        local_gate = local_gate.split("- name:", 1)[0]
+        local_gate = self.step("Run deterministic local Safari JPEG gate")
         self.assertNotIn("continue-on-error", local_gate)
         self.assertNotIn("always()", local_gate)
 
