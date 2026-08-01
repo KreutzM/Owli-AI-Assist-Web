@@ -114,7 +114,7 @@ function run(command, args, env) {
     const child = spawn(command, args, {
       env,
       stdio: 'inherit',
-      // Direct Node execution preserves paths such as "C:\\Program Files\\..." on Windows.
+      // Direct Node execution preserves paths such as "C:\Program Files\..." on Windows.
       shell: process.platform === 'win32' && command !== process.execPath,
     });
     child.once('error', reject);
