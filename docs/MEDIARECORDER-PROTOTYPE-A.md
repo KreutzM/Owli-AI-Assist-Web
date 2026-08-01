@@ -19,7 +19,7 @@ Web issue: `KreutzM/Owli-AI-Assist-Web#54`
 - decodes deterministic local audio fixtures;
 - routes audio through `MediaStreamAudioDestinationNode`;
 - probes runtime MIME support and records with `MediaRecorder.start(1000)`;
-- validates orientation, aspect ratio, duration drift, container magic, fixture checksums, input-fixture marker preflight, output marker timing, and local memory envelopes;
+- validates orientation, aspect ratio, duration drift, playback and seeking, exact audio/video track counts, per-track codec families, fixture checksums, input-fixture marker preflight, output marker timing, and local memory envelopes;
 - exports only local JSON evidence.
 
 ## Fixtures
@@ -35,10 +35,11 @@ Web issue: `KreutzM/Owli-AI-Assist-Web#54`
 - `pnpm measure:mediarecorder` requires a clean working tree.
 - The measurement build records `gitSha`, `gitDirty`, and `sourceDigest`.
 - Local evidence is written outside the repository by default under the system temp directory.
+- A `PASS` is a Scenario-Result for all content, playback, seeking, container, and codec gates. It is not a support decision: support still requires a 5/5 series plus an active-cancel and same-tab recovery run.
 
 ## Current August 1, 2026 status
 
-- Scenario `01` now passes locally for all four candidates once the channel-separated end-marker validator is used.
+- Scenario `01` can be measured locally for all four candidates once the channel-separated end-marker validator is used.
 - The previous August 1, 2026 repo-committed evidence files were removed because they were produced from a dirty tree and were therefore not exact-head evidence.
 - Exact-head reruns must be generated from a clean tree with `pnpm measure:mediarecorder`.
 
@@ -51,5 +52,6 @@ Web issue: `KreutzM/Owli-AI-Assist-Web#54`
 
 - Requested chunk cadence remains nominal only; delivery frequency is not guaranteed by `MediaRecorder`.
 - Browser-internal encoder buffering cannot be hard-bounded by application code.
-- Codec/container validation currently checks container magic plus measured output MIME and still does not fully inspect per-track codec declarations.
+- A deadline aborts its own attempt context. The harness waits for any non-abortable browser operation to settle before it permits cleanup and another scenario.
+- Download capability remains `unknown` until a user-activated download is exercised; file-share capability is derived from `navigator.canShare({ files })` for the actual rendered file.
 - The prototype remains staging-only and is not a production user flow.

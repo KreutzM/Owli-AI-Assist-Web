@@ -1,5 +1,10 @@
 import { PROTOTYPE_LIMITS } from '@/features/labs/mediaRecorderPrototype/constants';
+import {
+  inspectRecordedContainer,
+  matchRecordedCodecs,
+} from '@/features/labs/mediaRecorderPrototype/containerInspection';
 import type {
+  PrototypeContainerInspection,
   PrototypeAttemptEvidence,
   PrototypeImageFixture,
   PrototypeRecorderCandidate,
@@ -63,6 +68,15 @@ export function createAttemptDraft(
       aspectRatioDelta: 0,
       playbackSupported: false,
       seekingSupported: false,
+      containerInspection: {
+        container: candidate.fileExtension === 'mp4' ? 'mp4' : 'webm',
+        seekingRequired: true,
+        videoTrackCount: 0,
+        audioTrackCount: 0,
+        videoCodecs: [],
+        audioCodecs: [],
+        codecsMatchCandidate: false,
+      },
       audioNonSilent: false,
       startMarkerDetected: false,
       endMarkerDetected: false,
@@ -91,8 +105,8 @@ export function createAttemptDraft(
       transferBytes: 0,
     },
     playbackCapability: {
-      download: true,
-      fileShare: false,
+      download: 'unknown',
+      fileShare: 'unknown',
     },
     notes: [],
   };
@@ -105,22 +119,15 @@ export function assertAdmission(condition: boolean, message: string) {
 export async function assertOutputContainer(
   blob: Blob,
   mimeType: string,
-  expectedSuffix: string,
-): Promise<void> {
+  candidate: PrototypeRecorderCandidate,
+): Promise<PrototypeContainerInspection> {
   if (!mimeType) throw new Error('Output MIME type is missing.');
-  if (expectedSuffix === 'webm' && !mimeType.startsWith('video/webm')) {
-    throw new Error('WebM output was mislabeled.');
+  const inspection = await inspectRecordedContainer(blob, mimeType, candidate);
+  const matched = matchRecordedCodecs(inspection, candidate);
+  if (!matched.codecsMatchCandidate) {
+    throw new Error('Recorded track codecs do not match the selected MediaRecorder candidate.');
   }
-  if (expectedSuffix === 'mp4' && !mimeType.startsWith('video/mp4')) {
-    throw new Error('MP4 output was mislabeled.');
-  }
-  const bytes = new Uint8Array(await blob.slice(0, 16).arrayBuffer());
-  if (expectedSuffix === 'webm' && !isWebm(bytes)) {
-    throw new Error('WebM output is missing the EBML container signature.');
-  }
-  if (expectedSuffix === 'mp4' && !isMp4(bytes)) {
-    throw new Error('MP4 output is missing the ftyp container signature.');
-  }
+  return matched;
 }
 
 export function estimateImageBitmapBytes(image: PrototypeImageFixture) {
@@ -132,6 +139,7 @@ export async function withTimeout<T>(
   timeoutMs: number,
   signal: AbortSignal,
   message: string,
+  onTimeout?: (error: Error) => Error | void,
 ): Promise<T> {
   if (signal.aborted) {
     throw signal.reason instanceof Error ? signal.reason : new Error('Prototype attempt aborted.');
@@ -139,11 +147,14 @@ export async function withTimeout<T>(
   return await new Promise<T>((resolve, reject) => {
     const timeout = window.setTimeout(() => {
       cleanup();
-      reject(new Error(message));
+      const error = new Error(message);
+      reject(onTimeout?.(error) ?? error);
     }, timeoutMs);
     const onAbort = () => {
       cleanup();
-      reject(signal.reason instanceof Error ? signal.reason : new Error('Prototype attempt aborted.'));
+      reject(
+        signal.reason instanceof Error ? signal.reason : new Error('Prototype attempt aborted.'),
+      );
     };
     const cleanup = () => {
       window.clearTimeout(timeout);
@@ -161,24 +172,4 @@ export async function withTimeout<T>(
       },
     );
   });
-}
-
-function isWebm(bytes: Uint8Array): boolean {
-  return (
-    bytes.length >= 4 &&
-    bytes[0] === 0x1a &&
-    bytes[1] === 0x45 &&
-    bytes[2] === 0xdf &&
-    bytes[3] === 0xa3
-  );
-}
-
-function isMp4(bytes: Uint8Array): boolean {
-  return (
-    bytes.length >= 8 &&
-    bytes[4] === 0x66 &&
-    bytes[5] === 0x74 &&
-    bytes[6] === 0x79 &&
-    bytes[7] === 0x70
-  );
 }

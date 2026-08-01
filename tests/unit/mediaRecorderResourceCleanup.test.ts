@@ -3,20 +3,28 @@ import { stopResources } from '@/features/labs/mediaRecorderPrototype/resourceCl
 import type { PrototypeAttemptResources } from '@/features/labs/mediaRecorderPrototype/runAttempt';
 
 describe('media recorder prototype resource cleanup', () => {
-  it('awaits audio-context closure and continues after intermediate cleanup errors', async () => {
+  it('awaits an active recorder, ends every track, and closes the audio context', async () => {
     let audioClosed = false;
+    let recorderState: RecordingState = 'recording';
+    const recorderStop = vi.fn(() => {
+      recorderState = 'inactive';
+      recorder.dispatchEvent(new Event('stop'));
+    });
+    const recorder = new EventTarget() as MediaRecorder;
+    Object.defineProperty(recorder, 'state', { get: () => recorderState });
+    Object.assign(recorder, {
+      ondataavailable: null,
+      onerror: null,
+      onstop: null,
+      stop: recorderStop,
+    });
     const sourceDisconnect = vi.fn();
     const destinationDisconnect = vi.fn();
     const imageBitmapClose = vi.fn();
     const streamTrackStop = vi.fn();
     const canvasTrackStop = vi.fn();
     const resources: PrototypeAttemptResources = {
-      recorder: {
-        state: 'inactive',
-        ondataavailable: null,
-        onerror: null,
-        onstop: null,
-      } as MediaRecorder,
+      recorder,
       source: {
         stop: vi.fn(() => {
           throw new Error('already ended');
@@ -26,17 +34,14 @@ describe('media recorder prototype resource cleanup', () => {
       destination: {
         disconnect: destinationDisconnect,
       } as unknown as MediaStreamAudioDestinationNode,
-      stream: {
-        getTracks: () => [{ stop: streamTrackStop }] as unknown as MediaStreamTrack[],
-      } as MediaStream,
-      canvasStream: {
-        getTracks: () => [{ stop: canvasTrackStop }] as unknown as MediaStreamTrack[],
-      } as MediaStream,
+      stream: createTrackStream(streamTrackStop),
+      canvasStream: createTrackStream(canvasTrackStop),
       audioContext: {
         state: 'running',
         close: vi.fn(async () => {
           await Promise.resolve();
           audioClosed = true;
+          Object.defineProperty(resources.audioContext!, 'state', { value: 'closed' });
         }),
       } as unknown as AudioContext,
       imageBitmap: {
@@ -50,6 +55,7 @@ describe('media recorder prototype resource cleanup', () => {
     try {
       await expect(stopResources(resources)).resolves.toBe(true);
       expect(audioClosed).toBe(true);
+      expect(recorderStop).toHaveBeenCalledTimes(1);
       expect(sourceDisconnect).toHaveBeenCalledTimes(1);
       expect(destinationDisconnect).toHaveBeenCalledTimes(1);
       expect(imageBitmapClose).toHaveBeenCalledTimes(1);
@@ -60,4 +66,45 @@ describe('media recorder prototype resource cleanup', () => {
       revokeSpy.mockRestore();
     }
   });
+
+  it('reports false when the recorder does not stop or the audio context cannot close', async () => {
+    vi.useFakeTimers();
+    const recorder = new EventTarget() as MediaRecorder;
+    Object.defineProperty(recorder, 'state', { get: () => 'recording' });
+    Object.assign(recorder, {
+      ondataavailable: null,
+      onerror: null,
+      onstop: null,
+      stop: vi.fn(),
+    });
+    const resources: PrototypeAttemptResources = {
+      recorder,
+      audioContext: {
+        state: 'running',
+        close: vi.fn().mockRejectedValue(new Error('close failed')),
+      } as unknown as AudioContext,
+    };
+
+    try {
+      const result = stopResources(resources);
+      await vi.advanceTimersByTimeAsync(1_000);
+      await expect(result).resolves.toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
+
+function createTrackStream(stop: () => void): MediaStream {
+  let readyState: MediaStreamTrackState = 'live';
+  const track = {
+    get readyState() {
+      return readyState;
+    },
+    stop: () => {
+      stop();
+      readyState = 'ended';
+    },
+  } as MediaStreamTrack;
+  return { getTracks: () => [track] } as MediaStream;
+}

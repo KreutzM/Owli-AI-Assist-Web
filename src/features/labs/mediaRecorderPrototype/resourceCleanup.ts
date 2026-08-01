@@ -9,92 +9,127 @@ export function stopResources(resources: PrototypeAttemptResources): Promise<boo
 }
 
 async function cleanupResources(resources: PrototypeAttemptResources): Promise<boolean> {
-  const steps: Array<Promise<unknown>> = [];
+  const outcomes: boolean[] = [];
 
   if (resources.recorder) {
     const recorder = resources.recorder;
     recorder.ondataavailable = null;
     recorder.onerror = null;
     recorder.onstop = null;
-    if (recorder.state !== 'inactive') {
-      steps.push(stopRecorder(recorder));
-    }
+    outcomes.push(await stopRecorder(recorder));
   }
 
-  if (resources.source) {
-    try {
-      resources.source.stop();
-    } catch {
-      // Best-effort cleanup continues even if the source has already ended.
-    }
-    try {
-      resources.source.disconnect();
-    } catch {
-      // Best-effort cleanup continues even if the source was already disconnected.
-    }
-  }
+  outcomes.push(stopAudioSource(resources.source));
+  outcomes.push(disconnectNode(resources.destination));
+  outcomes.push(stopTracks(resources.stream));
+  outcomes.push(stopTracks(resources.canvasStream));
+  outcomes.push(closeBitmap(resources.imageBitmap));
+  outcomes.push(await closeAudioContext(resources.audioContext));
+  outcomes.push(resetCanvas(resources.canvas));
+  outcomes.push(revokeUrl(resources.blobUrl));
+  outcomes.push(revokeUrl(resources.imageUrl));
 
-  if (resources.destination) {
-    try {
-      resources.destination.disconnect();
-    } catch {
-      // Best-effort cleanup continues even if the destination was already disconnected.
-    }
-  }
-
-  for (const stream of [resources.stream, resources.canvasStream]) {
-    stream?.getTracks().forEach((track) => {
-      try {
-        track.stop();
-      } catch {
-        // Best-effort cleanup continues even if a track has already stopped.
-      }
-    });
-  }
-
-  try {
-    resources.imageBitmap?.close();
-  } catch {
-    // Best-effort cleanup continues even if the bitmap was already closed.
-  }
-
-  if (resources.audioContext && resources.audioContext.state !== 'closed') {
-    steps.push(resources.audioContext.close().catch(() => undefined));
-  }
-
-  for (const url of [resources.blobUrl, resources.imageUrl]) {
-    if (!url) continue;
-    try {
-      URL.revokeObjectURL(url);
-    } catch {
-      // Best-effort cleanup continues even if the URL has already been revoked.
-    }
-  }
-
-  const settled = await Promise.allSettled(steps);
-  return settled.every((result) => result.status === 'fulfilled');
+  return outcomes.every(Boolean);
 }
 
-function stopRecorder(recorder: MediaRecorder): Promise<void> {
-  return new Promise<void>((resolve) => {
-    const timeout = window.setTimeout(() => {
-      cleanup();
-      resolve();
-    }, CLEANUP_TIMEOUT_MS);
-    const onStop = () => {
-      cleanup();
-      resolve();
-    };
-    const cleanup = () => {
+async function stopRecorder(recorder: MediaRecorder): Promise<boolean> {
+  if (recorder.state === 'inactive') return true;
+  return await new Promise<boolean>((resolve) => {
+    const timeout = window.setTimeout(() => finish(false), CLEANUP_TIMEOUT_MS);
+    const onStop = () => finish(recorder.state === 'inactive');
+    const finish = (result: boolean) => {
       window.clearTimeout(timeout);
       recorder.removeEventListener('stop', onStop);
+      resolve(result);
     };
     recorder.addEventListener('stop', onStop, { once: true });
     try {
       recorder.stop();
     } catch {
-      cleanup();
-      resolve();
+      finish(false);
     }
   });
+}
+
+function stopAudioSource(source: AudioBufferSourceNode | undefined): boolean {
+  if (!source) return true;
+  let disconnected = true;
+  try {
+    source.stop();
+  } catch {
+    // A source may already have ended; closing its AudioContext verifies final release.
+  }
+  try {
+    source.disconnect();
+  } catch {
+    disconnected = false;
+  }
+  return disconnected;
+}
+
+function disconnectNode(node: AudioNode | undefined): boolean {
+  if (!node) return true;
+  try {
+    node.disconnect();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function stopTracks(stream: MediaStream | undefined): boolean {
+  if (!stream) return true;
+  return stream.getTracks().every((track) => {
+    try {
+      track.stop();
+      return track.readyState === 'ended';
+    } catch {
+      return false;
+    }
+  });
+}
+
+function closeBitmap(bitmap: ImageBitmap | undefined): boolean {
+  if (!bitmap) return true;
+  try {
+    bitmap.close();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function closeAudioContext(context: AudioContext | undefined): Promise<boolean> {
+  if (!context || context.state === 'closed') return true;
+  try {
+    await context.close();
+    return readAudioContextState(context) === 'closed';
+  } catch {
+    return false;
+  }
+}
+
+function readAudioContextState(context: AudioContext): AudioContextState {
+  return context.state;
+}
+
+function resetCanvas(canvas: HTMLCanvasElement | undefined): boolean {
+  if (!canvas) return true;
+  try {
+    canvas.width = 0;
+    canvas.height = 0;
+    return canvas.width === 0 && canvas.height === 0;
+  } catch {
+    return false;
+  }
+}
+
+function revokeUrl(url: string | undefined): boolean {
+  if (!url) return true;
+  try {
+    URL.revokeObjectURL(url);
+    return true;
+  } catch {
+    return false;
+  }
 }

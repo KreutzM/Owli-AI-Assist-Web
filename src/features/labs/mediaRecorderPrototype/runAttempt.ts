@@ -1,7 +1,4 @@
-import {
-  loadPrototypeFixturePair,
-  throwIfAborted,
-} from '@/core/api/prototypeFixtureAssets';
+import { loadPrototypeFixturePair, throwIfAborted } from '@/core/api/prototypeFixtureAssets';
 import { PROTOTYPE_LIMITS } from '@/features/labs/mediaRecorderPrototype/constants';
 import {
   assertAdmission,
@@ -9,11 +6,15 @@ import {
   createAttemptDraft,
   estimateImageBitmapBytes,
   MemoryTracker,
-  withTimeout,
 } from '@/features/labs/mediaRecorderPrototype/attemptSupport';
+import { PrototypeAttemptLifecycle } from '@/features/labs/mediaRecorderPrototype/attemptLifecycle';
 import { getMediaRecorderScenarioFixtures } from '@/features/labs/mediaRecorderPrototype/fixtureManifest';
+import { recordCanvasAudio } from '@/features/labs/mediaRecorderPrototype/recording';
 import { analyzeFixtureAudioBuffer } from '@/features/labs/mediaRecorderPrototype/validationAudio';
-import { determineAttemptStatus, validateRecording } from '@/features/labs/mediaRecorderPrototype/validation';
+import {
+  determineAttemptStatus,
+  validateRecording,
+} from '@/features/labs/mediaRecorderPrototype/validation';
 import type {
   PrototypeAttemptEvidence,
   PrototypeRecorderCandidate,
@@ -39,6 +40,7 @@ export async function runScenarioAttempt(input: {
   candidate: PrototypeRecorderCandidate;
   signal: AbortSignal;
   onResourceUpdate(resources: PrototypeAttemptResources): void;
+  onRecordingStart?(): void;
 }): Promise<{
   attempt: PrototypeAttemptEvidence;
   verifiedFixtures: Array<{
@@ -55,35 +57,80 @@ export async function runScenarioAttempt(input: {
   const initializationStart = performance.now();
   const memory = new MemoryTracker();
   const resources: PrototypeAttemptResources = {};
+  const lifecycle = new PrototypeAttemptLifecycle(input.signal);
   input.onResourceUpdate(resources);
-  const attemptDraft = createAttemptDraft(input.attemptId, input.scenario, input.candidate, startedAt);
+  const attemptDraft = createAttemptDraft(
+    input.attemptId,
+    input.scenario,
+    input.candidate,
+    startedAt,
+  );
 
   try {
-    assertAdmission(image.longEdgePx <= PROTOTYPE_LIMITS.maxSourceLongEdgePx, `${image.id} exceeds the 1280px long-edge limit.`);
-    assertAdmission(audio.durationMs <= PROTOTYPE_LIMITS.maxDurationMs, `${audio.id} exceeds the 30-second duration limit.`);
-    assertAdmission(audio.sizeBytes <= PROTOTYPE_LIMITS.maxCompressedAudioBytes, `${audio.id} exceeds the 16 MiB compressed audio limit.`);
-    assertAdmission(image.sizeBytes <= PROTOTYPE_LIMITS.hardCompressedInputBytes, `${image.id} exceeds the hard compressed input limit.`);
-    assertAdmission(audio.sizeBytes <= PROTOTYPE_LIMITS.hardCompressedInputBytes, `${audio.id} exceeds the hard compressed input limit.`);
-    assertAdmission(audio.channels <= PROTOTYPE_LIMITS.maxChannels, `${audio.id} exceeds the channel limit.`);
-    assertAdmission(audio.sampleRateHz <= PROTOTYPE_LIMITS.maxSampleRateHz, `${audio.id} exceeds the sample-rate limit.`);
+    assertAdmission(
+      image.longEdgePx <= PROTOTYPE_LIMITS.maxSourceLongEdgePx,
+      `${image.id} exceeds the 1280px long-edge limit.`,
+    );
+    assertAdmission(
+      audio.durationMs <= PROTOTYPE_LIMITS.maxDurationMs,
+      `${audio.id} exceeds the 30-second duration limit.`,
+    );
+    assertAdmission(
+      audio.sizeBytes <= PROTOTYPE_LIMITS.maxCompressedAudioBytes,
+      `${audio.id} exceeds the 16 MiB compressed audio limit.`,
+    );
+    assertAdmission(
+      image.sizeBytes <= PROTOTYPE_LIMITS.hardCompressedInputBytes,
+      `${image.id} exceeds the hard compressed input limit.`,
+    );
+    assertAdmission(
+      audio.sizeBytes <= PROTOTYPE_LIMITS.hardCompressedInputBytes,
+      `${audio.id} exceeds the hard compressed input limit.`,
+    );
+    assertAdmission(
+      audio.channels <= PROTOTYPE_LIMITS.maxChannels,
+      `${audio.id} exceeds the channel limit.`,
+    );
+    assertAdmission(
+      audio.sampleRateHz <= PROTOTYPE_LIMITS.maxSampleRateHz,
+      `${audio.id} exceeds the sample-rate limit.`,
+    );
 
     memory.set('imageBytes', image.sizeBytes);
     memory.set('compressedAudioBytes', audio.sizeBytes);
     attemptDraft.memory.inputBytes = image.sizeBytes + audio.sizeBytes;
     attemptDraft.memory.compressedAudioBytes = audio.sizeBytes;
 
-    const loaded = await withTimeout(
-      loadPrototypeFixturePair(image, audio, input.signal),
-      PROTOTYPE_LIMITS.initializationDeadlineMs,
-      input.signal,
-      'Fixture loading deadline exceeded.',
-    );
-    throwIfAborted(input.signal);
+    let loaded: Awaited<ReturnType<typeof loadPrototypeFixturePair>> | undefined =
+      await lifecycle.run(
+        loadPrototypeFixturePair(image, audio, lifecycle.signal),
+        PROTOTYPE_LIMITS.initializationDeadlineMs,
+        'Fixture loading deadline exceeded.',
+      );
+    throwIfAborted(lifecycle.signal);
 
-    const imageUrl = URL.createObjectURL(loaded.imageBlob);
+    const verifiedFixtures = loaded.verifiedFixtures;
+    const imageBlob = loaded.imageBlob;
+    let encodedAudio = loaded.audioBuffer;
+    loaded = undefined;
+
+    const imageUrl = URL.createObjectURL(imageBlob);
     resources.imageUrl = imageUrl;
-    const bitmap = await createImageBitmap(loaded.imageBlob);
-    throwIfAborted(input.signal);
+    const bitmapPromise = createImageBitmap(imageBlob);
+    void bitmapPromise
+      .then((lateBitmap) => {
+        if (lifecycle.signal.aborted) lateBitmap.close();
+      })
+      .catch(() => undefined);
+    const bitmap = await lifecycle.run(
+      bitmapPromise,
+      PROTOTYPE_LIMITS.initializationDeadlineMs,
+      'Image bitmap creation deadline exceeded.',
+    );
+    if (lifecycle.signal.aborted) {
+      bitmap.close();
+      throwIfAborted(lifecycle.signal);
+    }
     resources.imageBitmap = bitmap;
     const imageBitmapBytes = estimateImageBitmapBytes(image);
     memory.set('imageBitmapBytes', imageBitmapBytes);
@@ -91,17 +138,20 @@ export async function runScenarioAttempt(input: {
 
     const audioContext = new AudioContext({ sampleRate: audio.sampleRateHz });
     resources.audioContext = audioContext;
-    await audioContext.resume();
-    const decodeInput = loaded.audioBuffer.slice(0);
-    memory.set('transferBytes', decodeInput.byteLength);
-    attemptDraft.memory.transferBytes = decodeInput.byteLength;
-    const decodedAudio = await withTimeout(
-      audioContext.decodeAudioData(decodeInput),
+    await lifecycle.run(
+      audioContext.resume(),
       PROTOTYPE_LIMITS.initializationDeadlineMs,
-      input.signal,
+      'Audio context resume deadline exceeded.',
+    );
+    const decodedAudio = await lifecycle.run(
+      audioContext.decodeAudioData(encodedAudio),
+      PROTOTYPE_LIMITS.initializationDeadlineMs,
       'Audio decode deadline exceeded.',
     );
-    throwIfAborted(input.signal);
+    encodedAudio = new ArrayBuffer(0);
+    memory.delete('compressedAudioBytes');
+    attemptDraft.memory.compressedAudioBytes = 0;
+    throwIfAborted(lifecycle.signal);
     const estimatedDecodedPcmBytes = decodedAudio.length * decodedAudio.numberOfChannels * 4;
     assertAdmission(
       estimatedDecodedPcmBytes <= PROTOTYPE_LIMITS.maxDecodedPcmBytes,
@@ -116,8 +166,12 @@ export async function runScenarioAttempt(input: {
       audioNonSilent: fixturePreflight.audioNonSilent,
       startMarkerDetected: fixturePreflight.startMarkerDetected,
       endMarkerDetected: fixturePreflight.endMarkerDetected,
-      ...(fixturePreflight.startMarkerMs !== undefined ? { startMarkerMs: fixturePreflight.startMarkerMs } : {}),
-      ...(fixturePreflight.endMarkerMs !== undefined ? { endMarkerMs: fixturePreflight.endMarkerMs } : {}),
+      ...(fixturePreflight.startMarkerMs !== undefined
+        ? { startMarkerMs: fixturePreflight.startMarkerMs }
+        : {}),
+      ...(fixturePreflight.endMarkerMs !== undefined
+        ? { endMarkerMs: fixturePreflight.endMarkerMs }
+        : {}),
     };
     assertAdmission(
       fixturePreflight.audioNonSilent &&
@@ -131,6 +185,7 @@ export async function runScenarioAttempt(input: {
     );
 
     const canvas = document.createElement('canvas');
+    resources.canvas = canvas;
     canvas.width = image.width;
     canvas.height = image.height;
     const context = canvas.getContext('2d');
@@ -143,8 +198,6 @@ export async function runScenarioAttempt(input: {
     memory.set('canvasBytes', canvas.width * canvas.height * 4);
     attemptDraft.memory.canvasBytes = canvas.width * canvas.height * 4;
 
-    const canvasStream = canvas.captureStream(30);
-    resources.canvasStream = canvasStream;
     const destination = audioContext.createMediaStreamDestination();
     resources.destination = destination;
     const source = audioContext.createBufferSource();
@@ -152,84 +205,21 @@ export async function runScenarioAttempt(input: {
     source.connect(destination);
     resources.source = source;
 
-    const stream = new MediaStream([...canvasStream.getVideoTracks(), ...destination.stream.getAudioTracks()]);
-    resources.stream = stream;
-    const recorder = new MediaRecorder(stream, { mimeType: input.candidate.mimeType });
-    resources.recorder = recorder;
-
-    const chunkTimes: number[] = [];
-    const chunkSizes: number[] = [];
-    const chunks: Blob[] = [];
-    let chunkBytes = 0;
-    let renderStartedAt = 0;
-    let finalizationStartedAt = 0;
-    let renderFinishedAt = 0;
-    let stopped = false;
-
-    const stopRecorder = () => {
-      if (stopped || recorder.state === 'inactive') return;
-      stopped = true;
-      finalizationStartedAt = performance.now();
-      recorder.stop();
-    };
-
-    const outputBlob = await new Promise<Blob>((resolve, reject) => {
-      const renderDeadline = window.setTimeout(() => {
-        reject(new Error('Render deadline exceeded.'));
-        stopRecorder();
-      }, audio.durationMs + PROTOTYPE_LIMITS.renderSlackMs);
-      const onAbort = () => {
-        reject(input.signal.reason instanceof Error ? input.signal.reason : new DOMException('aborted', 'AbortError'));
-        stopRecorder();
-      };
-      const cleanup = () => {
-        window.clearTimeout(renderDeadline);
-        input.signal.removeEventListener('abort', onAbort);
-        recorder.ondataavailable = null;
-        recorder.onerror = null;
-        recorder.onstop = null;
-        source.onended = null;
-      };
-
-      recorder.ondataavailable = (event) => {
-        if (event.data.size === 0) return;
-        const now = performance.now();
-        chunkTimes.push(now);
-        chunkSizes.push(event.data.size);
-        chunkBytes += event.data.size;
-        memory.set('chunkBytes', chunkBytes);
-        attemptDraft.memory.chunkBytes = chunkBytes;
-        if (event.data.size > PROTOTYPE_LIMITS.maxChunkBytes) {
-          cleanup();
-          reject(new Error(`Chunk ${event.data.size} exceeds the per-chunk failure envelope.`));
-          stopRecorder();
-          return;
-        }
-        if (chunkBytes > PROTOTYPE_LIMITS.hardOutputBytes) {
-          cleanup();
-          reject(new Error(`Delivered chunks exceed the ${PROTOTYPE_LIMITS.hardOutputBytes} byte hard limit.`));
-          stopRecorder();
-          return;
-        }
-        chunks.push(event.data);
-      };
-      recorder.onerror = () => {
-        cleanup();
-        reject(new Error('MediaRecorder failed.'));
-      };
-      recorder.onstop = () => {
-        cleanup();
-        resolve(new Blob(chunks, { type: recorder.mimeType || input.candidate.mimeType }));
-      };
-      source.onended = () => stopRecorder();
-      input.signal.addEventListener('abort', onAbort, { once: true });
-      renderStartedAt = performance.now();
-      recorder.start(PROTOTYPE_LIMITS.requestedChunkCadenceMs);
-      source.start(0);
+    const { outputBlob, renderStartedAt, finalizationStartedAt } = await recordCanvasAudio({
+      canvas,
+      destination,
+      source,
+      candidate: input.candidate,
+      resources,
+      attempt: attemptDraft,
+      memory,
+      lifecycle,
+      durationMs: audio.durationMs,
+      ...(input.onRecordingStart ? { onRecordingStart: () => input.onRecordingStart?.() } : {}),
     });
 
-    throwIfAborted(input.signal);
-    renderFinishedAt = performance.now();
+    throwIfAborted(lifecycle.signal);
+    const renderFinishedAt = performance.now();
     attemptDraft.initializationMs = Math.round(renderStartedAt - initializationStart);
     attemptDraft.renderMs = Math.round(
       (finalizationStartedAt || renderFinishedAt) - renderStartedAt,
@@ -241,33 +231,44 @@ export async function runScenarioAttempt(input: {
     attemptDraft.outputBytes = outputBlob.size;
     attemptDraft.memory.finalBytes = outputBlob.size;
     attemptDraft.memory.highWaterBytes = memory.highWater;
-    assertAdmission(outputBlob.size <= PROTOTYPE_LIMITS.hardOutputBytes, 'Output blob exceeds the hard 32 MiB limit.');
+    assertAdmission(
+      outputBlob.size <= PROTOTYPE_LIMITS.hardOutputBytes,
+      'Output blob exceeds the hard 32 MiB limit.',
+    );
 
     const outputMimeType = outputBlob.type;
-    await assertOutputContainer(outputBlob, outputMimeType, input.candidate.fileExtension);
+    const containerInspection = await lifecycle.run(
+      assertOutputContainer(outputBlob, outputMimeType, input.candidate),
+      PROTOTYPE_LIMITS.finalizationDeadlineMs,
+      'Container inspection deadline exceeded.',
+    );
     attemptDraft.outputMimeType = outputMimeType;
     attemptDraft.outputFileName = `${input.scenario.id}.${OUTPUT_SUFFIX_BY_MIME[input.candidate.mimeType] ?? 'bin'}`;
+    attemptDraft.playbackCapability.fileShare = canShareOutputFile(
+      new File([outputBlob], attemptDraft.outputFileName, { type: outputMimeType }),
+    );
 
     const blobUrl = URL.createObjectURL(outputBlob);
     resources.blobUrl = blobUrl;
     const validationStartedAt = performance.now();
-    const validation = await withTimeout(
-      validateRecording({ blobUrl, image, audio, signal: input.signal }),
+    const validation = await lifecycle.run(
+      validateRecording({
+        blobUrl,
+        image,
+        audio,
+        containerInspection,
+        signal: lifecycle.signal,
+      }),
       audio.durationMs + PROTOTYPE_LIMITS.finalizationDeadlineMs,
-      input.signal,
       'Validation deadline exceeded.',
     );
-    throwIfAborted(input.signal);
+    throwIfAborted(lifecycle.signal);
     attemptDraft.validation = {
       ...validation,
       fixturePreflight: attemptDraft.validation.fixturePreflight,
     };
     attemptDraft.validationMs = Math.round(performance.now() - validationStartedAt);
     attemptDraft.status = determineAttemptStatus(validation);
-    attemptDraft.chunkIntervalsMs = chunkTimes.map((value, index) =>
-      index === 0 ? Math.round(value - renderStartedAt) : Math.round(value - chunkTimes[index - 1]!),
-    );
-    attemptDraft.chunkSizes = chunkSizes;
     attemptDraft.notes = [
       outputBlob.size > PROTOTYPE_LIMITS.targetOutputBytes
         ? 'Output exceeds the 16 MiB target and remains within the hard 32 MiB limit.'
@@ -277,7 +278,7 @@ export async function runScenarioAttempt(input: {
     attemptDraft.finishedAt = new Date().toISOString();
     attemptDraft.memory.highWaterBytes = memory.highWater;
     attemptDraft.cleanupCompleted = false;
-    return { attempt: attemptDraft, verifiedFixtures: loaded.verifiedFixtures };
+    return { attempt: attemptDraft, verifiedFixtures };
   } catch (error) {
     if (input.signal.aborted) {
       attemptDraft.cancelled = true;
@@ -288,6 +289,18 @@ export async function runScenarioAttempt(input: {
       throw new PrototypeAttemptCancelledError(attemptDraft);
     }
     throw error;
+  } finally {
+    await lifecycle.settlePending();
+    lifecycle.dispose(input.signal);
+  }
+}
+
+function canShareOutputFile(file: File): 'supported' | 'unsupported' | 'unknown' {
+  if (typeof navigator.canShare !== 'function') return 'unsupported';
+  try {
+    return navigator.canShare({ files: [file] }) ? 'supported' : 'unsupported';
+  } catch {
+    return 'unknown';
   }
 }
 
@@ -301,5 +314,6 @@ export interface PrototypeAttemptResources {
   blobUrl?: string;
   imageUrl?: string;
   imageBitmap?: ImageBitmap;
+  canvas?: HTMLCanvasElement;
   cleanupPromise?: Promise<boolean>;
 }

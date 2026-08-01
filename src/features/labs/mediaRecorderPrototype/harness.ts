@@ -1,4 +1,7 @@
-import { PROTOTYPE_ROUTE_PATH, RECORDER_CANDIDATE_ORDER } from '@/features/labs/mediaRecorderPrototype/constants';
+import {
+  PROTOTYPE_ROUTE_PATH,
+  RECORDER_CANDIDATE_ORDER,
+} from '@/features/labs/mediaRecorderPrototype/constants';
 import { mediaRecorderFixtureManifest } from '@/features/labs/mediaRecorderPrototype/fixtureManifest';
 import { startBackendRequestTracking } from '@/features/labs/mediaRecorderPrototype/networkTracking';
 import { stopResources } from '@/features/labs/mediaRecorderPrototype/resourceCleanup';
@@ -7,6 +10,7 @@ import {
   runScenarioAttempt,
   type PrototypeAttemptResources,
 } from '@/features/labs/mediaRecorderPrototype/runAttempt';
+import { PrototypeAttemptDeadlineError } from '@/features/labs/mediaRecorderPrototype/attemptLifecycle';
 import type {
   PrototypeCapabilityProbe,
   PrototypeMeasurementEvidence,
@@ -21,6 +25,7 @@ export interface PrototypeHarnessRunOptions {
   scenarioIds?: string[];
   onProgress?: (evidence: PrototypeMeasurementEvidence) => void;
   onAttemptStart?: (attemptId: number) => void;
+  onAttemptRecordingStart?: (attemptId: number) => void;
 }
 
 export interface PrototypeHarnessController {
@@ -86,9 +91,7 @@ export function pickPreferredCandidate(
   return probes.find((probe) => probe.supported)?.candidate;
 }
 
-export function createHarnessRun(
-  options: PrototypeHarnessRunOptions = {},
-): {
+export function createHarnessRun(options: PrototypeHarnessRunOptions = {}): {
   promise: Promise<PrototypeMeasurementEvidence>;
   controller: PrototypeHarnessController;
 } {
@@ -101,8 +104,8 @@ export function createHarnessRun(
   const controller: PrototypeHarnessController = {
     cancel() {
       if (!cancelRequestedAt) cancelRequestedAt = performance.now();
-      void stopResources(activeResources);
       abortController.abort(new DOMException('Prototype attempt cancelled.', 'AbortError'));
+      void stopResources(activeResources);
     },
     get attemptId() {
       return activeAttemptId;
@@ -120,8 +123,16 @@ export function createHarnessRun(
     options.onProgress?.(structuredClone(evidence));
     try {
       const candidate = pickPreferredCandidate(evidence.probes, options.selectedCandidateId);
+      const scenarioIds = options.scenarioIds;
+      const scenarios =
+        Array.isArray(scenarioIds) && scenarioIds.length > 0
+          ? mediaRecorderFixtureManifest.scenarios.filter((scenario) =>
+              scenarioIds.includes(scenario.id),
+            )
+          : mediaRecorderFixtureManifest.scenarios;
+      evidence.run.scenarioCount = scenarios.length;
       if (!candidate) {
-        evidence.results = mediaRecorderFixtureManifest.scenarios.map((scenario) => ({
+        evidence.results = scenarios.map((scenario) => ({
           scenarioId: scenario.id,
           scenarioOrder: scenario.order,
           imageId: scenario.imageId,
@@ -134,13 +145,6 @@ export function createHarnessRun(
         evidence.run.completedAt = new Date().toISOString();
         return evidence;
       }
-
-      const scenarioIds = options.scenarioIds;
-      const scenarios =
-        Array.isArray(scenarioIds) && scenarioIds.length > 0
-          ? mediaRecorderFixtureManifest.scenarios.filter((scenario) => scenarioIds.includes(scenario.id))
-          : mediaRecorderFixtureManifest.scenarios;
-      evidence.run.scenarioCount = scenarios.length;
 
       for (const scenario of scenarios) {
         if (abortController.signal.aborted) break;
@@ -155,8 +159,17 @@ export function createHarnessRun(
             onResourceUpdate(resources) {
               activeResources = resources;
             },
+            onRecordingStart() {
+              options.onAttemptRecordingStart?.(activeAttemptId);
+            },
           });
           attempt.cleanupCompleted = await stopResources(activeResources);
+          if (!attempt.cleanupCompleted) {
+            attempt.status = 'FAIL';
+            attempt.notes.push(
+              'Cleanup could not verify that every renderer resource was released.',
+            );
+          }
           if (cancelRequestedAt !== undefined) {
             attempt.cancelled = true;
             attempt.cancelVisibleWithinMs = Math.round(performance.now() - cancelRequestedAt);
@@ -206,8 +219,10 @@ export function createHarnessRun(
             candidateId: candidate.id,
             requestedMimeType: candidate.mimeType,
             status: 'FAIL',
-            error: error instanceof Error ? error.message : 'Unknown MediaRecorder prototype error.',
+            error:
+              error instanceof Error ? error.message : 'Unknown MediaRecorder prototype error.',
           });
+          if (error instanceof PrototypeAttemptDeadlineError) break;
         } finally {
           activeResources = {};
           evidence.generatedAt = new Date().toISOString();

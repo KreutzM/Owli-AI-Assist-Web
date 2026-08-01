@@ -82,6 +82,16 @@ export interface PrototypeMemoryEvidence {
   transferBytes: number;
 }
 
+export interface PrototypeContainerInspection {
+  container: 'webm' | 'mp4';
+  seekingRequired: boolean;
+  videoTrackCount: number;
+  audioTrackCount: number;
+  videoCodecs: string[];
+  audioCodecs: string[];
+  codecsMatchCandidate: boolean;
+}
+
 export interface PrototypeValidationEvidence {
   expectedDurationMs: number;
   measuredDurationMs: number;
@@ -91,6 +101,7 @@ export interface PrototypeValidationEvidence {
   aspectRatioDelta: number;
   playbackSupported: boolean;
   seekingSupported: boolean;
+  containerInspection: PrototypeContainerInspection;
   audioNonSilent: boolean;
   startMarkerDetected: boolean;
   endMarkerDetected: boolean;
@@ -153,8 +164,8 @@ export interface PrototypeAttemptEvidence {
   validation: PrototypeValidationEvidence;
   memory: PrototypeMemoryEvidence;
   playbackCapability: {
-    download: boolean;
-    fileShare: boolean;
+    download: 'unknown' | 'supported';
+    fileShare: 'unknown' | 'supported' | 'unsupported';
   };
   notes: string[];
 }

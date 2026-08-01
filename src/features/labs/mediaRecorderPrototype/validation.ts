@@ -1,5 +1,6 @@
 import { PROTOTYPE_LIMITS } from '@/features/labs/mediaRecorderPrototype/constants';
 import type { getMediaRecorderScenarioFixtures } from '@/features/labs/mediaRecorderPrototype/fixtureManifest';
+import type { PrototypeContainerInspection } from '@/features/labs/mediaRecorderPrototype/types';
 import { analyzeAudioMarkers } from '@/features/labs/mediaRecorderPrototype/validationAudio';
 import {
   collectSampleChecks,
@@ -13,6 +14,7 @@ export async function validateRecording(input: {
   blobUrl: string;
   image: ReturnType<typeof getMediaRecorderScenarioFixtures>['image'];
   audio: ReturnType<typeof getMediaRecorderScenarioFixtures>['audio'];
+  containerInspection: PrototypeContainerInspection;
   signal: AbortSignal;
 }): Promise<{
   expectedDurationMs: number;
@@ -23,6 +25,7 @@ export async function validateRecording(input: {
   aspectRatioDelta: number;
   playbackSupported: boolean;
   seekingSupported: boolean;
+  containerInspection: PrototypeContainerInspection;
   audioNonSilent: boolean;
   startMarkerDetected: boolean;
   endMarkerDetected: boolean;
@@ -56,7 +59,12 @@ export async function validateRecording(input: {
   video.volume = 1;
   video.muted = false;
   video.playsInline = true;
-  await waitForMediaEvent(video, 'loadedmetadata', PROTOTYPE_LIMITS.metadataDeadlineMs, input.signal);
+  await waitForMediaEvent(
+    video,
+    'loadedmetadata',
+    PROTOTYPE_LIMITS.metadataDeadlineMs,
+    input.signal,
+  );
   const width = video.videoWidth;
   const height = video.videoHeight;
   const expectedDurationMs = input.audio.durationMs;
@@ -82,14 +90,18 @@ export async function validateRecording(input: {
     aspectRatioDelta,
     playbackSupported,
     seekingSupported,
+    containerInspection: input.containerInspection,
     audioNonSilent: audioEvidence.audioNonSilent,
     startMarkerDetected: audioEvidence.startMarkerDetected,
     endMarkerDetected: audioEvidence.endMarkerDetected,
-    ...(audioEvidence.startMarkerMs !== undefined ? { startMarkerMs: audioEvidence.startMarkerMs } : {}),
+    ...(audioEvidence.startMarkerMs !== undefined
+      ? { startMarkerMs: audioEvidence.startMarkerMs }
+      : {}),
     ...(audioEvidence.endMarkerMs !== undefined ? { endMarkerMs: audioEvidence.endMarkerMs } : {}),
     markerAnalysis: audioEvidence.samples,
     trackEvidence: {
-      hasVisualFrames: width > 0 && height > 0 && sampleChecks.every((sample) => sample.withinTolerance),
+      hasVisualFrames:
+        width > 0 && height > 0 && sampleChecks.every((sample) => sample.withinTolerance),
       hasAudibleFrames: audioEvidence.audioNonSilent,
     },
     sampleChecks,
@@ -101,6 +113,11 @@ export function determineAttemptStatus(
 ): 'PASS' | 'FAIL' | 'AUDIO_ONLY_FALLBACK' {
   const outputLooksValid =
     validation.trackEvidence.hasVisualFrames &&
+    validation.playbackSupported &&
+    (!validation.containerInspection.seekingRequired || validation.seekingSupported) &&
+    validation.containerInspection.videoTrackCount === 1 &&
+    validation.containerInspection.audioTrackCount === 1 &&
+    validation.containerInspection.codecsMatchCandidate &&
     validation.audioNonSilent &&
     validation.startMarkerDetected &&
     validation.endMarkerDetected &&

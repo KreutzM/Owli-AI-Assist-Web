@@ -39,7 +39,9 @@ export function MediaRecorderPrototypeLab({ enabled }: MediaRecorderPrototypeLab
     const cancelOnHidden = () => {
       if (document.visibilityState === 'hidden') {
         controllerRef.current?.cancel();
-        setStatusMessage('Der laufende Versuch wird beim Verlassen des Tabs abgebrochen und bereinigt.');
+        setStatusMessage(
+          'Der laufende Versuch wird beim Verlassen des Tabs abgebrochen und bereinigt.',
+        );
       }
     };
     const cancelOnPageHide = () => {
@@ -67,6 +69,11 @@ export function MediaRecorderPrototypeLab({ enabled }: MediaRecorderPrototypeLab
       ...(scope === 'single' ? { scenarioIds: [selectedScenarioId] } : {}),
       onProgress: setEvidence,
       onAttemptStart: (attemptId) => setAttemptCounter(attemptId),
+      onAttemptRecordingStart: (attemptId) => {
+        if (runTokenRef.current === runToken) {
+          setStatusMessage(`Renderer-Aufnahme laeuft fuer Versuch ${attemptId}.`);
+        }
+      },
     });
     controllerRef.current = run.controller;
     try {
@@ -78,7 +85,9 @@ export function MediaRecorderPrototypeLab({ enabled }: MediaRecorderPrototypeLab
       );
     } catch (error) {
       if (runTokenRef.current !== runToken) return;
-      setStatusMessage(error instanceof Error ? error.message : 'Die Prototyp-Messung ist fehlgeschlagen.');
+      setStatusMessage(
+        error instanceof Error ? error.message : 'Die Prototyp-Messung ist fehlgeschlagen.',
+      );
     } finally {
       if (runTokenRef.current === runToken) {
         controllerRef.current = undefined;
@@ -123,7 +132,9 @@ export function MediaRecorderPrototypeLab({ enabled }: MediaRecorderPrototypeLab
   return (
     <section className="panel" aria-labelledby="mediarecorder-lab-title">
       <p className="eyebrow">Staging-Prototyp / Slice 6 Candidate A</p>
-      <h2 id="mediarecorder-lab-title">MediaRecorder-Renderer und deterministisches Mess-Harness</h2>
+      <h2 id="mediarecorder-lab-title">
+        MediaRecorder-Renderer und deterministisches Mess-Harness
+      </h2>
       <p>
         Diese Route ist nur fuer explizite Staging-/Preview-Messungen gedacht. Sie verwendet
         statische Canvas-Bilder und lokale Audio-Fixtures, ruft kein Backend auf und veraendert den
@@ -150,7 +161,8 @@ export function MediaRecorderPrototypeLab({ enabled }: MediaRecorderPrototypeLab
             ))}
           </select>
           <p className="field-hint">
-            Aktuelle Wahl fuer den naechsten Lauf: {preferredCandidate?.mimeType ?? 'kein unterstuetzter Kandidat'}
+            Aktuelle Wahl fuer den naechsten Lauf:{' '}
+            {preferredCandidate?.mimeType ?? 'kein unterstuetzter Kandidat'}
           </p>
           <label htmlFor="mediarecorder-scenario">Einzelszenario</label>
           <select
@@ -182,7 +194,12 @@ export function MediaRecorderPrototypeLab({ enabled }: MediaRecorderPrototypeLab
             >
               Ausgewaehltes Szenario ausfuehren
             </button>
-            <button className="button button--secondary" type="button" disabled={!running} onClick={cancelHarness}>
+            <button
+              className="button button--secondary"
+              type="button"
+              disabled={!running}
+              onClick={cancelHarness}
+            >
               Lauf abbrechen
             </button>
             <button className="button button--secondary" type="button" onClick={exportEvidence}>
@@ -214,7 +231,8 @@ export function MediaRecorderPrototypeLab({ enabled }: MediaRecorderPrototypeLab
         <ul>
           {probes.map((probe) => (
             <li key={probe.candidate.id}>
-              <code>{probe.candidate.mimeType}</code>: {probe.supported ? 'supported' : 'UNSUPPORTED'}
+              <code>{probe.candidate.mimeType}</code>:{' '}
+              {probe.supported ? 'supported' : 'UNSUPPORTED'}
             </li>
           ))}
         </ul>
