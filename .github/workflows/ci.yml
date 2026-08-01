@@ -147,7 +147,8 @@ jobs:
       - name: Build deterministic Safari JPEG harness
         run: |
           pnpm build:safari-jpeg-harness
-          if grep -qE 'api-staging\.owli-ai\.com|https://api\.owli-ai\.com' dist/_headers; then
+          test -f tests/harness/safari-jpeg/dist/_headers
+          if grep -qE 'api-staging\.owli-ai\.com|https://api\.owli-ai\.com' tests/harness/safari-jpeg/dist/_headers; then
             echo 'Safari JPEG harness headers contain a remote API origin.' >&2
             exit 1
           fi
