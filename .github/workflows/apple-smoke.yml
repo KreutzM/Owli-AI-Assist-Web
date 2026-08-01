@@ -414,7 +414,10 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/apple-safari/local-jpeg" "$RUNNER_TEMP/apple-safari/logs"
           server_log="$RUNNER_TEMP/apple-safari/logs/local-https-server.log"
-          node tools/serve-built-web.mjs --https --port 4180 \
+          node tools/serve-built-web.mjs \
+            --https \
+            --port 4180 \
+            --root tests/harness/safari-jpeg/dist \
             > "$server_log" 2>&1 &
           server_pid=$!
           echo "$server_pid" > "$RUNNER_TEMP/apple-safari/local-https-server.pid"
@@ -454,7 +457,7 @@ jobs:
 
       - name: Run live readiness/privacy Safari smoke
         id: remote_readiness
-        if: ${{ always() && (env.SUITE == 'safari' || env.SUITE == 'all') }}
+        if: ${{ env.SUITE == 'safari' || env.SUITE == 'all' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -484,7 +487,7 @@ jobs:
           cat "$RUNNER_TEMP/apple-safari/live-readiness/result.json"
 
       - name: Preserve inconclusive remote JPEG artifact
-        if: ${{ always() && steps.remote_readiness.outputs.status == 'INCONCLUSIVE_REMOTE_READINESS' }}
+        if: ${{ steps.remote_readiness.outputs.status == 'INCONCLUSIVE_REMOTE_READINESS' }}
         shell: bash
         run: |
           mkdir -p "$RUNNER_TEMP/apple-safari/live-jpeg"
@@ -493,7 +496,8 @@ jobs:
 
       - name: Run live Safari JPEG gate
         if: >-
-          ${{ always() && (env.SUITE == 'safari' || env.SUITE == 'all') && env.TARGET_URL != '' &&
+          ${{ (env.SUITE == 'safari' || env.SUITE == 'all') && env.TARGET_URL != '' &&
+              steps.remote_readiness.outcome == 'success' &&
               steps.remote_readiness.outputs.status != 'INCONCLUSIVE_REMOTE_READINESS' }}
         shell: bash
         env:
