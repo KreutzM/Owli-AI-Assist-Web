@@ -27,6 +27,7 @@ export function MediaRecorderPrototypeLab({ enabled }: MediaRecorderPrototypeLab
       : 'Die Prototyp-Konfiguration ist nicht freigegeben. Die Route bleibt fail-closed.',
   );
   const controllerRef = useRef<PrototypeHarnessController | undefined>(undefined);
+  const runTokenRef = useRef(0);
   const probes = useMemo(() => probeRecorderCandidates(), []);
   const preferredCandidate = useMemo(
     () => pickPreferredCandidate(probes, selectedCandidateId),
@@ -38,13 +39,12 @@ export function MediaRecorderPrototypeLab({ enabled }: MediaRecorderPrototypeLab
     const cancelOnHidden = () => {
       if (document.visibilityState === 'hidden') {
         controllerRef.current?.cancel();
-        setRunning(false);
-        setStatusMessage('Der laufende Versuch wurde beim Verlassen des Tabs vollstaendig bereinigt.');
+        setStatusMessage('Der laufende Versuch wird beim Verlassen des Tabs abgebrochen und bereinigt.');
       }
     };
     const cancelOnPageHide = () => {
       controllerRef.current?.cancel();
-      setRunning(false);
+      setStatusMessage('Der laufende Versuch wird vor dem Verlassen der Seite bereinigt.');
     };
     document.addEventListener('visibilitychange', cancelOnHidden);
     window.addEventListener('pagehide', cancelOnPageHide);
@@ -57,6 +57,7 @@ export function MediaRecorderPrototypeLab({ enabled }: MediaRecorderPrototypeLab
 
   const runHarness = async (scope: 'manifest' | 'single') => {
     if (!enabled || running) return;
+    const runToken = ++runTokenRef.current;
     setRunning(true);
     setStatusMessage(
       'Die Prototyp-Messung laeuft. Die angeforderte Chunk-Cadence betraegt 1000 ms ohne Liefergarantie.',
@@ -70,24 +71,26 @@ export function MediaRecorderPrototypeLab({ enabled }: MediaRecorderPrototypeLab
     controllerRef.current = run.controller;
     try {
       const result = await run.promise;
+      if (runTokenRef.current !== runToken) return;
       setEvidence(result);
       setStatusMessage(
         'Die Prototyp-Messung wurde lokal abgeschlossen. Ergebnisse verbleiben ausschliesslich in dieser Lab-Route.',
       );
     } catch (error) {
+      if (runTokenRef.current !== runToken) return;
       setStatusMessage(error instanceof Error ? error.message : 'Die Prototyp-Messung ist fehlgeschlagen.');
     } finally {
-      controllerRef.current = undefined;
-      setRunning(false);
+      if (runTokenRef.current === runToken) {
+        controllerRef.current = undefined;
+        setRunning(false);
+      }
     }
   };
 
   const cancelHarness = () => {
-    const startedAt = performance.now();
     controllerRef.current?.cancel();
-    setRunning(false);
     setStatusMessage(
-      `Die laufende Messung wurde abgebrochen und bereinigt (${Math.round(performance.now() - startedAt)} ms sichtbarer Abbruch).`,
+      'Der laufende Versuch wird abgebrochen. Ein neuer Lauf ist erst nach vollstaendigem Cleanup verfuegbar.',
     );
   };
 
@@ -147,7 +150,7 @@ export function MediaRecorderPrototypeLab({ enabled }: MediaRecorderPrototypeLab
             ))}
           </select>
           <p className="field-hint">
-            Aktuelle Wahl: {preferredCandidate?.mimeType ?? 'kein unterstuetzter Kandidat'}
+            Aktuelle Wahl fuer den naechsten Lauf: {preferredCandidate?.mimeType ?? 'kein unterstuetzter Kandidat'}
           </p>
           <label htmlFor="mediarecorder-scenario">Einzelszenario</label>
           <select

@@ -1,0 +1,942 @@
+{
+  "generatedAt": "2026-08-01T05:31:49.617Z",
+  "routePath": "/lab/mediarecorder-prototype",
+  "prototypeConfigEnabled": true,
+  "build": {
+    "gitSha": "31bb4033fbdf8080dcb028d4b309082cc911b1f1",
+    "buildTarget": "staging-mediarecorder-prototype"
+  },
+  "environment": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+    "platform": "Win32",
+    "browserName": "Chrome",
+    "browserVersion": "149.0.7827.55",
+    "os": "Windows",
+    "displayMode": "browser",
+    "assistiveTechnology": "unknown"
+  },
+  "run": {
+    "runId": 1,
+    "startedAt": "2026-08-01T05:31:29.235Z",
+    "scenarioCount": 1,
+    "seriesIndex": 1,
+    "seriesLength": 1,
+    "backendRequestsObserved": 0,
+    "completedAt": "2026-08-01T05:31:49.617Z"
+  },
+  "fixtures": [
+    {
+      "fixtureId": "landscape-jpeg",
+      "kind": "image",
+      "fileName": "landscape.jpg",
+      "sha256": "6527fd94472fd29dc3230defad6c3728282e986f7cc88066fb402f5270ce8556",
+      "sizeBytes": 8641,
+      "verified": true
+    },
+    {
+      "fixtureId": "audio-mpeg-10s",
+      "kind": "audio",
+      "fileName": "audio-mpeg-10s.mp3",
+      "sha256": "91421e65c14b4f3271a89c13214d49c2a7a881bd7fe0b29763f01a6e9b81421e",
+      "sizeBytes": 160940,
+      "verified": true
+    }
+  ],
+  "probes": [
+    {
+      "candidate": {
+        "id": "mp4-h264-aac",
+        "mimeType": "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+        "fileExtension": "mp4"
+      },
+      "supported": true
+    },
+    {
+      "candidate": {
+        "id": "webm-vp8-opus",
+        "mimeType": "video/webm;codecs=vp8,opus",
+        "fileExtension": "webm"
+      },
+      "supported": true
+    },
+    {
+      "candidate": {
+        "id": "webm-default",
+        "mimeType": "video/webm",
+        "fileExtension": "webm"
+      },
+      "supported": true
+    },
+    {
+      "candidate": {
+        "id": "webm-vp9-opus",
+        "mimeType": "video/webm;codecs=vp9,opus",
+        "fileExtension": "webm"
+      },
+      "supported": true
+    }
+  ],
+  "results": [
+    {
+      "scenarioId": "scenario-01",
+      "scenarioOrder": 1,
+      "imageId": "landscape-jpeg",
+      "audioId": "audio-mpeg-10s",
+      "candidateId": "webm-default",
+      "requestedMimeType": "video/webm",
+      "status": "FAIL",
+      "attempt": {
+        "attemptId": 1,
+        "scenarioId": "scenario-01",
+        "scenarioOrder": 1,
+        "imageId": "landscape-jpeg",
+        "audioId": "audio-mpeg-10s",
+        "candidateId": "webm-default",
+        "requestedMimeType": "video/webm",
+        "outputMimeType": "video/webm;codecs=vp8,opus",
+        "outputFileName": "scenario-01.webm",
+        "outputBytes": 159283,
+        "status": "FAIL",
+        "startedAt": "2026-08-01T05:31:29.236Z",
+        "finishedAt": "2026-08-01T05:31:49.616Z",
+        "cancelled": false,
+        "cleanupCompleted": true,
+        "initializationMs": 49,
+        "renderMs": 9998,
+        "finalizationMs": 10335,
+        "totalMs": 20381,
+        "chunkIntervalsMs": [
+          9997,
+          0
+        ],
+        "chunkSizes": [
+          1,
+          159282
+        ],
+        "requestedChunkCadenceMs": 1000,
+        "validation": {
+          "expectedDurationMs": 10000,
+          "measuredDurationMs": 9937,
+          "durationDriftMs": 63,
+          "width": 1280,
+          "height": 720,
+          "aspectRatioDelta": 0,
+          "playbackSupported": true,
+          "seekingSupported": true,
+          "audioNonSilent": true,
+          "startMarkerDetected": true,
+          "endMarkerDetected": false,
+          "startMarkerMs": 491,
+          "markerAnalysis": [
+            {
+              "timeMs": 91,
+              "rms": 0,
+              "startMarkerDb": -734.2064819335938,
+              "endMarkerDb": -729.1205444335938,
+              "backgroundDb": -719.091064453125
+            },
+            {
+              "timeMs": 192,
+              "rms": 0,
+              "startMarkerDb": -850.1815795898438,
+              "endMarkerDb": -869.110595703125,
+              "backgroundDb": -848.736572265625
+            },
+            {
+              "timeMs": 291,
+              "rms": 0,
+              "startMarkerDb": -850.1815795898438,
+              "endMarkerDb": -869.110595703125,
+              "backgroundDb": -848.736572265625
+            },
+            {
+              "timeMs": 392,
+              "rms": 0.001407783519857275,
+              "startMarkerDb": -198.31825256347656,
+              "endMarkerDb": -196.24864196777344,
+              "backgroundDb": -198.56478881835938
+            },
+            {
+              "timeMs": 491,
+              "rms": 0.40197913305370264,
+              "startMarkerDb": -20.915220260620117,
+              "endMarkerDb": -97.78251647949219,
+              "backgroundDb": -114.50930786132812
+            },
+            {
+              "timeMs": 592,
+              "rms": 0.40701681905926657,
+              "startMarkerDb": -20.88909912109375,
+              "endMarkerDb": -105.51602172851562,
+              "backgroundDb": -113.61045837402344
+            },
+            {
+              "timeMs": 691,
+              "rms": 0.09872681321376932,
+              "startMarkerDb": -96.78652954101562,
+              "endMarkerDb": -84.36173248291016,
+              "backgroundDb": -34.91708755493164
+            },
+            {
+              "timeMs": 792,
+              "rms": 0.0974140979688156,
+              "startMarkerDb": -123.14923095703125,
+              "endMarkerDb": -102.8541259765625,
+              "backgroundDb": -34.90823745727539
+            },
+            {
+              "timeMs": 891,
+              "rms": 0.09886173084021081,
+              "startMarkerDb": -131.66098022460938,
+              "endMarkerDb": -110.39012145996094,
+              "backgroundDb": -34.90913772583008
+            },
+            {
+              "timeMs": 998,
+              "rms": 0.09886255983685342,
+              "startMarkerDb": -126.90286254882812,
+              "endMarkerDb": -113.86859893798828,
+              "backgroundDb": -34.89897155761719
+            },
+            {
+              "timeMs": 1091,
+              "rms": 0.09884530019976687,
+              "startMarkerDb": -128.5560302734375,
+              "endMarkerDb": -111.67481231689453,
+              "backgroundDb": -34.89830017089844
+            },
+            {
+              "timeMs": 1198,
+              "rms": 0.0987942573505859,
+              "startMarkerDb": -136.21234130859375,
+              "endMarkerDb": -115.90184020996094,
+              "backgroundDb": -34.89935302734375
+            },
+            {
+              "timeMs": 1291,
+              "rms": 0.098774194892068,
+              "startMarkerDb": -134.06243896484375,
+              "endMarkerDb": -107.37358093261719,
+              "backgroundDb": -34.89744567871094
+            },
+            {
+              "timeMs": 1398,
+              "rms": 0.09883090230183071,
+              "startMarkerDb": -130.04531860351562,
+              "endMarkerDb": -107.89600372314453,
+              "backgroundDb": -34.89501190185547
+            },
+            {
+              "timeMs": 1491,
+              "rms": 0.09883768691294557,
+              "startMarkerDb": -132.7584991455078,
+              "endMarkerDb": -111.26353454589844,
+              "backgroundDb": -34.89901351928711
+            },
+            {
+              "timeMs": 1598,
+              "rms": 0.09875171406380988,
+              "startMarkerDb": -133.91297912597656,
+              "endMarkerDb": -118.64341735839844,
+              "backgroundDb": -34.911991119384766
+            },
+            {
+              "timeMs": 1691,
+              "rms": 0.09890573341752994,
+              "startMarkerDb": -128.78363037109375,
+              "endMarkerDb": -113.22174072265625,
+              "backgroundDb": -34.895225524902344
+            },
+            {
+              "timeMs": 1792,
+              "rms": 0.09748099814385683,
+              "startMarkerDb": -127.14730834960938,
+              "endMarkerDb": -117.22360229492188,
+              "backgroundDb": -34.906349182128906
+            },
+            {
+              "timeMs": 1891,
+              "rms": 0.0987576742449658,
+              "startMarkerDb": -126.96687316894531,
+              "endMarkerDb": -108.37309265136719,
+              "backgroundDb": -34.91073226928711
+            },
+            {
+              "timeMs": 1992,
+              "rms": 0.09755526089249641,
+              "startMarkerDb": -131.2805938720703,
+              "endMarkerDb": -111.03813171386719,
+              "backgroundDb": -34.89794921875
+            },
+            {
+              "timeMs": 2099,
+              "rms": 0.09721342777409368,
+              "startMarkerDb": -131.69985961914062,
+              "endMarkerDb": -110.81192016601562,
+              "backgroundDb": -34.89616775512695
+            },
+            {
+              "timeMs": 2192,
+              "rms": 0.09749078083467909,
+              "startMarkerDb": -130.0679931640625,
+              "endMarkerDb": -111.93533325195312,
+              "backgroundDb": -34.90866470336914
+            },
+            {
+              "timeMs": 2291,
+              "rms": 0.09886346418889917,
+              "startMarkerDb": -132.51629638671875,
+              "endMarkerDb": -109.24978637695312,
+              "backgroundDb": -34.896785736083984
+            },
+            {
+              "timeMs": 2392,
+              "rms": 0.09746150626282249,
+              "startMarkerDb": -129.35321044921875,
+              "endMarkerDb": -109.63379669189453,
+              "backgroundDb": -34.8972282409668
+            },
+            {
+              "timeMs": 2499,
+              "rms": 0.09725158773955037,
+              "startMarkerDb": -128.79148864746094,
+              "endMarkerDb": -110.59737396240234,
+              "backgroundDb": -34.904052734375
+            },
+            {
+              "timeMs": 2592,
+              "rms": 0.09759008073214938,
+              "startMarkerDb": -131.18655395507812,
+              "endMarkerDb": -108.17947387695312,
+              "backgroundDb": -34.886451721191406
+            },
+            {
+              "timeMs": 2700,
+              "rms": 0.0971830730104588,
+              "startMarkerDb": -134.25027465820312,
+              "endMarkerDb": -113.13297271728516,
+              "backgroundDb": -34.900787353515625
+            },
+            {
+              "timeMs": 2792,
+              "rms": 0.09745592551636374,
+              "startMarkerDb": -135.36285400390625,
+              "endMarkerDb": -105.4324951171875,
+              "backgroundDb": -34.907745361328125
+            },
+            {
+              "timeMs": 2899,
+              "rms": 0.09717793629191854,
+              "startMarkerDb": -136.5585479736328,
+              "endMarkerDb": -114.77001953125,
+              "backgroundDb": -34.90584945678711
+            },
+            {
+              "timeMs": 2992,
+              "rms": 0.09752715160653316,
+              "startMarkerDb": -128.77752685546875,
+              "endMarkerDb": -109.09942626953125,
+              "backgroundDb": -34.88951110839844
+            },
+            {
+              "timeMs": 3091,
+              "rms": 0.09877064959794545,
+              "startMarkerDb": -130.32284545898438,
+              "endMarkerDb": -102.2738265991211,
+              "backgroundDb": -34.913124084472656
+            },
+            {
+              "timeMs": 3192,
+              "rms": 0.09747358404453392,
+              "startMarkerDb": -124.46082305908203,
+              "endMarkerDb": -108.49114990234375,
+              "backgroundDb": -34.90217590332031
+            },
+            {
+              "timeMs": 3291,
+              "rms": 0.09886836261872323,
+              "startMarkerDb": -132.15330505371094,
+              "endMarkerDb": -119.06456756591797,
+              "backgroundDb": -34.89964294433594
+            },
+            {
+              "timeMs": 3392,
+              "rms": 0.09749467835208402,
+              "startMarkerDb": -139.93051147460938,
+              "endMarkerDb": -106.39457702636719,
+              "backgroundDb": -34.90817642211914
+            },
+            {
+              "timeMs": 3491,
+              "rms": 0.0988833578413725,
+              "startMarkerDb": -129.1454620361328,
+              "endMarkerDb": -110.39872741699219,
+              "backgroundDb": -34.89716339111328
+            },
+            {
+              "timeMs": 3592,
+              "rms": 0.09743229936444145,
+              "startMarkerDb": -132.63270568847656,
+              "endMarkerDb": -123.09004974365234,
+              "backgroundDb": -34.912906646728516
+            },
+            {
+              "timeMs": 3691,
+              "rms": 0.09878294443513373,
+              "startMarkerDb": -129.26991271972656,
+              "endMarkerDb": -106.60125732421875,
+              "backgroundDb": -34.918540954589844
+            },
+            {
+              "timeMs": 3798,
+              "rms": 0.09889963148972192,
+              "startMarkerDb": -124.57534790039062,
+              "endMarkerDb": -112.2672348022461,
+              "backgroundDb": -34.897525787353516
+            },
+            {
+              "timeMs": 3891,
+              "rms": 0.09886316273913642,
+              "startMarkerDb": -126.4504165649414,
+              "endMarkerDb": -112.95623779296875,
+              "backgroundDb": -34.90735626220703
+            },
+            {
+              "timeMs": 3992,
+              "rms": 0.09756534159772427,
+              "startMarkerDb": -130.6053466796875,
+              "endMarkerDb": -107.65280151367188,
+              "backgroundDb": -34.89934158325195
+            },
+            {
+              "timeMs": 4091,
+              "rms": 0.09895626701740809,
+              "startMarkerDb": -133.22657775878906,
+              "endMarkerDb": -111.25550842285156,
+              "backgroundDb": -34.895652770996094
+            },
+            {
+              "timeMs": 4192,
+              "rms": 0.09752554729966212,
+              "startMarkerDb": -134.80914306640625,
+              "endMarkerDb": -119.59983825683594,
+              "backgroundDb": -34.89820861816406
+            },
+            {
+              "timeMs": 4291,
+              "rms": 0.09878731891606313,
+              "startMarkerDb": -136.61331176757812,
+              "endMarkerDb": -105.29167938232422,
+              "backgroundDb": -34.90696716308594
+            },
+            {
+              "timeMs": 4398,
+              "rms": 0.09887258260981253,
+              "startMarkerDb": -131.32867431640625,
+              "endMarkerDb": -108.86154174804688,
+              "backgroundDb": -34.89655303955078
+            },
+            {
+              "timeMs": 4491,
+              "rms": 0.09887348687018442,
+              "startMarkerDb": -135.19342041015625,
+              "endMarkerDb": -113.33426666259766,
+              "backgroundDb": -34.90125274658203
+            },
+            {
+              "timeMs": 4598,
+              "rms": 0.098780757122023,
+              "startMarkerDb": -131.94659423828125,
+              "endMarkerDb": -108.63047790527344,
+              "backgroundDb": -34.9078254699707
+            },
+            {
+              "timeMs": 4691,
+              "rms": 0.09886911620177095,
+              "startMarkerDb": -136.475341796875,
+              "endMarkerDb": -108.23585510253906,
+              "backgroundDb": -34.90097427368164
+            },
+            {
+              "timeMs": 4792,
+              "rms": 0.09748634817453257,
+              "startMarkerDb": -129.07098388671875,
+              "endMarkerDb": -139.99012756347656,
+              "backgroundDb": -34.90795135498047
+            },
+            {
+              "timeMs": 4891,
+              "rms": 0.09879267362040935,
+              "startMarkerDb": -135.99398803710938,
+              "endMarkerDb": -112.9761962890625,
+              "backgroundDb": -34.922515869140625
+            },
+            {
+              "timeMs": 4992,
+              "rms": 0.097471520225831,
+              "startMarkerDb": -123.84043884277344,
+              "endMarkerDb": -107.25898742675781,
+              "backgroundDb": -34.90806198120117
+            },
+            {
+              "timeMs": 5099,
+              "rms": 0.09721733641079565,
+              "startMarkerDb": -133.79322814941406,
+              "endMarkerDb": -109.6354751586914,
+              "backgroundDb": -34.89525604248047
+            },
+            {
+              "timeMs": 5192,
+              "rms": 0.09749872854822053,
+              "startMarkerDb": -133.27549743652344,
+              "endMarkerDb": -112.59158325195312,
+              "backgroundDb": -34.89112091064453
+            },
+            {
+              "timeMs": 5291,
+              "rms": 0.0988871251278174,
+              "startMarkerDb": -129.21939086914062,
+              "endMarkerDb": -110.8852310180664,
+              "backgroundDb": -34.89552688598633
+            },
+            {
+              "timeMs": 5392,
+              "rms": 0.0974670102476943,
+              "startMarkerDb": -128.48348999023438,
+              "endMarkerDb": -107.38087463378906,
+              "backgroundDb": -34.915565490722656
+            },
+            {
+              "timeMs": 5491,
+              "rms": 0.0988189150171372,
+              "startMarkerDb": -140.8780059814453,
+              "endMarkerDb": -107.91263580322266,
+              "backgroundDb": -34.903076171875
+            },
+            {
+              "timeMs": 5592,
+              "rms": 0.09758534718549407,
+              "startMarkerDb": -132.69183349609375,
+              "endMarkerDb": -112.82456970214844,
+              "backgroundDb": -34.895938873291016
+            },
+            {
+              "timeMs": 5691,
+              "rms": 0.09884929505628912,
+              "startMarkerDb": -128.9557342529297,
+              "endMarkerDb": -121.53496551513672,
+              "backgroundDb": -34.90624237060547
+            },
+            {
+              "timeMs": 5792,
+              "rms": 0.09751133657230106,
+              "startMarkerDb": -132.67225646972656,
+              "endMarkerDb": -109.07533264160156,
+              "backgroundDb": -34.900428771972656
+            },
+            {
+              "timeMs": 5891,
+              "rms": 0.098835651578513,
+              "startMarkerDb": -130.97897338867188,
+              "endMarkerDb": -106.54229736328125,
+              "backgroundDb": -34.90565872192383
+            },
+            {
+              "timeMs": 5998,
+              "rms": 0.09878980775840876,
+              "startMarkerDb": -132.784912109375,
+              "endMarkerDb": -113.42815399169922,
+              "backgroundDb": -34.90692138671875
+            },
+            {
+              "timeMs": 6091,
+              "rms": 0.09882773599058042,
+              "startMarkerDb": -130.71449279785156,
+              "endMarkerDb": -113.5049819946289,
+              "backgroundDb": -34.90717315673828
+            },
+            {
+              "timeMs": 6198,
+              "rms": 0.0988137125354665,
+              "startMarkerDb": -127.26860809326172,
+              "endMarkerDb": -107.9085464477539,
+              "backgroundDb": -34.898521423339844
+            },
+            {
+              "timeMs": 6291,
+              "rms": 0.09885879161428046,
+              "startMarkerDb": -132.41732788085938,
+              "endMarkerDb": -111.34574890136719,
+              "backgroundDb": -34.907047271728516
+            },
+            {
+              "timeMs": 6392,
+              "rms": 0.09745646067028801,
+              "startMarkerDb": -138.2197265625,
+              "endMarkerDb": -110.24346923828125,
+              "backgroundDb": -34.90843963623047
+            },
+            {
+              "timeMs": 6491,
+              "rms": 0.09895506234367935,
+              "startMarkerDb": -131.35769653320312,
+              "endMarkerDb": -109.25678253173828,
+              "backgroundDb": -34.892242431640625
+            },
+            {
+              "timeMs": 6597,
+              "rms": 0.09745447294089869,
+              "startMarkerDb": -129.6572265625,
+              "endMarkerDb": -124.51508331298828,
+              "backgroundDb": -34.907596588134766
+            },
+            {
+              "timeMs": 6691,
+              "rms": 0.09891627907188298,
+              "startMarkerDb": -130.3857879638672,
+              "endMarkerDb": -104.837890625,
+              "backgroundDb": -34.89728927612305
+            },
+            {
+              "timeMs": 6792,
+              "rms": 0.09751255908187252,
+              "startMarkerDb": -132.076904296875,
+              "endMarkerDb": -109.98321533203125,
+              "backgroundDb": -34.901405334472656
+            },
+            {
+              "timeMs": 6891,
+              "rms": 0.09882464496983998,
+              "startMarkerDb": -131.94691467285156,
+              "endMarkerDb": -110.79048156738281,
+              "backgroundDb": -34.90715789794922
+            },
+            {
+              "timeMs": 6992,
+              "rms": 0.09759237107552644,
+              "startMarkerDb": -137.4460906982422,
+              "endMarkerDb": -109.86776733398438,
+              "backgroundDb": -34.8989372253418
+            },
+            {
+              "timeMs": 7100,
+              "rms": 0.09730719172235008,
+              "startMarkerDb": -134.1879425048828,
+              "endMarkerDb": -112.23989868164062,
+              "backgroundDb": -34.89379119873047
+            },
+            {
+              "timeMs": 7192,
+              "rms": 0.09748588961197936,
+              "startMarkerDb": -131.8467559814453,
+              "endMarkerDb": -124.78543090820312,
+              "backgroundDb": -34.907928466796875
+            },
+            {
+              "timeMs": 7299,
+              "rms": 0.09881461733456308,
+              "startMarkerDb": -126.87690734863281,
+              "endMarkerDb": -114.34745025634766,
+              "backgroundDb": -34.90947723388672
+            },
+            {
+              "timeMs": 7392,
+              "rms": 0.09753899210299823,
+              "startMarkerDb": -127.10543823242188,
+              "endMarkerDb": -105.45585632324219,
+              "backgroundDb": -34.901824951171875
+            },
+            {
+              "timeMs": 7491,
+              "rms": 0.09881710548936117,
+              "startMarkerDb": -131.5050811767578,
+              "endMarkerDb": -115.1064453125,
+              "backgroundDb": -34.90575408935547
+            },
+            {
+              "timeMs": 7592,
+              "rms": 0.09755014377233409,
+              "startMarkerDb": -129.06216430664062,
+              "endMarkerDb": -112.54592895507812,
+              "backgroundDb": -34.89113235473633
+            },
+            {
+              "timeMs": 7699,
+              "rms": 0.09723396552022796,
+              "startMarkerDb": -133.57989501953125,
+              "endMarkerDb": -111.51646423339844,
+              "backgroundDb": -34.90087127685547
+            },
+            {
+              "timeMs": 7792,
+              "rms": 0.09748267961370823,
+              "startMarkerDb": -132.30401611328125,
+              "endMarkerDb": -115.46275329589844,
+              "backgroundDb": -34.916236877441406
+            },
+            {
+              "timeMs": 7899,
+              "rms": 0.0988080573533974,
+              "startMarkerDb": -132.10752868652344,
+              "endMarkerDb": -110.62445068359375,
+              "backgroundDb": -34.90790939331055
+            },
+            {
+              "timeMs": 7992,
+              "rms": 0.09755801027904382,
+              "startMarkerDb": -131.61190795898438,
+              "endMarkerDb": -106.96106719970703,
+              "backgroundDb": -34.9027214050293
+            },
+            {
+              "timeMs": 8099,
+              "rms": 0.09874220720760724,
+              "startMarkerDb": -130.46743774414062,
+              "endMarkerDb": -114.22647094726562,
+              "backgroundDb": -34.92103958129883
+            },
+            {
+              "timeMs": 8192,
+              "rms": 0.09750308423177004,
+              "startMarkerDb": -126.22709655761719,
+              "endMarkerDb": -108.52145385742188,
+              "backgroundDb": -34.904884338378906
+            },
+            {
+              "timeMs": 8291,
+              "rms": 0.09896838823065059,
+              "startMarkerDb": -132.3045196533203,
+              "endMarkerDb": -110.06582641601562,
+              "backgroundDb": -34.89521408081055
+            },
+            {
+              "timeMs": 8392,
+              "rms": 0.09742694636576972,
+              "startMarkerDb": -127.85707092285156,
+              "endMarkerDb": -120.05274963378906,
+              "backgroundDb": -34.91290283203125
+            },
+            {
+              "timeMs": 8491,
+              "rms": 0.09880217562067725,
+              "startMarkerDb": -135.37237548828125,
+              "endMarkerDb": -109.9825439453125,
+              "backgroundDb": -34.911746978759766
+            },
+            {
+              "timeMs": 8598,
+              "rms": 0.09889872746839803,
+              "startMarkerDb": -130.99737548828125,
+              "endMarkerDb": -107.0887451171875,
+              "backgroundDb": -34.89763641357422
+            },
+            {
+              "timeMs": 8691,
+              "rms": 0.09886489606272002,
+              "startMarkerDb": -126.82272338867188,
+              "endMarkerDb": -108.68419647216797,
+              "backgroundDb": -34.90614318847656
+            },
+            {
+              "timeMs": 8797,
+              "rms": 0.09755739931095164,
+              "startMarkerDb": -127.25371551513672,
+              "endMarkerDb": -112.49198150634766,
+              "backgroundDb": -34.8986701965332
+            },
+            {
+              "timeMs": 8891,
+              "rms": 0.09887567213194129,
+              "startMarkerDb": -128.96859741210938,
+              "endMarkerDb": -105.32013702392578,
+              "backgroundDb": -34.900413513183594
+            },
+            {
+              "timeMs": 8992,
+              "rms": 0.09740591388016573,
+              "startMarkerDb": -130.07846069335938,
+              "endMarkerDb": -108.0922622680664,
+              "backgroundDb": -34.912818908691406
+            },
+            {
+              "timeMs": 9091,
+              "rms": 0.0988554754595981,
+              "startMarkerDb": -131.6879119873047,
+              "endMarkerDb": -106.76766204833984,
+              "backgroundDb": -34.90602493286133
+            },
+            {
+              "timeMs": 9198,
+              "rms": 0.09888591961177039,
+              "startMarkerDb": -129.32073974609375,
+              "endMarkerDb": -111.86424255371094,
+              "backgroundDb": -34.893516540527344
+            },
+            {
+              "timeMs": 9291,
+              "rms": 0.28336758278023044,
+              "startMarkerDb": -60.406612396240234,
+              "endMarkerDb": -29.182384490966797,
+              "backgroundDb": -29.422889709472656
+            },
+            {
+              "timeMs": 9398,
+              "rms": 0.40833506664894353,
+              "startMarkerDb": -106.73402404785156,
+              "endMarkerDb": -20.770263671875,
+              "backgroundDb": -22.605941772460938
+            },
+            {
+              "timeMs": 9491,
+              "rms": 0.40793626449208503,
+              "startMarkerDb": -107.91099548339844,
+              "endMarkerDb": -20.787113189697266,
+              "backgroundDb": -22.608020782470703
+            },
+            {
+              "timeMs": 9598,
+              "rms": 0,
+              "startMarkerDb": -177.31353759765625,
+              "endMarkerDb": -159.12892150878906,
+              "backgroundDb": -126.24156188964844
+            },
+            {
+              "timeMs": 9691,
+              "rms": 0,
+              "startMarkerDb": -203.86099243164062,
+              "endMarkerDb": -188.6080322265625,
+              "backgroundDb": -147.43812561035156
+            },
+            {
+              "timeMs": 9798,
+              "rms": 0,
+              "startMarkerDb": -219.30357360839844,
+              "endMarkerDb": -214.86148071289062,
+              "backgroundDb": -166.71524047851562
+            },
+            {
+              "timeMs": 9891,
+              "rms": 0,
+              "startMarkerDb": -230.9705810546875,
+              "endMarkerDb": -220.1575927734375,
+              "backgroundDb": -182.209228515625
+            },
+            {
+              "timeMs": 9937,
+              "rms": 0,
+              "startMarkerDb": -243.9528045654297,
+              "endMarkerDb": -232.81967163085938,
+              "backgroundDb": -185.1382598876953
+            }
+          ],
+          "trackEvidence": {
+            "hasVisualFrames": true,
+            "hasAudibleFrames": true
+          },
+          "sampleChecks": [
+            {
+              "id": "northwest",
+              "expected": [
+                225,
+                29,
+                72
+              ],
+              "actual": [
+                229,
+                53,
+                63
+              ],
+              "distance": 25.942243542145693,
+              "withinTolerance": true
+            },
+            {
+              "id": "northeast",
+              "expected": [
+                14,
+                165,
+                233
+              ],
+              "actual": [
+                0,
+                158,
+                217
+              ],
+              "distance": 22.38302928559939,
+              "withinTolerance": true
+            },
+            {
+              "id": "southwest",
+              "expected": [
+                34,
+                197,
+                94
+              ],
+              "actual": [
+                28,
+                171,
+                108
+              ],
+              "distance": 30.133038346638727,
+              "withinTolerance": true
+            },
+            {
+              "id": "southeast",
+              "expected": [
+                250,
+                204,
+                21
+              ],
+              "actual": [
+                240,
+                205,
+                37
+              ],
+              "distance": 18.894443627691185,
+              "withinTolerance": true
+            },
+            {
+              "id": "center",
+              "expected": [
+                71,
+                85,
+                105
+              ],
+              "actual": [
+                68,
+                85,
+                103
+              ],
+              "distance": 3.605551275463989,
+              "withinTolerance": true
+            }
+          ]
+        },
+        "memory": {
+          "highWaterBytes": 8014547,
+          "finalBytes": 159283,
+          "estimatedDecodedPcmBytes": 3840000,
+          "inputBytes": 169581,
+          "chunkBytes": 159283,
+          "canvasBytes": 3686400,
+          "compressedAudioBytes": 160940,
+          "imageBitmapBytes": 0,
+          "mediaElementBytes": 0,
+          "transferBytes": 0
+        },
+        "playbackCapability": {
+          "download": true,
+          "fileShare": false
+        },
+        "notes": [
+          "Output remains within the 16 MiB target."
+        ]
+      }
+    }
+  ],
+  "normalFlowUnchanged": true,
+  "notes": [
+    "Requested chunk cadence uses MediaRecorder.start(1000) and does not assert guaranteed delivery frequency.",
+    "Measurements remain local to this prototype harness and are not sent to analytics or backend services.",
+    "Browser-internal MediaRecorder buffering cannot be hard-bounded by application code."
+  ]
+}

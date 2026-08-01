@@ -52,6 +52,10 @@ export interface PrototypeScenario {
 export interface PrototypeFixtureManifest {
   schemaVersion: 1;
   generatedAt: string;
+  generator: {
+    tool: string;
+    ffmpegVersion: string;
+  };
   routePath: '/lab/mediarecorder-prototype';
   fixtureRoot: string;
   recorderCandidates: PrototypeRecorderCandidate[];
@@ -72,6 +76,10 @@ export interface PrototypeMemoryEvidence {
   inputBytes: number;
   chunkBytes: number;
   canvasBytes: number;
+  compressedAudioBytes: number;
+  imageBitmapBytes: number;
+  mediaElementBytes: number;
+  transferBytes: number;
 }
 
 export interface PrototypeValidationEvidence {
@@ -88,6 +96,13 @@ export interface PrototypeValidationEvidence {
   endMarkerDetected: boolean;
   startMarkerMs?: number;
   endMarkerMs?: number;
+  markerAnalysis: Array<{
+    timeMs: number;
+    rms: number;
+    startMarkerDb: number;
+    endMarkerDb: number;
+    backgroundDb: number;
+  }>;
   trackEvidence: {
     hasVisualFrames: boolean;
     hasAudibleFrames: boolean;
@@ -117,6 +132,7 @@ export interface PrototypeAttemptEvidence {
   finishedAt: string;
   cancelled: boolean;
   cancelVisibleWithinMs?: number;
+  cleanupCompleted: boolean;
   initializationMs: number;
   renderMs: number;
   finalizationMs: number;
@@ -150,6 +166,36 @@ export interface PrototypeMeasurementEvidence {
   routePath: string;
   prototypeConfigEnabled: boolean;
   preferredCandidateId?: string;
+  build: {
+    gitSha: string;
+    buildTarget: string;
+  };
+  environment: {
+    userAgent: string;
+    platform: string;
+    browserName: string;
+    browserVersion: string;
+    os: string;
+    displayMode: 'browser' | 'standalone' | 'minimal-ui' | 'fullscreen' | 'unknown';
+    assistiveTechnology: 'unknown';
+  };
+  run: {
+    runId: number;
+    startedAt: string;
+    completedAt?: string;
+    scenarioCount: number;
+    seriesIndex: number;
+    seriesLength: number;
+    backendRequestsObserved: number;
+  };
+  fixtures: Array<{
+    fixtureId: string;
+    kind: 'image' | 'audio';
+    fileName: string;
+    sha256: string;
+    sizeBytes: number;
+    verified: boolean;
+  }>;
   probes: PrototypeCapabilityProbe[];
   results: PrototypeScenarioResult[];
   normalFlowUnchanged: boolean;

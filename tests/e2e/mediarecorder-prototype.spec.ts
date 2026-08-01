@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test.describe('media recorder prototype lab', () => {
   test('fails closed on the normal application deployment', async ({ page }) => {
-    await page.goto('/lab/mediarecorder-prototype');
+    await page.goto('http://127.0.0.1:4173/lab/mediarecorder-prototype');
 
     await expect(page.getByRole('heading', { name: 'MediaRecorder-Lab ist fail-closed' })).toBeVisible();
     await expect(page.getByRole('alert')).toContainText(
@@ -34,23 +34,49 @@ test.describe('media recorder prototype lab', () => {
         const start = raw.indexOf('{');
         if (start < 0) return undefined;
         const evidence = JSON.parse(raw.slice(start)) as {
-          results: Array<{ status: string }>;
+          build: { buildTarget: string; gitSha: string };
+          run: { backendRequestsObserved: number };
+          fixtures: Array<{ verified: boolean }>;
+          results: Array<{ status: string; attempt?: { cleanupCompleted: boolean } }>;
           normalFlowUnchanged: boolean;
         };
         return evidence.results[0];
       }, { timeout: 45_000 })
       .toMatchObject({
         status: expect.stringMatching(/PASS|FAIL|AUDIO_ONLY_FALLBACK/u),
+        attempt: expect.objectContaining({
+          cleanupCompleted: true,
+        }),
       });
 
     const finalEvidence = await page.getByTestId('mediarecorder-prototype-evidence').textContent();
     if (!finalEvidence) throw new Error('Prototype evidence was not rendered.');
     const evidence = JSON.parse(finalEvidence.slice(finalEvidence.indexOf('{'))) as {
-      results: Array<{ status: string; scenarioId: string }>;
+      build: { buildTarget: string; gitSha: string };
+      run: { backendRequestsObserved: number; scenarioCount: number };
+      fixtures: Array<{ verified: boolean; sha256: string; sizeBytes: number }>;
+      results: Array<{
+        status: string;
+        scenarioId: string;
+        attempt?: {
+          cleanupCompleted: boolean;
+          requestedChunkCadenceMs: number;
+          validation: { markerAnalysis: Array<unknown> };
+        };
+      }>;
       normalFlowUnchanged: boolean;
     };
     expect(evidence.results).toHaveLength(1);
     expect(evidence.results[0]?.scenarioId).toBe('scenario-01');
+    expect(evidence.build.buildTarget).toBe('staging-mediarecorder-prototype');
+    expect(evidence.build.gitSha).toMatch(/^[a-f0-9]{40}$/u);
+    expect(evidence.run.scenarioCount).toBe(1);
+    expect(evidence.run.backendRequestsObserved).toBe(0);
+    expect(evidence.fixtures).toHaveLength(2);
+    expect(evidence.fixtures.every((fixture) => fixture.verified && fixture.sizeBytes > 0)).toBe(true);
+    expect(evidence.results[0]?.attempt?.cleanupCompleted).toBe(true);
+    expect(evidence.results[0]?.attempt?.requestedChunkCadenceMs).toBe(1000);
+    expect((evidence.results[0]?.attempt?.validation.markerAnalysis.length ?? 0) > 0).toBe(true);
     expect(evidence.normalFlowUnchanged).toBe(true);
     expect(apiRequests).toEqual([]);
   });

@@ -22,6 +22,28 @@ describe('MediaRecorderPrototypeLab', () => {
       generatedAt: '2026-07-31T00:00:00.000Z',
       routePath: '/lab/mediarecorder-prototype',
       prototypeConfigEnabled: true,
+      build: {
+        gitSha: '31bb4033fbdf8080dcb028d4b309082cc911b1f1',
+        buildTarget: 'staging-mediarecorder-prototype',
+      },
+      environment: {
+        userAgent: 'Mozilla/5.0',
+        platform: 'Win32',
+        browserName: 'Chrome',
+        browserVersion: '138.0.0.0',
+        os: 'Windows',
+        displayMode: 'browser',
+        assistiveTechnology: 'unknown',
+      },
+      run: {
+        runId: 1,
+        startedAt: '2026-07-31T00:00:00.000Z',
+        scenarioCount: 0,
+        seriesIndex: 1,
+        seriesLength: 1,
+        backendRequestsObserved: 0,
+      },
+      fixtures: [],
       preferredCandidateId: 'webm-vp8-opus',
       probes: [],
       results: [],
@@ -62,6 +84,29 @@ describe('MediaRecorderPrototypeLab', () => {
         generatedAt: '2026-07-31T00:00:10.000Z',
         routePath: '/lab/mediarecorder-prototype',
         prototypeConfigEnabled: true,
+        build: {
+          gitSha: '31bb4033fbdf8080dcb028d4b309082cc911b1f1',
+          buildTarget: 'staging-mediarecorder-prototype',
+        },
+        environment: {
+          userAgent: 'Mozilla/5.0',
+          platform: 'Win32',
+          browserName: 'Chrome',
+          browserVersion: '138.0.0.0',
+          os: 'Windows',
+          displayMode: 'browser',
+          assistiveTechnology: 'unknown',
+        },
+        run: {
+          runId: 1,
+          startedAt: '2026-07-31T00:00:00.000Z',
+          completedAt: '2026-07-31T00:00:10.000Z',
+          scenarioCount: 1,
+          seriesIndex: 1,
+          seriesLength: 1,
+          backendRequestsObserved: 0,
+        },
+        fixtures: [],
         preferredCandidateId: 'webm-vp8-opus',
         probes: [],
         results: [
@@ -81,7 +126,7 @@ describe('MediaRecorderPrototypeLab', () => {
     });
 
     render(<MediaRecorderPrototypeLab enabled />);
-    fireEvent.click(screen.getByRole('button', { name: 'Ausgewaehltes Szenario ausfuehren' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Ausgewaehltes Szenario ausfuehren' })[0]!);
 
     await waitFor(() => {
       expect(harnessMocks.createHarnessRun).toHaveBeenCalledWith(
@@ -92,6 +137,69 @@ describe('MediaRecorderPrototypeLab', () => {
       expect(screen.getByTestId('mediarecorder-prototype-evidence')).toHaveTextContent(
         '"scenarioId": "scenario-01"',
       ),
+    );
+  });
+
+  it('keeps the run locked until cancellation cleanup resolves', async () => {
+    let resolveRun: ((value: unknown) => void) | undefined;
+    const cancel = vi.fn();
+    harnessMocks.createHarnessRun.mockReturnValue({
+      controller: { cancel, attemptId: 7, runId: 9 },
+      promise: new Promise((resolve) => {
+        resolveRun = resolve;
+      }),
+    });
+
+    render(<MediaRecorderPrototypeLab enabled />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Ausgewaehltes Szenario ausfuehren' })[0]!);
+
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: 'Lauf abbrechen' })[0]!).toBeEnabled(),
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: 'Lauf abbrechen' })[0]!);
+
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByRole('button', { name: 'Ausgewaehltes Szenario ausfuehren' })[0]!).toBeDisabled();
+    expect(screen.getAllByRole('status')[0]!).toHaveTextContent(
+      'Ein neuer Lauf ist erst nach vollstaendigem Cleanup verfuegbar.',
+    );
+
+    resolveRun?.({
+      generatedAt: '2026-07-31T00:00:10.000Z',
+      routePath: '/lab/mediarecorder-prototype',
+      prototypeConfigEnabled: true,
+      build: {
+        gitSha: '31bb4033fbdf8080dcb028d4b309082cc911b1f1',
+        buildTarget: 'staging-mediarecorder-prototype',
+      },
+      environment: {
+        userAgent: 'Mozilla/5.0',
+        platform: 'Win32',
+        browserName: 'Chrome',
+        browserVersion: '138.0.0.0',
+        os: 'Windows',
+        displayMode: 'browser',
+        assistiveTechnology: 'unknown',
+      },
+      run: {
+        runId: 9,
+        startedAt: '2026-07-31T00:00:00.000Z',
+        completedAt: '2026-07-31T00:00:10.000Z',
+        scenarioCount: 1,
+        seriesIndex: 1,
+        seriesLength: 1,
+        backendRequestsObserved: 0,
+      },
+      fixtures: [],
+      preferredCandidateId: 'webm-vp8-opus',
+      probes: [],
+      results: [],
+      normalFlowUnchanged: true,
+      notes: [],
+    });
+
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: 'Ausgewaehltes Szenario ausfuehren' })[0]!).toBeEnabled(),
     );
   });
 });

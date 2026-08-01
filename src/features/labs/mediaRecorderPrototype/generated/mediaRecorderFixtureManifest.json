@@ -1,13 +1,17 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-31",
+  "generatedAt": "2026-08-01",
+  "generator": {
+    "tool": "tools/generate-mediarecorder-prototype-fixtures.mjs",
+    "ffmpegVersion": "ffmpeg version 8.0-full_build-www.gyan.dev Copyright (c) 2000-2025 the FFmpeg developers"
+  },
   "routePath": "/lab/mediarecorder-prototype",
   "fixtureRoot": "/prototypes/mediarecorder/fixtures",
   "recorderCandidates": [
     {
-      "id": "webm-vp9-opus",
-      "mimeType": "video/webm;codecs=vp9,opus",
-      "fileExtension": "webm"
+      "id": "mp4-h264-aac",
+      "mimeType": "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+      "fileExtension": "mp4"
     },
     {
       "id": "webm-vp8-opus",
@@ -20,9 +24,9 @@
       "fileExtension": "webm"
     },
     {
-      "id": "mp4-h264-aac",
-      "mimeType": "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
-      "fileExtension": "mp4"
+      "id": "webm-vp9-opus",
+      "mimeType": "video/webm;codecs=vp9,opus",
+      "fileExtension": "webm"
     }
   ],
   "images": [
@@ -282,7 +286,7 @@
         "toleranceMs": 250
       },
       "sizeBytes": 154905,
-      "sha256": "eb31674b1c646c6445243b64241245f9f746e5d5a9df0ed337700fb53a646efb"
+      "sha256": "aa74206c1944e98dd1bac405f56b0e9524285f8084f2ff5ea9d77701324aa043"
     },
     {
       "id": "audio-mpeg-30s",
@@ -346,7 +350,7 @@
         "toleranceMs": 250
       },
       "sizeBytes": 479245,
-      "sha256": "0fa986a16b794887b6c4a427354ff2cc4676537d0101be9b351e131689a5e338"
+      "sha256": "842bf16c6cc86d29387543404845e2e9f41c58ac421bfe0df1573cdc157de2d1"
     }
   ],
   "scenarios": [

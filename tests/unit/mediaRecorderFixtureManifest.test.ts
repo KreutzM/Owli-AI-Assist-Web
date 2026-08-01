@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { mediaRecorderFixtureManifest } from '@/features/labs/mediaRecorderPrototype/fixtureManifest';
 
@@ -38,6 +41,21 @@ describe('media recorder prototype fixture manifest', () => {
       );
       expect(audio.sha256).toMatch(/^[a-f0-9]{64}$/u);
       expect(audio.markerWindows.toleranceMs).toBe(250);
+    }
+  });
+
+  it('matches the checked-in fixture bytes by size and SHA-256', async () => {
+    const fixtureRoot = path.resolve(
+      process.cwd(),
+      'prototype-fixtures',
+      'mediarecorder',
+      'fixtures',
+    );
+
+    for (const fixture of [...mediaRecorderFixtureManifest.images, ...mediaRecorderFixtureManifest.audio]) {
+      const bytes = await readFile(path.join(fixtureRoot, fixture.fileName));
+      expect(bytes.byteLength).toBe(fixture.sizeBytes);
+      expect(createHash('sha256').update(bytes).digest('hex')).toBe(fixture.sha256);
     }
   });
 });

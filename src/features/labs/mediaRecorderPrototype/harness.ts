@@ -1,10 +1,19 @@
+import { PROTOTYPE_ROUTE_PATH, RECORDER_CANDIDATE_ORDER } from '@/features/labs/mediaRecorderPrototype/constants';
 import { mediaRecorderFixtureManifest } from '@/features/labs/mediaRecorderPrototype/fixtureManifest';
-import { runScenarioAttempt } from '@/features/labs/mediaRecorderPrototype/runAttempt';
+import { startBackendRequestTracking } from '@/features/labs/mediaRecorderPrototype/networkTracking';
+import {
+  PrototypeAttemptCancelledError,
+  runScenarioAttempt,
+  type PrototypeAttemptResources,
+} from '@/features/labs/mediaRecorderPrototype/runAttempt';
 import type {
   PrototypeCapabilityProbe,
   PrototypeMeasurementEvidence,
   PrototypeRecorderCandidate,
 } from '@/features/labs/mediaRecorderPrototype/types';
+
+let nextRunId = 1;
+let nextAttemptId = 1;
 
 export interface PrototypeHarnessRunOptions {
   selectedCandidateId?: string;
@@ -16,26 +25,45 @@ export interface PrototypeHarnessRunOptions {
 export interface PrototypeHarnessController {
   cancel(): void;
   readonly attemptId: number;
+  readonly runId: number;
 }
 
 export function probeRecorderCandidates(): PrototypeCapabilityProbe[] {
-  return mediaRecorderFixtureManifest.recorderCandidates.map((candidate) => ({
-    candidate,
-    supported:
-      typeof MediaRecorder !== 'undefined' &&
-      typeof MediaRecorder.isTypeSupported === 'function' &&
-      MediaRecorder.isTypeSupported(candidate.mimeType),
-  }));
+  return mediaRecorderFixtureManifest.recorderCandidates
+    .slice()
+    .sort((left, right) => orderIndex(left.id) - orderIndex(right.id))
+    .map((candidate) => ({
+      candidate,
+      supported:
+        typeof MediaRecorder !== 'undefined' &&
+        typeof MediaRecorder.isTypeSupported === 'function' &&
+        MediaRecorder.isTypeSupported(candidate.mimeType),
+    }));
 }
 
 export function createInitialEvidence(enabled: boolean): PrototypeMeasurementEvidence {
+  const runId = nextRunId;
   return {
     generatedAt: new Date().toISOString(),
-    routePath: mediaRecorderFixtureManifest.routePath,
+    routePath: PROTOTYPE_ROUTE_PATH,
     prototypeConfigEnabled: enabled,
+    build: {
+      gitSha: import.meta.env.VITE_OWLI_GIT_SHA ?? 'unknown',
+      buildTarget: import.meta.env.VITE_OWLI_BUILD_TARGET ?? 'unknown',
+    },
+    environment: readEnvironmentEvidence(),
+    run: {
+      runId,
+      startedAt: new Date().toISOString(),
+      scenarioCount: 0,
+      seriesIndex: 1,
+      seriesLength: 1,
+      backendRequestsObserved: 0,
+    },
+    fixtures: [],
     probes: probeRecorderCandidates(),
     results: [],
-    normalFlowUnchanged: true,
+    normalFlowUnchanged: enabled && window.location.pathname === PROTOTYPE_ROUTE_PATH,
     notes: [
       'Requested chunk cadence uses MediaRecorder.start(1000) and does not assert guaranteed delivery frequency.',
       'Measurements remain local to this prototype harness and are not sent to analytics or backend services.',
@@ -61,144 +89,231 @@ export function createHarnessRun(
   promise: Promise<PrototypeMeasurementEvidence>;
   controller: PrototypeHarnessController;
 } {
-  let aborted = false;
-  let activeRecorder: MediaRecorder | undefined;
-  let activeStream: MediaStream | undefined;
-  let activeCanvasStream: MediaStream | undefined;
-  let activeAudioContext: AudioContext | undefined;
-  let activeDestination: MediaStreamAudioDestinationNode | undefined;
-  let activeSource: AudioBufferSourceNode | undefined;
-  let activeBlobUrl: string | undefined;
-  let activeImageUrl: string | undefined;
-  let attemptId = 0;
+  const runId = nextRunId++;
+  const abortController = new AbortController();
+  let activeResources: PrototypeAttemptResources = {};
+  let activeAttemptId = 0;
+  let cancelRequestedAt: number | undefined;
 
   const controller: PrototypeHarnessController = {
     cancel() {
-      aborted = true;
-      cleanup();
+      if (!cancelRequestedAt) cancelRequestedAt = performance.now();
+      stopResources(activeResources);
+      abortController.abort(new DOMException('Prototype attempt cancelled.', 'AbortError'));
     },
     get attemptId() {
-      return attemptId;
+      return activeAttemptId;
+    },
+    get runId() {
+      return runId;
     },
   };
-  const isCancelled = () => aborted;
 
   const promise = (async () => {
     const evidence = createInitialEvidence(true);
+    evidence.run.runId = runId;
+    evidence.run.startedAt = new Date().toISOString();
+    const backendRequestTracker = startBackendRequestTracking();
     options.onProgress?.(structuredClone(evidence));
-    const candidate = pickPreferredCandidate(evidence.probes, options.selectedCandidateId);
-    if (candidate) evidence.preferredCandidateId = candidate.id;
-    if (!candidate) {
-      evidence.results = mediaRecorderFixtureManifest.scenarios.map((scenario) => ({
-        scenarioId: scenario.id,
-        scenarioOrder: scenario.order,
-        imageId: scenario.imageId,
-        audioId: scenario.audioId,
-        candidateId: options.selectedCandidateId ?? 'none',
-        requestedMimeType: options.selectedCandidateId ?? 'none',
-        status: 'UNSUPPORTED',
-        error: 'No runtime-supported MediaRecorder MIME candidate is available.',
-      }));
+    try {
+      const candidate = pickPreferredCandidate(evidence.probes, options.selectedCandidateId);
+      if (!candidate) {
+        evidence.results = mediaRecorderFixtureManifest.scenarios.map((scenario) => ({
+          scenarioId: scenario.id,
+          scenarioOrder: scenario.order,
+          imageId: scenario.imageId,
+          audioId: scenario.audioId,
+          candidateId: options.selectedCandidateId ?? 'none',
+          requestedMimeType: options.selectedCandidateId ?? 'none',
+          status: 'UNSUPPORTED',
+          error: 'No runtime-supported MediaRecorder MIME candidate is available.',
+        }));
+        evidence.run.completedAt = new Date().toISOString();
+        return evidence;
+      }
+
+      const scenarioIds = options.scenarioIds;
+      const scenarios =
+        Array.isArray(scenarioIds) && scenarioIds.length > 0
+          ? mediaRecorderFixtureManifest.scenarios.filter((scenario) => scenarioIds.includes(scenario.id))
+          : mediaRecorderFixtureManifest.scenarios;
+      evidence.run.scenarioCount = scenarios.length;
+
+      for (const scenario of scenarios) {
+        if (abortController.signal.aborted) break;
+        activeAttemptId = nextAttemptId++;
+        options.onAttemptStart?.(activeAttemptId);
+        try {
+          const { attempt, verifiedFixtures } = await runScenarioAttempt({
+            attemptId: activeAttemptId,
+            scenario,
+            candidate,
+            signal: abortController.signal,
+            onResourceUpdate(resources) {
+              activeResources = resources;
+            },
+          });
+          attempt.cleanupCompleted = stopResources(activeResources);
+          if (cancelRequestedAt !== undefined) {
+            attempt.cancelled = true;
+            attempt.cancelVisibleWithinMs = Math.round(performance.now() - cancelRequestedAt);
+          }
+          evidence.fixtures = mergeVerifiedFixtures(evidence.fixtures, verifiedFixtures);
+          evidence.results.push({
+            scenarioId: scenario.id,
+            scenarioOrder: scenario.order,
+            imageId: scenario.imageId,
+            audioId: scenario.audioId,
+            candidateId: candidate.id,
+            requestedMimeType: candidate.mimeType,
+            status: attempt.status,
+            attempt,
+          });
+          if (attempt.status === 'PASS') {
+            evidence.preferredCandidateId = candidate.id;
+          }
+        } catch (error) {
+          const cleanupCompleted = stopResources(activeResources);
+          if (error instanceof PrototypeAttemptCancelledError) {
+            const attempt = {
+              ...error.attempt,
+              cleanupCompleted,
+              ...(cancelRequestedAt !== undefined
+                ? { cancelVisibleWithinMs: Math.round(performance.now() - cancelRequestedAt) }
+                : {}),
+            };
+            evidence.results.push({
+              scenarioId: scenario.id,
+              scenarioOrder: scenario.order,
+              imageId: scenario.imageId,
+              audioId: scenario.audioId,
+              candidateId: candidate.id,
+              requestedMimeType: candidate.mimeType,
+              status: 'FAIL',
+              attempt,
+              error: 'Attempt cancelled.',
+            });
+            break;
+          }
+          evidence.results.push({
+            scenarioId: scenario.id,
+            scenarioOrder: scenario.order,
+            imageId: scenario.imageId,
+            audioId: scenario.audioId,
+            candidateId: candidate.id,
+            requestedMimeType: candidate.mimeType,
+            status: 'FAIL',
+            error: error instanceof Error ? error.message : 'Unknown MediaRecorder prototype error.',
+          });
+        } finally {
+          activeResources = {};
+          evidence.generatedAt = new Date().toISOString();
+          evidence.run.backendRequestsObserved = backendRequestTracker.count();
+          options.onProgress?.(structuredClone(evidence));
+        }
+      }
+
+      evidence.run.completedAt = new Date().toISOString();
+      evidence.run.backendRequestsObserved = backendRequestTracker.count();
+      evidence.normalFlowUnchanged =
+        evidence.prototypeConfigEnabled &&
+        evidence.routePath === PROTOTYPE_ROUTE_PATH &&
+        evidence.run.backendRequestsObserved === 0;
       return evidence;
+    } finally {
+      backendRequestTracker.stop();
     }
-
-    const scenarioIds = options.scenarioIds;
-    const scenarios = Array.isArray(scenarioIds) && scenarioIds.length > 0
-      ? mediaRecorderFixtureManifest.scenarios.filter((scenario) => scenarioIds.includes(scenario.id))
-      : mediaRecorderFixtureManifest.scenarios;
-
-    for (const scenario of scenarios) {
-      if (isCancelled()) break;
-      attemptId += 1;
-      options.onAttemptStart?.(attemptId);
-      const startedAt = performance.now();
-      try {
-        const attempt = await runScenarioAttempt({
-          attemptId,
-          scenario,
-          candidate,
-          isCancelled,
-          setRecorder: (value) => {
-            activeRecorder = value;
-          },
-          setStream: (value) => {
-            activeStream = value;
-          },
-          setCanvasStream: (value) => {
-            activeCanvasStream = value;
-          },
-          setAudioContext: (value) => {
-            activeAudioContext = value;
-          },
-          setDestination: (value) => {
-            activeDestination = value;
-          },
-          setSource: (value) => {
-            activeSource = value;
-          },
-          setBlobUrl: (value) => {
-            activeBlobUrl = value;
-          },
-          setImageUrl: (value) => {
-            activeImageUrl = value;
-          },
-        });
-        if (isCancelled()) break;
-        evidence.results.push({
-          scenarioId: scenario.id,
-          scenarioOrder: scenario.order,
-          imageId: scenario.imageId,
-          audioId: scenario.audioId,
-          candidateId: candidate.id,
-          requestedMimeType: candidate.mimeType,
-          status: attempt.status,
-          attempt,
-        });
-      } catch (error) {
-        if (isCancelled()) break;
-        evidence.results.push({
-          scenarioId: scenario.id,
-          scenarioOrder: scenario.order,
-          imageId: scenario.imageId,
-          audioId: scenario.audioId,
-          candidateId: candidate.id,
-          requestedMimeType: candidate.mimeType,
-          status: 'FAIL',
-          error: error instanceof Error ? error.message : 'Unknown MediaRecorder prototype error.',
-        });
-      } finally {
-        cleanup();
-        evidence.generatedAt = new Date().toISOString();
-        options.onProgress?.(structuredClone(evidence));
-      }
-      if (performance.now() - startedAt > 120_000) {
-        evidence.notes.push(`Scenario ${scenario.id} exceeded the local 120s wall-clock envelope.`);
-      }
-    }
-    return evidence;
   })();
 
   return { promise, controller };
+}
 
-  function cleanup() {
-    activeRecorder?.stream.getTracks().forEach((track) => track.stop());
-    activeRecorder = undefined;
-    activeSource?.stop();
-    activeSource?.disconnect();
-    activeSource = undefined;
-    activeDestination?.disconnect();
-    activeDestination = undefined;
-    activeStream?.getTracks().forEach((track) => track.stop());
-    activeStream = undefined;
-    activeCanvasStream?.getTracks().forEach((track) => track.stop());
-    activeCanvasStream = undefined;
-    if (activeAudioContext && activeAudioContext.state !== 'closed') {
-      void activeAudioContext.close();
+function orderIndex(candidateId: string): number {
+  const index = RECORDER_CANDIDATE_ORDER.indexOf(
+    candidateId as (typeof RECORDER_CANDIDATE_ORDER)[number],
+  );
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+}
+
+function stopResources(resources: PrototypeAttemptResources): boolean {
+  try {
+    if (resources.recorder) {
+      resources.recorder.ondataavailable = null;
+      resources.recorder.onerror = null;
+      resources.recorder.onstop = null;
+      if (resources.recorder.state !== 'inactive') {
+        resources.recorder.stop();
+      }
     }
-    activeAudioContext = undefined;
-    if (activeBlobUrl) URL.revokeObjectURL(activeBlobUrl);
-    activeBlobUrl = undefined;
-    if (activeImageUrl) URL.revokeObjectURL(activeImageUrl);
-    activeImageUrl = undefined;
+    resources.source?.stop();
+    resources.source?.disconnect();
+    resources.destination?.disconnect();
+    resources.stream?.getTracks().forEach((track) => track.stop());
+    resources.canvasStream?.getTracks().forEach((track) => track.stop());
+    resources.imageBitmap?.close();
+    if (resources.audioContext && resources.audioContext.state !== 'closed') {
+      void resources.audioContext.close();
+    }
+    if (resources.blobUrl) URL.revokeObjectURL(resources.blobUrl);
+    if (resources.imageUrl) URL.revokeObjectURL(resources.imageUrl);
+    return true;
+  } catch {
+    return false;
   }
+}
+
+function mergeVerifiedFixtures(
+  existing: PrototypeMeasurementEvidence['fixtures'],
+  incoming: PrototypeMeasurementEvidence['fixtures'],
+) {
+  const merged = new Map(existing.map((fixture) => [fixture.fixtureId, fixture] as const));
+  for (const fixture of incoming) merged.set(fixture.fixtureId, fixture);
+  return [...merged.values()];
+}
+
+function readEnvironmentEvidence(): PrototypeMeasurementEvidence['environment'] {
+  const userAgent = navigator.userAgent;
+  return {
+    userAgent,
+    platform: navigator.platform,
+    browserName: detectBrowserName(userAgent),
+    browserVersion: detectBrowserVersion(userAgent),
+    os: detectOs(userAgent),
+    displayMode: detectDisplayMode(),
+    assistiveTechnology: 'unknown',
+  };
+}
+
+function detectDisplayMode(): PrototypeMeasurementEvidence['environment']['displayMode'] {
+  if (window.matchMedia('(display-mode: standalone)').matches) return 'standalone';
+  if (window.matchMedia('(display-mode: minimal-ui)').matches) return 'minimal-ui';
+  if (window.matchMedia('(display-mode: fullscreen)').matches) return 'fullscreen';
+  if (window.matchMedia('(display-mode: browser)').matches) return 'browser';
+  return 'unknown';
+}
+
+function detectBrowserName(userAgent: string): string {
+  if (/Edg\//u.test(userAgent)) return 'Edge';
+  if (/Chrome\//u.test(userAgent)) return 'Chrome';
+  if (/Firefox\//u.test(userAgent)) return 'Firefox';
+  if (/Safari\//u.test(userAgent) && !/Chrome\//u.test(userAgent)) return 'Safari';
+  return 'Unknown';
+}
+
+function detectBrowserVersion(userAgent: string): string {
+  const match =
+    userAgent.match(/Edg\/([\d.]+)/u) ??
+    userAgent.match(/Chrome\/([\d.]+)/u) ??
+    userAgent.match(/Firefox\/([\d.]+)/u) ??
+    userAgent.match(/Version\/([\d.]+)/u);
+  return match?.[1] ?? 'unknown';
+}
+
+function detectOs(userAgent: string): string {
+  if (/Windows/u.test(userAgent)) return 'Windows';
+  if (/Android/u.test(userAgent)) return 'Android';
+  if (/iPhone|iPad|iPod/u.test(userAgent)) return 'iOS';
+  if (/Mac OS X/u.test(userAgent)) return 'macOS';
+  if (/Linux/u.test(userAgent)) return 'Linux';
+  return 'Unknown';
 }

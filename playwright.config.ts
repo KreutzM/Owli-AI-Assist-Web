@@ -17,16 +17,18 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'pnpm build && pnpm preview',
+      command: 'set OWLI_WEB_OUT_DIR=dist-e2e-normal&& pnpm build && pnpm exec vite preview --outDir dist-e2e-normal --host 127.0.0.1 --port 4173 --strictPort',
       url: 'http://127.0.0.1:4173',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 120_000,
+      gracefulShutdown: { signal: 'SIGTERM', timeout: 5_000 },
     },
     {
       command: 'pnpm dev --host 0.0.0.0',
       url: 'http://127.0.0.1:5173',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
+      gracefulShutdown: { signal: 'SIGTERM', timeout: 5_000 },
       env: {
         ...process.env,
         VITE_OWLI_API_MODE: 'remote',
@@ -41,6 +43,7 @@ export default defineConfig({
       url: 'http://127.0.0.1:5174',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
+      gracefulShutdown: { signal: 'SIGTERM', timeout: 5_000 },
       env: {
         ...process.env,
         VITE_OWLI_API_MODE: 'remtoe',
@@ -51,19 +54,11 @@ export default defineConfig({
       },
     },
     {
-      command: 'pnpm exec vite --host 127.0.0.1 --port 5175 --strictPort',
+      command: 'set OWLI_WEB_OUT_DIR=dist-e2e-prototype&& pnpm build:staging:mediarecorder-prototype && node tools/serve-built-web.mjs --root dist-e2e-prototype --port 5175',
       url: 'http://127.0.0.1:5175',
-      reuseExistingServer: !process.env.CI,
-      timeout: 120_000,
-      env: {
-        ...process.env,
-        VITE_OWLI_API_MODE: 'remote',
-        VITE_OWLI_API_BASE_URL: 'https://api-staging.owli-ai.com/',
-        VITE_OWLI_APP_VERSION: '0.1.0',
-        VITE_OWLI_VERSION_CODE: '1',
-        VITE_OWLI_DEFAULT_LOCALE: 'de-DE',
-        VITE_OWLI_STAGING_PROTOTYPE_MEDIARECORDER: 'enabled',
-      },
+      reuseExistingServer: false,
+      timeout: 180_000,
+      gracefulShutdown: { signal: 'SIGTERM', timeout: 5_000 },
     },
   ],
   projects: [

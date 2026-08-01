@@ -5,7 +5,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 
 const root = process.cwd();
-const fixtureRoot = path.join(root, 'public', 'prototypes', 'mediarecorder', 'fixtures');
+const fixtureRoot = path.join(root, 'prototype-fixtures', 'mediarecorder', 'fixtures');
 const manifestRoot = path.join(
   root,
   'src',
@@ -16,6 +16,7 @@ const manifestRoot = path.join(
 );
 const tempRoot = path.join(tmpdir(), 'owli-mediarecorder-prototype-fixtures');
 const ffmpeg = 'ffmpeg';
+const ffmpegVersion = readFfmpegVersion();
 
 const imageFixtures = [
   {
@@ -75,9 +76,9 @@ const audioFormats = [
 
 const recorderCandidates = [
   {
-    id: 'webm-vp9-opus',
-    mimeType: 'video/webm;codecs=vp9,opus',
-    fileExtension: 'webm',
+    id: 'mp4-h264-aac',
+    mimeType: 'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+    fileExtension: 'mp4',
   },
   {
     id: 'webm-vp8-opus',
@@ -90,9 +91,9 @@ const recorderCandidates = [
     fileExtension: 'webm',
   },
   {
-    id: 'mp4-h264-aac',
-    mimeType: 'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
-    fileExtension: 'mp4',
+    id: 'webm-vp9-opus',
+    mimeType: 'video/webm;codecs=vp9,opus',
+    fileExtension: 'webm',
   },
 ];
 
@@ -142,7 +143,11 @@ const scenarios = [
 
 const manifest = {
   schemaVersion: 1,
-  generatedAt: '2026-07-31',
+  generatedAt: '2026-08-01',
+  generator: {
+    tool: 'tools/generate-mediarecorder-prototype-fixtures.mjs',
+    ffmpegVersion,
+  },
   routePath: '/lab/mediarecorder-prototype',
   fixtureRoot: '/prototypes/mediarecorder/fixtures',
   recorderCandidates,
@@ -290,4 +295,9 @@ function hexToRgb(color) {
     Number.parseInt(normalized.slice(2, 4), 16),
     Number.parseInt(normalized.slice(4, 6), 16),
   ];
+}
+
+function readFfmpegVersion() {
+  const output = execFileSync(ffmpeg, ['-version'], { encoding: 'utf8' });
+  return output.split(/\r?\n/u)[0]?.trim() ?? 'unknown';
 }

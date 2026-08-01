@@ -1,6 +1,10 @@
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
+import { cp } from 'node:fs/promises';
+import path from 'node:path';
 
 const STAGING_API_ROOT = 'https://api-staging.owli-ai.com/';
+const GIT_SHA = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+const OUT_DIR = process.env.OWLI_WEB_OUT_DIR ?? 'dist';
 
 const target = process.argv[2];
 const printConfigOnly = process.argv.includes('--print-config');
@@ -58,6 +62,8 @@ for (const key of Object.keys(environment)) {
 }
 Object.assign(environment, targetConfig[target], {
   OWLI_WEB_DEPLOY_TARGET: headerTarget,
+  VITE_OWLI_BUILD_TARGET: target,
+  VITE_OWLI_GIT_SHA: GIT_SHA,
 });
 
 if (printConfigOnly) {
@@ -69,11 +75,18 @@ if (printConfigOnly) {
   console.log(JSON.stringify(runtimeEnvironment));
 } else {
   await run('pnpm', ['exec', 'tsc', '-b'], environment);
-  const viteArgs = ['exec', 'vite', 'build'];
+  const viteArgs = ['exec', 'vite', 'build', '--outDir', OUT_DIR];
   if (target === 'safari-jpeg-harness') {
     viteArgs.push('--config', 'vite.safari-jpeg.config.mjs');
   }
   await run('pnpm', viteArgs, environment);
+  if (target === 'staging-mediarecorder-prototype') {
+    await cp(
+      path.resolve('prototype-fixtures', 'mediarecorder', 'fixtures'),
+      path.resolve(OUT_DIR, 'prototypes', 'mediarecorder', 'fixtures'),
+      { recursive: true, force: true },
+    );
+  }
   await run(process.execPath, ['tools/generate-cloudflare-headers.mjs', headerTarget], environment);
 }
 

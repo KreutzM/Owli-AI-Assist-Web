@@ -5,7 +5,7 @@ import { mkdtemp, readFile, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-const DIST_ROOT = path.resolve('dist');
+const DIST_ROOT = path.resolve(readRoot(process.argv));
 const port = readPort(process.argv);
 const useHttps = process.argv.includes('--https');
 const headerRules = parseHeaderRules(await readFile(path.join(DIST_ROOT, '_headers'), 'utf8'));
@@ -137,6 +137,13 @@ function readPort(args) {
   const index = args.indexOf('--port');
   const value = index >= 0 ? Number(args[index + 1]) : 4180;
   if (!Number.isInteger(value) || value < 1 || value > 65_535) throw new Error('Invalid --port.');
+  return value;
+}
+
+function readRoot(args) {
+  const index = args.indexOf('--root');
+  const value = index >= 0 ? args[index + 1] : 'dist';
+  if (!value) throw new Error('Invalid --root.');
   return value;
 }
 

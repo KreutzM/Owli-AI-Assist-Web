@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { readAppRoute } from '@/app/appRoute';
 import { createAppRuntime } from '@/app/runtime';
-import { MediaRecorderPrototypeLab } from '@/features/labs/mediaRecorderPrototype/MediaRecorderPrototypeLab';
+import { MediaRecorderPrototypeLab } from '@/features/labs/mediaRecorderPrototype/entry';
 import { AudioPostcardPanel } from '@/features/postcard/AudioPostcardPanel';
 import { RemoteAssist } from '@/features/remote/RemoteAssist';
 import { SceneWorkspace } from '@/features/scene/SceneWorkspace';
