@@ -1,0 +1,262 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import importlib.util
+import json
+import socket
+import tempfile
+import unittest
+import urllib.error
+from pathlib import Path
+from unittest import mock
+
+ROOT = Path(__file__).resolve().parents[1]
+SPEC = importlib.util.spec_from_file_location("safari_smoke", ROOT / "tools/safari-smoke.py")
+assert SPEC and SPEC.loader
+safari_smoke = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(safari_smoke)
+
+
+class FakeClock:
+    def __init__(self) -> None:
+        self.value = 0.0
+
+    def __call__(self) -> float:
+        return self.value
+
+    def sleep(self, seconds: float) -> None:
+        self.value += seconds
+
+
+class LocalHttpsReadinessTests(unittest.TestCase):
+    def test_ready_after_more_than_30_seconds_before_deadline(self) -> None:
+        clock = FakeClock()
+        attempts = 0
+
+        def probe(_url: str) -> None:
+            nonlocal attempts
+            attempts += 1
+            if clock.value < 32:
+                raise ConnectionRefusedError("not ready")
+
+        safari_smoke.wait_for_local_https(
+            "https://127.0.0.1:4180/",
+            123,
+            Path("server.log"),
+            timeout=90,
+            clock=clock,
+            sleep=clock.sleep,
+            probe=probe,
+            process_alive=lambda _pid: True,
+            log_reader=lambda _path: "available after 32 seconds",
+        )
+        self.assertGreater(clock.value, 30)
+        self.assertLess(clock.value, 90)
+        self.assertGreater(attempts, 30)
+
+    def test_server_exit_before_readiness_includes_log(self) -> None:
+        clock = FakeClock()
+        states = iter([True, False])
+        with self.assertRaisesRegex(RuntimeError, "exited before readiness") as caught:
+            safari_smoke.wait_for_local_https(
+                "https://127.0.0.1:4180/",
+                123,
+                Path("server.log"),
+                timeout=90,
+                clock=clock,
+                sleep=clock.sleep,
+                probe=lambda _url: (_ for _ in ()).throw(ConnectionRefusedError()),
+                process_alive=lambda _pid: next(states),
+                log_reader=lambda _path: "fatal startup error",
+            )
+        self.assertIn("fatal startup error", str(caught.exception))
+
+    def test_bounded_timeout_includes_log_and_reason(self) -> None:
+        clock = FakeClock()
+        with self.assertRaisesRegex(TimeoutError, "Timed out after 5.0s") as caught:
+            safari_smoke.wait_for_local_https(
+                "https://127.0.0.1:4180/",
+                123,
+                Path("server.log"),
+                timeout=5,
+                clock=clock,
+                sleep=clock.sleep,
+                probe=lambda _url: (_ for _ in ()).throw(ConnectionRefusedError("no listener")),
+                process_alive=lambda _pid: True,
+                log_reader=lambda _path: "server still starting",
+            )
+        self.assertIn("server still starting", str(caught.exception))
+        self.assertIn("ConnectionRefusedError", str(caught.exception))
+
+
+class FakeResponse:
+    def __enter__(self) -> "FakeResponse":
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        return None
+
+    def read(self, _size: int) -> bytes:
+        return b"x"
+
+
+class FakeDriver:
+    def __init__(self, *, start_error: Exception | None = None, navigate_error: Exception | None = None) -> None:
+        self.start_error = start_error
+        self.navigate_error = navigate_error
+        self.started = False
+
+    def start(self) -> None:
+        self.started = True
+        if self.start_error:
+            raise self.start_error
+
+    def navigate(self, _url: str) -> None:
+        if self.navigate_error:
+            raise self.navigate_error
+
+    def execute(self, _script: str, _args: list[object] | None = None) -> object:
+        return {}
+
+    def screenshot(self, _destination: Path) -> None:
+        return None
+
+    def quit(self) -> None:
+        return None
+
+
+class RemoteClassificationTests(unittest.TestCase):
+    target = "https://deadbeef.owli-ai-assist-web.pages.dev"
+
+    def run_main_with_preflight_error(self, allow: bool) -> tuple[int, dict[str, object]]:
+        with tempfile.TemporaryDirectory() as directory:
+            argv = [
+                "safari-smoke.py",
+                "--target-url",
+                self.target,
+                "--artifacts",
+                directory,
+            ]
+            if allow:
+                argv.append("--allow-inconclusive-remote-readiness")
+            with mock.patch.object(
+                safari_smoke,
+                "preflight_remote_https",
+                side_effect=safari_smoke.RemoteReadinessUnavailable(
+                    "Connection refused", error_type="ConnectionRefusedError"
+                ),
+            ), mock.patch("sys.argv", argv):
+                status = safari_smoke.main()
+            result = json.loads((Path(directory) / "result.json").read_text())
+        return status, result
+
+    def test_direct_connection_refusal_allow_flag_is_inconclusive(self) -> None:
+        status, result = self.run_main_with_preflight_error(True)
+        self.assertEqual(status, 0)
+        self.assertEqual(result["status"], "INCONCLUSIVE_REMOTE_READINESS")
+        self.assertEqual(result["errorType"], "ConnectionRefusedError")
+        self.assertIn("Connection refused", result["reason"])
+
+    def test_direct_connection_refusal_without_allow_flag_fails(self) -> None:
+        status, result = self.run_main_with_preflight_error(False)
+        self.assertEqual(status, 1)
+        self.assertEqual(result["status"], "INCONCLUSIVE_REMOTE_READINESS")
+
+    def test_direct_preflight_classifies_typed_network_error(self) -> None:
+        def opener(*_args: object, **_kwargs: object) -> object:
+            raise urllib.error.URLError(ConnectionRefusedError(61, "Connection refused"))
+
+        with self.assertRaises(safari_smoke.RemoteReadinessUnavailable) as caught:
+            safari_smoke.preflight_remote_https(self.target, opener=opener)
+        self.assertEqual(caught.exception.error_type, "ConnectionRefusedError")
+
+    def test_local_safaridriver_connection_refusal_is_hard(self) -> None:
+        driver = FakeDriver(start_error=urllib.error.URLError(ConnectionRefusedError(61, "refused")))
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(urllib.error.URLError):
+                safari_smoke.run_smoke(
+                    self.target,
+                    Path(directory),
+                    preflight=lambda _url: None,
+                    driver_factory=lambda: driver,
+                )
+        self.assertTrue(driver.started)
+
+    def test_webdriver_timeout_is_hard(self) -> None:
+        error = safari_smoke.WebDriverError("timeout: page load command timed out")
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(safari_smoke.WebDriverError):
+                safari_smoke.run_smoke(
+                    self.target,
+                    Path(directory),
+                    preflight=lambda _url: None,
+                    driver_factory=lambda: FakeDriver(navigate_error=error),
+                )
+
+    def test_reachable_substantive_failure_is_hard(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            with mock.patch.object(
+                safari_smoke,
+                "wait_for_remote_readiness",
+                return_value={"hasManifest": True},
+            ), mock.patch.object(
+                safari_smoke,
+                "storage_snapshot",
+                return_value={
+                    "localStorageLength": 1,
+                    "sessionStorageLength": 0,
+                    "cookieLength": 0,
+                    "search": "",
+                    "hash": "",
+                },
+            ):
+                with self.assertRaisesRegex(AssertionError, "Unexpected browser persistence"):
+                    safari_smoke.run_smoke(
+                        self.target,
+                        Path(directory),
+                        preflight=lambda _url: None,
+                        driver_factory=FakeDriver,
+                    )
+
+    def test_http_error_proves_transport_reachable(self) -> None:
+        def opener(*_args: object, **_kwargs: object) -> object:
+            raise urllib.error.HTTPError(self.target, 503, "Unavailable", {}, None)
+
+        safari_smoke.preflight_remote_https(self.target, opener=opener)
+
+    def test_generic_webdriver_timeout_text_is_not_transport(self) -> None:
+        self.assertFalse(
+            safari_smoke.is_direct_remote_transport_error(
+                safari_smoke.WebDriverError("timed out waiting for page load")
+            )
+        )
+
+
+class WorkflowPolicyTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.workflow = (ROOT / ".github/workflows/apple-smoke.yml").read_text()
+
+    def test_focused_python_tests_are_mandatory(self) -> None:
+        self.assertIn("python3 tools/safari-smoke.test.py", self.workflow)
+        step = self.workflow.split("- name: Run focused Safari smoke tests", 1)[1]
+        step = step.split("- name:", 1)[0]
+        self.assertNotIn("continue-on-error", step)
+        self.assertNotIn("if:", step)
+
+    def test_remote_diagnostic_skips_only_on_inconclusive(self) -> None:
+        self.assertIn("id: remote_readiness", self.workflow)
+        self.assertIn(
+            "steps.remote_readiness.outputs.status != 'INCONCLUSIVE_REMOTE_READINESS'",
+            self.workflow,
+        )
+        self.assertIn("Run deterministic local Safari JPEG gate", self.workflow)
+
+    def test_mandatory_local_gate_is_not_softened(self) -> None:
+        local_gate = self.workflow.split("- name: Run deterministic local Safari JPEG gate", 1)[1]
+        local_gate = local_gate.split("- name:", 1)[0]
+        self.assertNotIn("continue-on-error", local_gate)
+        self.assertNotIn("always()", local_gate)
+
+
+if __name__ == "__main__":
+    unittest.main()
