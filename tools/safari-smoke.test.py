@@ -73,7 +73,11 @@ class LocalHttpsReadinessTests(unittest.TestCase):
         clock = FakeClock()
 
         def probe(url: str) -> None:
-            raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+            error = urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+            try:
+                raise error
+            finally:
+                error.close()
 
         with self.assertRaisesRegex(TimeoutError, "HTTP Error 404"):
             safari_smoke.wait_for_local_https(
@@ -259,7 +263,11 @@ class RemoteClassificationTests(unittest.TestCase):
 
     def test_http_error_proves_transport_reachable(self) -> None:
         def opener(*_args: object, **_kwargs: object) -> object:
-            raise urllib.error.HTTPError(self.target, 503, "Unavailable", {}, None)
+            error = urllib.error.HTTPError(self.target, 503, "Unavailable", {}, None)
+            try:
+                raise error
+            finally:
+                error.close()
 
         safari_smoke.preflight_remote_https(self.target, opener=opener)
 
