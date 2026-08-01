@@ -33,11 +33,16 @@ export const PROTOTYPE_FFT_SIZE = 4096;
 export const PROTOTYPE_AUDIO_SAMPLE_INTERVAL_MS = 100;
 
 export const PROTOTYPE_AUDIO_MARKERS = {
-  startHz: [1320, 1760],
-  endHz: [880],
-  backgroundHz: [330, 440, 550, 660],
+  floorDb: -160,
+  start: {
+    left: { targetHz: 1760, backgroundHz: [440, 660] },
+    right: { targetHz: 1320, backgroundHz: [330, 550] },
+  },
+  end: {
+    left: { targetHz: 880, backgroundHz: [440, 660] },
+    right: { targetHz: 660, backgroundHz: [330, 550] },
+  },
   minOverallRms: 0.01,
   minMarkerRms: 0.035,
   minMarkerLeadDb: 8,
 } as const;
-

@@ -34,6 +34,8 @@ export async function validateRecording(input: {
     startMarkerDb: number;
     endMarkerDb: number;
     backgroundDb: number;
+    startMarkerLeadDb: number;
+    endMarkerLeadDb: number;
   }>;
   trackEvidence: {
     hasVisualFrames: boolean;

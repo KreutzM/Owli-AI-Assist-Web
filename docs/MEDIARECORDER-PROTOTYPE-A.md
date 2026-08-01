@@ -7,6 +7,7 @@ Web issue: `KreutzM/Owli-AI-Assist-Web#54`
 - Route: `/lab/mediarecorder-prototype`
 - Explicit staging flag: `VITE_OWLI_STAGING_PROTOTYPE_MEDIARECORDER=enabled`
 - Prototype build target: `pnpm build:staging:mediarecorder-prototype`
+- Clean-tree local measurement: `pnpm measure:mediarecorder`
 - Normal builds stay fail-closed and do not ship `dist/prototypes`.
 - Prototype fixture assets are copied only into prototype build artifacts.
 - The route is not linked from normal navigation and does not modify the Slice-5 Audio-Postcard flow or `shareVideo: false`.
@@ -18,7 +19,7 @@ Web issue: `KreutzM/Owli-AI-Assist-Web#54`
 - decodes deterministic local audio fixtures;
 - routes audio through `MediaStreamAudioDestinationNode`;
 - probes runtime MIME support and records with `MediaRecorder.start(1000)`;
-- validates orientation, aspect ratio, duration drift, container magic, fixture checksums, marker timing, and local memory envelopes;
+- validates orientation, aspect ratio, duration drift, container magic, fixture checksums, input-fixture marker preflight, output marker timing, and local memory envelopes;
 - exports only local JSON evidence.
 
 ## Fixtures
@@ -27,38 +28,28 @@ Web issue: `KreutzM/Owli-AI-Assist-Web#54`
 - Generator: `pnpm fixtures:mediarecorder`
 - Recorded FFmpeg generator version: `ffmpeg version 8.0-full_build-www.gyan.dev`
 - Current fixture root in source control: `prototype-fixtures/mediarecorder/fixtures`
+- Marker validation is channel-separated so the right-channel `660 Hz` end marker is no longer treated as its own background floor.
 
-## Local Chromium Evidence
+## Measurement Workflow
 
-Scenario: `scenario-01` on August 1, 2026
+- `pnpm measure:mediarecorder` requires a clean working tree.
+- The measurement build records `gitSha`, `gitDirty`, and `sourceDigest`.
+- Local evidence is written outside the repository by default under the system temp directory.
 
-- [MP4 / H.264 + AAC](prototypes/mediarecorder/local-chromium-2026-08-01-scenario-01-mp4-h264-aac.json)
-- [WebM / VP8 + Opus](prototypes/mediarecorder/local-chromium-2026-08-01-scenario-01-webm-vp8-opus.json)
-- [WebM / default](prototypes/mediarecorder/local-chromium-2026-08-01-scenario-01-webm-default.json)
-- [WebM / VP9 + Opus](prototypes/mediarecorder/local-chromium-2026-08-01-scenario-01-webm-vp9-opus.json)
+## Current August 1, 2026 status
 
-Summary of the August 1, 2026 rerun:
-
-- all four candidates produced audible output again under the corrected validator;
-- all four detected the start marker;
-- all four still missed the end marker and therefore remained `FAIL`;
-- measured duration drift stayed within `60-65 ms`;
-- backend request count stayed at `0`;
-- fixture checksum verification stayed `true` for image and audio;
-- cleanup completed for every recorded attempt.
-
-Interpretation:
-
-- the previous July 31, 2026 `audioNonSilent: false` result was a validator issue, not sufficient evidence of silent MediaRecorder output;
-- the current remaining blocker is end-marker validation for Scenario 01, not loss of all audio.
+- Scenario `01` now passes locally for all four candidates once the channel-separated end-marker validator is used.
+- The previous August 1, 2026 repo-committed evidence files were removed because they were produced from a dirty tree and were therefore not exact-head evidence.
+- Exact-head reruns must be generated from a clean tree with `pnpm measure:mediarecorder`.
 
 ## Artifact split
 
-- Normal mock build after the alias fix transformed `146` modules and did not emit `dist/prototypes`.
-- Prototype staging build transformed `158` modules and emitted `prototypes/mediarecorder/fixtures`.
+- Normal mock build after the alias fix transforms `146` modules and does not emit `dist/prototypes`.
+- Prototype staging build transforms `160` modules and emits `prototypes/mediarecorder/fixtures`.
 
 ## Known limits
 
 - Requested chunk cadence remains nominal only; delivery frequency is not guaranteed by `MediaRecorder`.
 - Browser-internal encoder buffering cannot be hard-bounded by application code.
+- Codec/container validation currently checks container magic plus measured output MIME and still does not fully inspect per-track codec declarations.
 - The prototype remains staging-only and is not a production user flow.

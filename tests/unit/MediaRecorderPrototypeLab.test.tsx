@@ -25,6 +25,8 @@ describe('MediaRecorderPrototypeLab', () => {
       build: {
         gitSha: '31bb4033fbdf8080dcb028d4b309082cc911b1f1',
         buildTarget: 'staging-mediarecorder-prototype',
+        gitDirty: false,
+        sourceDigest: 'digest',
       },
       environment: {
         userAgent: 'Mozilla/5.0',
@@ -87,6 +89,8 @@ describe('MediaRecorderPrototypeLab', () => {
         build: {
           gitSha: '31bb4033fbdf8080dcb028d4b309082cc911b1f1',
           buildTarget: 'staging-mediarecorder-prototype',
+          gitDirty: false,
+          sourceDigest: 'digest',
         },
         environment: {
           userAgent: 'Mozilla/5.0',
@@ -171,6 +175,8 @@ describe('MediaRecorderPrototypeLab', () => {
       build: {
         gitSha: '31bb4033fbdf8080dcb028d4b309082cc911b1f1',
         buildTarget: 'staging-mediarecorder-prototype',
+        gitDirty: false,
+        sourceDigest: 'digest',
       },
       environment: {
         userAgent: 'Mozilla/5.0',

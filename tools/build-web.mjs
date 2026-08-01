@@ -1,9 +1,12 @@
 import { execFileSync, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { cp } from 'node:fs/promises';
 import path from 'node:path';
 
 const STAGING_API_ROOT = 'https://api-staging.owli-ai.com/';
 const GIT_SHA = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+const GIT_DIRTY = readGitDirty();
+const SOURCE_DIGEST = readSourceDigest();
 const OUT_DIR = process.env.OWLI_WEB_OUT_DIR ?? 'dist';
 
 const target = process.argv[2];
@@ -49,6 +52,11 @@ if (!target || !Object.hasOwn(targetConfig, target)) {
     'Build target must be exactly mock, staging, production, safari-jpeg-harness, or staging-mediarecorder-prototype.',
   );
 }
+if (target === 'staging-mediarecorder-prototype' && GIT_DIRTY && process.env.OWLI_ALLOW_DIRTY_PROTOTYPE_BUILD !== '1') {
+  throw new Error(
+    'staging-mediarecorder-prototype requires a clean working tree unless OWLI_ALLOW_DIRTY_PROTOTYPE_BUILD=1 is set.',
+  );
+}
 
 const headerTarget =
   target === 'safari-jpeg-harness'
@@ -64,6 +72,9 @@ Object.assign(environment, targetConfig[target], {
   OWLI_WEB_DEPLOY_TARGET: headerTarget,
   VITE_OWLI_BUILD_TARGET: target,
   VITE_OWLI_GIT_SHA: GIT_SHA,
+  VITE_OWLI_GIT_DIRTY: String(GIT_DIRTY),
+  VITE_OWLI_SOURCE_DIGEST: SOURCE_DIGEST,
+  OWLI_WEB_OUT_DIR: OUT_DIR,
 });
 
 if (printConfigOnly) {
@@ -111,4 +122,18 @@ function run(command, args, env) {
       );
     });
   });
+}
+
+function readGitDirty() {
+  return execFileSync('git', ['status', '--porcelain=v1', '--untracked-files=all'], {
+    encoding: 'utf8',
+  }).trim().length > 0;
+}
+
+function readSourceDigest() {
+  const status = execFileSync('git', ['status', '--porcelain=v1', '--untracked-files=all'], {
+    encoding: 'utf8',
+  });
+  const diff = execFileSync('git', ['diff', '--binary', 'HEAD', '--'], { encoding: 'utf8' });
+  return createHash('sha256').update(GIT_SHA).update('\n').update(status).update('\n').update(diff).digest('hex');
 }

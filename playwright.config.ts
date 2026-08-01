@@ -17,11 +17,15 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'set OWLI_WEB_OUT_DIR=dist-e2e-normal&& pnpm build && pnpm exec vite preview --outDir dist-e2e-normal --host 127.0.0.1 --port 4173 --strictPort',
+      command: 'pnpm build && node tools/serve-built-web.mjs --root dist-e2e-normal --port 4173',
       url: 'http://127.0.0.1:4173',
       reuseExistingServer: false,
       timeout: 120_000,
       gracefulShutdown: { signal: 'SIGTERM', timeout: 5_000 },
+      env: {
+        ...process.env,
+        OWLI_WEB_OUT_DIR: 'dist-e2e-normal',
+      },
     },
     {
       command: 'pnpm dev --host 0.0.0.0',
@@ -54,11 +58,16 @@ export default defineConfig({
       },
     },
     {
-      command: 'set OWLI_WEB_OUT_DIR=dist-e2e-prototype&& pnpm build:staging:mediarecorder-prototype && node tools/serve-built-web.mjs --root dist-e2e-prototype --port 5175',
+      command: 'pnpm build:staging:mediarecorder-prototype && node tools/serve-built-web.mjs --root dist-e2e-prototype --port 5175',
       url: 'http://127.0.0.1:5175',
       reuseExistingServer: false,
       timeout: 180_000,
       gracefulShutdown: { signal: 'SIGTERM', timeout: 5_000 },
+      env: {
+        ...process.env,
+        OWLI_WEB_OUT_DIR: 'dist-e2e-prototype',
+        OWLI_ALLOW_DIRTY_PROTOTYPE_BUILD: '1',
+      },
     },
   ],
   projects: [

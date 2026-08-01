@@ -49,6 +49,7 @@ export function createAttemptDraft(
     initializationMs: 0,
     renderMs: 0,
     finalizationMs: 0,
+    validationMs: 0,
     totalMs: 0,
     chunkIntervalsMs: [],
     chunkSizes: [],
@@ -66,6 +67,11 @@ export function createAttemptDraft(
       startMarkerDetected: false,
       endMarkerDetected: false,
       markerAnalysis: [],
+      fixturePreflight: {
+        audioNonSilent: false,
+        startMarkerDetected: false,
+        endMarkerDetected: false,
+      },
       trackEvidence: {
         hasVisualFrames: false,
         hasAudibleFrames: false,

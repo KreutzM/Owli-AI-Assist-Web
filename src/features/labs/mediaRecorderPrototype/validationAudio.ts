@@ -5,15 +5,20 @@ import {
   PROTOTYPE_LIMITS,
 } from '@/features/labs/mediaRecorderPrototype/constants';
 import type { getMediaRecorderScenarioFixtures } from '@/features/labs/mediaRecorderPrototype/fixtureManifest';
+import {
+  clampDb,
+  computeBandDb,
+  computeBandDbFromWindow,
+  computeRms,
+  createMarkerSnapshot,
+  detectMarkerSamples,
+  getChannelBands,
+  type MarkerSnapshot,
+} from '@/features/labs/mediaRecorderPrototype/audioMarkerAnalysis';
 import { throwIfAborted } from '@/features/labs/mediaRecorderPrototype/validationMedia';
 
-export interface MarkerSnapshot {
-  timeMs: number;
-  rms: number;
-  startMarkerDb: number;
-  endMarkerDb: number;
-  backgroundDb: number;
-}
+export { detectMarkerSamples };
+export type { MarkerSnapshot };
 
 export async function analyzeAudioMarkers(
   video: HTMLVideoElement,
@@ -32,19 +37,24 @@ export async function analyzeAudioMarkers(
   if (context.state !== 'running') {
     throw new Error(`Audio validation context did not enter running state (${context.state}).`);
   }
+
   const source = context.createMediaElementSource(video);
-  const analyser = context.createAnalyser();
+  const splitter = context.createChannelSplitter(2);
+  const leftAnalyser = createAnalyser(context);
+  const rightAnalyser = createAnalyser(context);
   const silentGain = context.createGain();
-  analyser.fftSize = PROTOTYPE_FFT_SIZE;
-  analyser.smoothingTimeConstant = 0;
-  source.connect(analyser);
   silentGain.gain.value = 0;
-  analyser.connect(silentGain);
+  source.connect(splitter);
+  splitter.connect(leftAnalyser, 0);
+  splitter.connect(rightAnalyser, 1);
+  source.connect(silentGain);
   silentGain.connect(context.destination);
 
   const samples: MarkerSnapshot[] = [];
-  const timeDomain = new Uint8Array(analyser.fftSize);
-  const frequencyDomain = new Float32Array(analyser.frequencyBinCount);
+  const leftTimeDomain = new Uint8Array(leftAnalyser.fftSize);
+  const rightTimeDomain = new Uint8Array(rightAnalyser.fftSize);
+  const leftFrequencyDomain = new Float32Array(leftAnalyser.frequencyBinCount);
+  const rightFrequencyDomain = new Float32Array(rightAnalyser.frequencyBinCount);
   video.currentTime = 0;
   video.playbackRate = 1;
   await video.play();
@@ -53,15 +63,28 @@ export async function analyzeAudioMarkers(
     const interval = window.setInterval(() => {
       try {
         throwIfAborted(signal);
-        analyser.getByteTimeDomainData(timeDomain);
-        analyser.getFloatFrequencyData(frequencyDomain);
-        samples.push({
-          timeMs: Math.round(video.currentTime * 1_000),
-          rms: computeRms(timeDomain),
-          startMarkerDb: maxBandDb(frequencyDomain, context.sampleRate, PROTOTYPE_AUDIO_MARKERS.startHz),
-          endMarkerDb: maxBandDb(frequencyDomain, context.sampleRate, PROTOTYPE_AUDIO_MARKERS.endHz),
-          backgroundDb: maxBandDb(frequencyDomain, context.sampleRate, PROTOTYPE_AUDIO_MARKERS.backgroundHz),
-        });
+        leftAnalyser.getByteTimeDomainData(leftTimeDomain);
+        rightAnalyser.getByteTimeDomainData(rightTimeDomain);
+        leftAnalyser.getFloatFrequencyData(leftFrequencyDomain);
+        rightAnalyser.getFloatFrequencyData(rightFrequencyDomain);
+        samples.push(
+          createMarkerSnapshot({
+            timeMs: Math.round(video.currentTime * 1_000),
+            rms: Math.max(computeByteRms(leftTimeDomain), computeByteRms(rightTimeDomain)),
+            start: getChannelBands(
+              computeBandDb(leftFrequencyDomain, context.sampleRate, PROTOTYPE_AUDIO_MARKERS.start.left.targetHz),
+              maxBands(leftFrequencyDomain, context.sampleRate, PROTOTYPE_AUDIO_MARKERS.start.left.backgroundHz),
+              computeBandDb(rightFrequencyDomain, context.sampleRate, PROTOTYPE_AUDIO_MARKERS.start.right.targetHz),
+              maxBands(rightFrequencyDomain, context.sampleRate, PROTOTYPE_AUDIO_MARKERS.start.right.backgroundHz),
+            ),
+            end: getChannelBands(
+              computeBandDb(leftFrequencyDomain, context.sampleRate, PROTOTYPE_AUDIO_MARKERS.end.left.targetHz),
+              maxBands(leftFrequencyDomain, context.sampleRate, PROTOTYPE_AUDIO_MARKERS.end.left.backgroundHz),
+              computeBandDb(rightFrequencyDomain, context.sampleRate, PROTOTYPE_AUDIO_MARKERS.end.right.targetHz),
+              maxBands(rightFrequencyDomain, context.sampleRate, PROTOTYPE_AUDIO_MARKERS.end.right.backgroundHz),
+            ),
+          }),
+        );
         if (video.ended) {
           cleanup();
           resolve();
@@ -102,26 +125,79 @@ export async function analyzeAudioMarkers(
   }).finally(async () => {
     video.pause();
     source.disconnect();
-    analyser.disconnect();
+    splitter.disconnect();
+    leftAnalyser.disconnect();
+    rightAnalyser.disconnect();
     silentGain.disconnect();
     await context.close();
   });
 
+  return summarizeMarkerSamples(samples, audio);
+}
+
+export function analyzeFixtureAudioBuffer(
+  audioBuffer: AudioBuffer,
+  audio: ReturnType<typeof getMediaRecorderScenarioFixtures>['audio'],
+): {
+  audioNonSilent: boolean;
+  startMarkerDetected: boolean;
+  endMarkerDetected: boolean;
+  startMarkerMs?: number;
+  endMarkerMs?: number;
+  samples: MarkerSnapshot[];
+} {
+  const left = audioBuffer.getChannelData(0);
+  const right = audioBuffer.numberOfChannels > 1 ? audioBuffer.getChannelData(1) : left;
+  const intervalSamples = Math.max(
+    1,
+    Math.round((PROTOTYPE_AUDIO_SAMPLE_INTERVAL_MS / 1_000) * audioBuffer.sampleRate),
+  );
+  const samples: MarkerSnapshot[] = [];
+  for (let centerSample = 0; centerSample < audioBuffer.length; centerSample += intervalSamples) {
+    const timeMs = Math.round((centerSample / audioBuffer.sampleRate) * 1_000);
+    samples.push(
+      createMarkerSnapshot({
+        timeMs,
+        rms: Math.max(
+          computeWindowRms(left, centerSample),
+          computeWindowRms(right, centerSample),
+        ),
+        start: getChannelBands(
+          computeBandDbFromWindow(left, audioBuffer.sampleRate, centerSample, PROTOTYPE_AUDIO_MARKERS.start.left.targetHz, PROTOTYPE_FFT_SIZE),
+          maxWindowBands(left, audioBuffer.sampleRate, centerSample, PROTOTYPE_AUDIO_MARKERS.start.left.backgroundHz),
+          computeBandDbFromWindow(right, audioBuffer.sampleRate, centerSample, PROTOTYPE_AUDIO_MARKERS.start.right.targetHz, PROTOTYPE_FFT_SIZE),
+          maxWindowBands(right, audioBuffer.sampleRate, centerSample, PROTOTYPE_AUDIO_MARKERS.start.right.backgroundHz),
+        ),
+        end: getChannelBands(
+          computeBandDbFromWindow(left, audioBuffer.sampleRate, centerSample, PROTOTYPE_AUDIO_MARKERS.end.left.targetHz, PROTOTYPE_FFT_SIZE),
+          maxWindowBands(left, audioBuffer.sampleRate, centerSample, PROTOTYPE_AUDIO_MARKERS.end.left.backgroundHz),
+          computeBandDbFromWindow(right, audioBuffer.sampleRate, centerSample, PROTOTYPE_AUDIO_MARKERS.end.right.targetHz, PROTOTYPE_FFT_SIZE),
+          maxWindowBands(right, audioBuffer.sampleRate, centerSample, PROTOTYPE_AUDIO_MARKERS.end.right.backgroundHz),
+        ),
+      }),
+    );
+  }
+  return summarizeMarkerSamples(samples, audio);
+}
+
+function summarizeMarkerSamples(
+  samples: MarkerSnapshot[],
+  audio: ReturnType<typeof getMediaRecorderScenarioFixtures>['audio'],
+) {
   const startMarker = detectMarkerSamples(
     samples,
     audio.markerWindows.startMs,
     audio.markerWindows.toleranceMs,
-    'startMarkerDb',
+    'startMarkerLeadDb',
   );
   const endMarker = detectMarkerSamples(
     samples,
     audio.markerWindows.endMs,
     audio.markerWindows.toleranceMs,
-    'endMarkerDb',
+    'endMarkerLeadDb',
   );
-  const audioNonSilent = samples.some((sample) => sample.rms >= PROTOTYPE_AUDIO_MARKERS.minOverallRms);
   return {
-    audioNonSilent,
+    audioNonSilent: samples.some((sample) => sample.rms >= PROTOTYPE_AUDIO_MARKERS.minOverallRms),
     startMarkerDetected: startMarker !== undefined,
     endMarkerDetected: endMarker !== undefined,
     ...(startMarker !== undefined ? { startMarkerMs: startMarker } : {}),
@@ -130,43 +206,47 @@ export async function analyzeAudioMarkers(
   };
 }
 
-export function detectMarkerSamples(
-  samples: MarkerSnapshot[],
-  expectedMs: number,
-  toleranceMs: number,
-  band: 'startMarkerDb' | 'endMarkerDb',
-): number | undefined {
-  return samples.find((sample) => {
-    return (
-      Math.abs(sample.timeMs - expectedMs) <= toleranceMs &&
-      sample.rms >= PROTOTYPE_AUDIO_MARKERS.minMarkerRms &&
-      sample[band] - sample.backgroundDb >= PROTOTYPE_AUDIO_MARKERS.minMarkerLeadDb
-    );
-  })?.timeMs;
+function createAnalyser(context: AudioContext): AnalyserNode {
+  const analyser = context.createAnalyser();
+  analyser.fftSize = PROTOTYPE_FFT_SIZE;
+  analyser.smoothingTimeConstant = 0;
+  return analyser;
 }
 
-function computeRms(buffer: Uint8Array): number {
-  return Math.sqrt(
-    buffer.reduce((sum, value) => {
-      const centered = value / 128 - 1;
-      return sum + centered * centered;
-    }, 0) / buffer.length,
-  );
-}
-
-function maxBandDb(
+function maxBands(
   frequencyDomain: Float32Array,
   sampleRate: number,
   frequencies: readonly number[],
 ): number {
-  const binSize = sampleRate / 2 / frequencyDomain.length;
-  return Math.max(
-    ...frequencies.map((frequency) => {
-      const index = Math.min(
-        frequencyDomain.length - 1,
-        Math.max(0, Math.round(frequency / binSize)),
-      );
-      return frequencyDomain[index] ?? -160;
-    }),
+  return clampDb(
+    Math.max(...frequencies.map((frequency) => computeBandDb(frequencyDomain, sampleRate, frequency))),
   );
+}
+
+function maxWindowBands(
+  channel: Float32Array,
+  sampleRate: number,
+  centerSample: number,
+  frequencies: readonly number[],
+): number {
+  return clampDb(
+    Math.max(
+      ...frequencies.map((frequency) =>
+        computeBandDbFromWindow(channel, sampleRate, centerSample, frequency, PROTOTYPE_FFT_SIZE),
+      ),
+    ),
+  );
+}
+
+function computeByteRms(buffer: Uint8Array): number {
+  return computeRms(
+    Array.from(buffer, (value) => value / 128 - 1),
+  );
+}
+
+function computeWindowRms(channel: Float32Array, centerSample: number): number {
+  const half = Math.floor(PROTOTYPE_FFT_SIZE / 2);
+  const start = Math.max(0, Math.min(channel.length - PROTOTYPE_FFT_SIZE, centerSample - half));
+  const end = Math.min(channel.length, start + PROTOTYPE_FFT_SIZE);
+  return computeRms(channel.subarray(start, end));
 }

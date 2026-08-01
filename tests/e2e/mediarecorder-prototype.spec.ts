@@ -34,34 +34,63 @@ test.describe('media recorder prototype lab', () => {
         const start = raw.indexOf('{');
         if (start < 0) return undefined;
         const evidence = JSON.parse(raw.slice(start)) as {
-          build: { buildTarget: string; gitSha: string };
+          build: { buildTarget: string; gitSha: string; sourceDigest: string };
           run: { backendRequestsObserved: number };
           fixtures: Array<{ verified: boolean }>;
-          results: Array<{ status: string; attempt?: { cleanupCompleted: boolean } }>;
+          results: Array<{
+            status: string;
+            attempt?: {
+              cleanupCompleted: boolean;
+              validation: {
+                startMarkerDetected: boolean;
+                endMarkerDetected: boolean;
+                fixturePreflight: {
+                  startMarkerDetected: boolean;
+                  endMarkerDetected: boolean;
+                };
+              };
+            };
+          }>;
           normalFlowUnchanged: boolean;
         };
         return evidence.results[0];
       }, { timeout: 45_000 })
       .toMatchObject({
-        status: expect.stringMatching(/PASS|FAIL|AUDIO_ONLY_FALLBACK/u),
+        status: 'PASS',
         attempt: expect.objectContaining({
           cleanupCompleted: true,
+          validation: expect.objectContaining({
+            startMarkerDetected: true,
+            endMarkerDetected: true,
+            fixturePreflight: expect.objectContaining({
+              startMarkerDetected: true,
+              endMarkerDetected: true,
+            }),
+          }),
         }),
       });
 
     const finalEvidence = await page.getByTestId('mediarecorder-prototype-evidence').textContent();
     if (!finalEvidence) throw new Error('Prototype evidence was not rendered.');
     const evidence = JSON.parse(finalEvidence.slice(finalEvidence.indexOf('{'))) as {
-      build: { buildTarget: string; gitSha: string };
+      build: { buildTarget: string; gitSha: string; sourceDigest: string };
       run: { backendRequestsObserved: number; scenarioCount: number };
       fixtures: Array<{ verified: boolean; sha256: string; sizeBytes: number }>;
       results: Array<{
-        status: string;
+        status: 'PASS';
         scenarioId: string;
         attempt?: {
           cleanupCompleted: boolean;
           requestedChunkCadenceMs: number;
-          validation: { markerAnalysis: Array<unknown> };
+          validation: {
+            markerAnalysis: Array<unknown>;
+            startMarkerDetected: boolean;
+            endMarkerDetected: boolean;
+            fixturePreflight: {
+              startMarkerDetected: boolean;
+              endMarkerDetected: boolean;
+            };
+          };
         };
       }>;
       normalFlowUnchanged: boolean;
@@ -70,6 +99,7 @@ test.describe('media recorder prototype lab', () => {
     expect(evidence.results[0]?.scenarioId).toBe('scenario-01');
     expect(evidence.build.buildTarget).toBe('staging-mediarecorder-prototype');
     expect(evidence.build.gitSha).toMatch(/^[a-f0-9]{40}$/u);
+    expect(evidence.build.sourceDigest).toMatch(/^[a-f0-9]{64}$/u);
     expect(evidence.run.scenarioCount).toBe(1);
     expect(evidence.run.backendRequestsObserved).toBe(0);
     expect(evidence.fixtures).toHaveLength(2);
@@ -77,6 +107,10 @@ test.describe('media recorder prototype lab', () => {
     expect(evidence.results[0]?.attempt?.cleanupCompleted).toBe(true);
     expect(evidence.results[0]?.attempt?.requestedChunkCadenceMs).toBe(1000);
     expect((evidence.results[0]?.attempt?.validation.markerAnalysis.length ?? 0) > 0).toBe(true);
+    expect(evidence.results[0]?.attempt?.validation.startMarkerDetected).toBe(true);
+    expect(evidence.results[0]?.attempt?.validation.endMarkerDetected).toBe(true);
+    expect(evidence.results[0]?.attempt?.validation.fixturePreflight.startMarkerDetected).toBe(true);
+    expect(evidence.results[0]?.attempt?.validation.fixturePreflight.endMarkerDetected).toBe(true);
     expect(evidence.normalFlowUnchanged).toBe(true);
     expect(apiRequests).toEqual([]);
   });

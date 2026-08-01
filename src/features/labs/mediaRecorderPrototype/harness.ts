@@ -1,6 +1,7 @@
 import { PROTOTYPE_ROUTE_PATH, RECORDER_CANDIDATE_ORDER } from '@/features/labs/mediaRecorderPrototype/constants';
 import { mediaRecorderFixtureManifest } from '@/features/labs/mediaRecorderPrototype/fixtureManifest';
 import { startBackendRequestTracking } from '@/features/labs/mediaRecorderPrototype/networkTracking';
+import { stopResources } from '@/features/labs/mediaRecorderPrototype/resourceCleanup';
 import {
   PrototypeAttemptCancelledError,
   runScenarioAttempt,
@@ -50,6 +51,8 @@ export function createInitialEvidence(enabled: boolean): PrototypeMeasurementEvi
     build: {
       gitSha: import.meta.env.VITE_OWLI_GIT_SHA ?? 'unknown',
       buildTarget: import.meta.env.VITE_OWLI_BUILD_TARGET ?? 'unknown',
+      gitDirty: import.meta.env.VITE_OWLI_GIT_DIRTY === 'true',
+      sourceDigest: import.meta.env.VITE_OWLI_SOURCE_DIGEST ?? 'unknown',
     },
     environment: readEnvironmentEvidence(),
     run: {
@@ -98,7 +101,7 @@ export function createHarnessRun(
   const controller: PrototypeHarnessController = {
     cancel() {
       if (!cancelRequestedAt) cancelRequestedAt = performance.now();
-      stopResources(activeResources);
+      void stopResources(activeResources);
       abortController.abort(new DOMException('Prototype attempt cancelled.', 'AbortError'));
     },
     get attemptId() {
@@ -153,7 +156,7 @@ export function createHarnessRun(
               activeResources = resources;
             },
           });
-          attempt.cleanupCompleted = stopResources(activeResources);
+          attempt.cleanupCompleted = await stopResources(activeResources);
           if (cancelRequestedAt !== undefined) {
             attempt.cancelled = true;
             attempt.cancelVisibleWithinMs = Math.round(performance.now() - cancelRequestedAt);
@@ -173,7 +176,7 @@ export function createHarnessRun(
             evidence.preferredCandidateId = candidate.id;
           }
         } catch (error) {
-          const cleanupCompleted = stopResources(activeResources);
+          const cleanupCompleted = await stopResources(activeResources);
           if (error instanceof PrototypeAttemptCancelledError) {
             const attempt = {
               ...error.attempt,
@@ -233,33 +236,6 @@ function orderIndex(candidateId: string): number {
     candidateId as (typeof RECORDER_CANDIDATE_ORDER)[number],
   );
   return index === -1 ? Number.MAX_SAFE_INTEGER : index;
-}
-
-function stopResources(resources: PrototypeAttemptResources): boolean {
-  try {
-    if (resources.recorder) {
-      resources.recorder.ondataavailable = null;
-      resources.recorder.onerror = null;
-      resources.recorder.onstop = null;
-      if (resources.recorder.state !== 'inactive') {
-        resources.recorder.stop();
-      }
-    }
-    resources.source?.stop();
-    resources.source?.disconnect();
-    resources.destination?.disconnect();
-    resources.stream?.getTracks().forEach((track) => track.stop());
-    resources.canvasStream?.getTracks().forEach((track) => track.stop());
-    resources.imageBitmap?.close();
-    if (resources.audioContext && resources.audioContext.state !== 'closed') {
-      void resources.audioContext.close();
-    }
-    if (resources.blobUrl) URL.revokeObjectURL(resources.blobUrl);
-    if (resources.imageUrl) URL.revokeObjectURL(resources.imageUrl);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function mergeVerifiedFixtures(

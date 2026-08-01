@@ -102,7 +102,16 @@ export interface PrototypeValidationEvidence {
     startMarkerDb: number;
     endMarkerDb: number;
     backgroundDb: number;
+    startMarkerLeadDb: number;
+    endMarkerLeadDb: number;
   }>;
+  fixturePreflight: {
+    audioNonSilent: boolean;
+    startMarkerDetected: boolean;
+    endMarkerDetected: boolean;
+    startMarkerMs?: number;
+    endMarkerMs?: number;
+  };
   trackEvidence: {
     hasVisualFrames: boolean;
     hasAudibleFrames: boolean;
@@ -136,6 +145,7 @@ export interface PrototypeAttemptEvidence {
   initializationMs: number;
   renderMs: number;
   finalizationMs: number;
+  validationMs: number;
   totalMs: number;
   chunkIntervalsMs: number[];
   chunkSizes: number[];
@@ -169,6 +179,8 @@ export interface PrototypeMeasurementEvidence {
   build: {
     gitSha: string;
     buildTarget: string;
+    gitDirty: boolean;
+    sourceDigest: string;
   };
   environment: {
     userAgent: string;

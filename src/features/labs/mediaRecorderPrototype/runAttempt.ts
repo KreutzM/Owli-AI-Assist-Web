@@ -12,6 +12,7 @@ import {
   withTimeout,
 } from '@/features/labs/mediaRecorderPrototype/attemptSupport';
 import { getMediaRecorderScenarioFixtures } from '@/features/labs/mediaRecorderPrototype/fixtureManifest';
+import { analyzeFixtureAudioBuffer } from '@/features/labs/mediaRecorderPrototype/validationAudio';
 import { determineAttemptStatus, validateRecording } from '@/features/labs/mediaRecorderPrototype/validation';
 import type {
   PrototypeAttemptEvidence,
@@ -110,6 +111,20 @@ export async function runScenarioAttempt(input: {
     attemptDraft.memory.transferBytes = 0;
     memory.set('decodedPcmBytes', estimatedDecodedPcmBytes);
     attemptDraft.memory.estimatedDecodedPcmBytes = estimatedDecodedPcmBytes;
+    const fixturePreflight = analyzeFixtureAudioBuffer(decodedAudio, audio);
+    attemptDraft.validation.fixturePreflight = {
+      audioNonSilent: fixturePreflight.audioNonSilent,
+      startMarkerDetected: fixturePreflight.startMarkerDetected,
+      endMarkerDetected: fixturePreflight.endMarkerDetected,
+      ...(fixturePreflight.startMarkerMs !== undefined ? { startMarkerMs: fixturePreflight.startMarkerMs } : {}),
+      ...(fixturePreflight.endMarkerMs !== undefined ? { endMarkerMs: fixturePreflight.endMarkerMs } : {}),
+    };
+    assertAdmission(
+      fixturePreflight.audioNonSilent &&
+        fixturePreflight.startMarkerDetected &&
+        fixturePreflight.endMarkerDetected,
+      `Fixture preflight failed for ${audio.id}.`,
+    );
     assertAdmission(
       memory.currentTotal <= PROTOTYPE_LIMITS.maxAppOwnedMediaBytes,
       'App-owned media bytes exceed the 64 MiB limit before recorder start.',
@@ -147,13 +162,14 @@ export async function runScenarioAttempt(input: {
     const chunks: Blob[] = [];
     let chunkBytes = 0;
     let renderStartedAt = 0;
+    let finalizationStartedAt = 0;
     let renderFinishedAt = 0;
-    let finalizingStartedAt = 0;
     let stopped = false;
 
     const stopRecorder = () => {
       if (stopped || recorder.state === 'inactive') return;
       stopped = true;
+      finalizationStartedAt = performance.now();
       recorder.stop();
     };
 
@@ -214,9 +230,13 @@ export async function runScenarioAttempt(input: {
 
     throwIfAborted(input.signal);
     renderFinishedAt = performance.now();
-    finalizingStartedAt = performance.now();
     attemptDraft.initializationMs = Math.round(renderStartedAt - initializationStart);
-    attemptDraft.renderMs = Math.round(renderFinishedAt - renderStartedAt);
+    attemptDraft.renderMs = Math.round(
+      (finalizationStartedAt || renderFinishedAt) - renderStartedAt,
+    );
+    attemptDraft.finalizationMs = Math.round(
+      renderFinishedAt - (finalizationStartedAt || renderFinishedAt),
+    );
     memory.set('finalBytes', outputBlob.size);
     attemptDraft.outputBytes = outputBlob.size;
     attemptDraft.memory.finalBytes = outputBlob.size;
@@ -230,6 +250,7 @@ export async function runScenarioAttempt(input: {
 
     const blobUrl = URL.createObjectURL(outputBlob);
     resources.blobUrl = blobUrl;
+    const validationStartedAt = performance.now();
     const validation = await withTimeout(
       validateRecording({ blobUrl, image, audio, signal: input.signal }),
       audio.durationMs + PROTOTYPE_LIMITS.finalizationDeadlineMs,
@@ -237,7 +258,11 @@ export async function runScenarioAttempt(input: {
       'Validation deadline exceeded.',
     );
     throwIfAborted(input.signal);
-    attemptDraft.validation = validation;
+    attemptDraft.validation = {
+      ...validation,
+      fixturePreflight: attemptDraft.validation.fixturePreflight,
+    };
+    attemptDraft.validationMs = Math.round(performance.now() - validationStartedAt);
     attemptDraft.status = determineAttemptStatus(validation);
     attemptDraft.chunkIntervalsMs = chunkTimes.map((value, index) =>
       index === 0 ? Math.round(value - renderStartedAt) : Math.round(value - chunkTimes[index - 1]!),
@@ -248,7 +273,6 @@ export async function runScenarioAttempt(input: {
         ? 'Output exceeds the 16 MiB target and remains within the hard 32 MiB limit.'
         : 'Output remains within the 16 MiB target.',
     ];
-    attemptDraft.finalizationMs = Math.round(performance.now() - finalizingStartedAt);
     attemptDraft.totalMs = Math.round(performance.now() - initializationStart);
     attemptDraft.finishedAt = new Date().toISOString();
     attemptDraft.memory.highWaterBytes = memory.highWater;
@@ -277,4 +301,5 @@ export interface PrototypeAttemptResources {
   blobUrl?: string;
   imageUrl?: string;
   imageBitmap?: ImageBitmap;
+  cleanupPromise?: Promise<boolean>;
 }
