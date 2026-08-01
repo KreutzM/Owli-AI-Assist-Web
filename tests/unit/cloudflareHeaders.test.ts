@@ -28,27 +28,39 @@ async function printBuildConfig(target: string): Promise<Record<string, string>>
 
 describe('deployment build targets', () => {
   it('clears inherited runtime configuration and binds each build target', async () => {
-    await expect(printBuildConfig('mock')).resolves.toEqual({
+    await expect(printBuildConfig('mock')).resolves.toMatchObject({
       OWLI_WEB_DEPLOY_TARGET: 'mock',
       VITE_OWLI_API_MODE: 'mock',
       VITE_OWLI_APP_VERSION: '0.1.0',
       VITE_OWLI_VERSION_CODE: '1',
       VITE_OWLI_DEFAULT_LOCALE: 'de-DE',
+      VITE_OWLI_BUILD_TARGET: 'mock',
     });
-    await expect(printBuildConfig('staging')).resolves.toEqual({
+    await expect(printBuildConfig('mock')).resolves.toMatchObject({
+      VITE_OWLI_GIT_SHA: expect.stringMatching(/^[a-f0-9]{40}$/u),
+    });
+    await expect(printBuildConfig('staging')).resolves.toMatchObject({
       OWLI_WEB_DEPLOY_TARGET: 'staging',
       VITE_OWLI_API_MODE: 'remote',
       VITE_OWLI_API_BASE_URL: 'https://api-staging.owli-ai.com/',
       VITE_OWLI_APP_VERSION: '0.1.0',
       VITE_OWLI_VERSION_CODE: '1',
       VITE_OWLI_DEFAULT_LOCALE: 'de-DE',
+      VITE_OWLI_BUILD_TARGET: 'staging',
     });
-    await expect(printBuildConfig('production')).resolves.toEqual({
+    await expect(printBuildConfig('staging')).resolves.toMatchObject({
+      VITE_OWLI_GIT_SHA: expect.stringMatching(/^[a-f0-9]{40}$/u),
+    });
+    await expect(printBuildConfig('production')).resolves.toMatchObject({
       OWLI_WEB_DEPLOY_TARGET: 'production',
       VITE_OWLI_API_MODE: 'mock',
       VITE_OWLI_APP_VERSION: '0.1.0',
       VITE_OWLI_VERSION_CODE: '1',
       VITE_OWLI_DEFAULT_LOCALE: 'de-DE',
+      VITE_OWLI_BUILD_TARGET: 'production',
+    });
+    await expect(printBuildConfig('production')).resolves.toMatchObject({
+      VITE_OWLI_GIT_SHA: expect.stringMatching(/^[a-f0-9]{40}$/u),
     });
   });
 });

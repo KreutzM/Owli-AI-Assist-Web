@@ -5,7 +5,7 @@ import { mkdtemp, readFile, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-const DIST_ROOT = path.resolve('dist');
+const DIST_ROOT = path.resolve(readRoot(process.argv));
 const port = readPort(process.argv);
 const useHttps = process.argv.includes('--https');
 const headerRules = parseHeaderRules(await readFile(path.join(DIST_ROOT, '_headers'), 'utf8'));
@@ -140,19 +140,32 @@ function readPort(args) {
   return value;
 }
 
+function readRoot(args) {
+  const index = args.indexOf('--root');
+  const value = index >= 0 ? args[index + 1] : 'dist';
+  if (!value) throw new Error('Invalid --root.');
+  return value;
+}
+
 function contentType(file) {
   const extension = path.extname(file).toLowerCase();
   return (
     {
       '.css': 'text/css; charset=utf-8',
+      '.flac': 'audio/flac',
       '.html': 'text/html; charset=utf-8',
       '.ico': 'image/x-icon',
       '.jpeg': 'image/jpeg',
       '.jpg': 'image/jpeg',
       '.js': 'text/javascript; charset=utf-8',
+      '.mp3': 'audio/mpeg',
+      '.mp4': 'video/mp4',
       '.json': 'application/json; charset=utf-8',
+      '.opus': 'audio/opus',
       '.png': 'image/png',
       '.svg': 'image/svg+xml',
+      '.wav': 'audio/wav',
+      '.webm': 'video/webm',
       '.webmanifest': 'application/manifest+json; charset=utf-8',
       '.woff2': 'font/woff2',
     }[extension] ?? 'application/octet-stream'

@@ -1,7 +1,9 @@
 import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 
 const target = process.argv[2] ?? process.env.OWLI_WEB_DEPLOY_TARGET;
 const declaredTarget = process.env.OWLI_WEB_DEPLOY_TARGET;
+const outDir = process.env.OWLI_WEB_OUT_DIR ?? 'dist';
 const origins = {
   mock: { connect: '', media: '' },
   staging: {
@@ -41,5 +43,5 @@ const content = `/*
   Cache-Control: no-cache
 `;
 
-await mkdir('dist', { recursive: true });
-await writeFile('dist/_headers', content, 'utf8');
+await mkdir(outDir, { recursive: true });
+await writeFile(path.join(outDir, '_headers'), content, 'utf8');

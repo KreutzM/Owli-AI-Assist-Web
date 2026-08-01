@@ -1,0 +1,406 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-01",
+  "generator": {
+    "tool": "tools/generate-mediarecorder-prototype-fixtures.mjs",
+    "ffmpegVersion": "ffmpeg version 8.0-full_build-www.gyan.dev Copyright (c) 2000-2025 the FFmpeg developers"
+  },
+  "routePath": "/lab/mediarecorder-prototype",
+  "fixtureRoot": "/prototypes/mediarecorder/fixtures",
+  "recorderCandidates": [
+    {
+      "id": "mp4-h264-aac",
+      "mimeType": "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+      "fileExtension": "mp4"
+    },
+    {
+      "id": "webm-vp8-opus",
+      "mimeType": "video/webm;codecs=vp8,opus",
+      "fileExtension": "webm"
+    },
+    {
+      "id": "webm-default",
+      "mimeType": "video/webm",
+      "fileExtension": "webm"
+    },
+    {
+      "id": "webm-vp9-opus",
+      "mimeType": "video/webm;codecs=vp9,opus",
+      "fileExtension": "webm"
+    }
+  ],
+  "images": [
+    {
+      "id": "landscape-jpeg",
+      "fileName": "landscape.jpg",
+      "path": "/prototypes/mediarecorder/fixtures/landscape.jpg",
+      "mimeType": "image/jpeg",
+      "width": 1280,
+      "height": 720,
+      "longEdgePx": 1280,
+      "orientation": "landscape",
+      "samplePoints": [
+        {
+          "id": "northwest",
+          "x": 0.14,
+          "y": 0.14,
+          "rgb": [
+            225,
+            29,
+            72
+          ]
+        },
+        {
+          "id": "northeast",
+          "x": 0.86,
+          "y": 0.14,
+          "rgb": [
+            14,
+            165,
+            233
+          ]
+        },
+        {
+          "id": "southwest",
+          "x": 0.14,
+          "y": 0.86,
+          "rgb": [
+            34,
+            197,
+            94
+          ]
+        },
+        {
+          "id": "southeast",
+          "x": 0.86,
+          "y": 0.86,
+          "rgb": [
+            250,
+            204,
+            21
+          ]
+        },
+        {
+          "id": "center",
+          "x": 0.5,
+          "y": 0.5,
+          "rgb": [
+            71,
+            85,
+            105
+          ]
+        }
+      ],
+      "sizeBytes": 8641,
+      "sha256": "6527fd94472fd29dc3230defad6c3728282e986f7cc88066fb402f5270ce8556"
+    },
+    {
+      "id": "portrait-jpeg",
+      "fileName": "portrait.jpg",
+      "path": "/prototypes/mediarecorder/fixtures/portrait.jpg",
+      "mimeType": "image/jpeg",
+      "width": 720,
+      "height": 1280,
+      "longEdgePx": 1280,
+      "orientation": "portrait",
+      "samplePoints": [
+        {
+          "id": "northwest",
+          "x": 0.14,
+          "y": 0.14,
+          "rgb": [
+            139,
+            92,
+            246
+          ]
+        },
+        {
+          "id": "northeast",
+          "x": 0.86,
+          "y": 0.14,
+          "rgb": [
+            249,
+            115,
+            22
+          ]
+        },
+        {
+          "id": "southwest",
+          "x": 0.14,
+          "y": 0.86,
+          "rgb": [
+            20,
+            184,
+            166
+          ]
+        },
+        {
+          "id": "southeast",
+          "x": 0.86,
+          "y": 0.86,
+          "rgb": [
+            244,
+            63,
+            94
+          ]
+        },
+        {
+          "id": "center",
+          "x": 0.5,
+          "y": 0.5,
+          "rgb": [
+            51,
+            65,
+            85
+          ]
+        }
+      ],
+      "sizeBytes": 8729,
+      "sha256": "1ac4d165c3fcc8bcefe4b47034bbc35087bd64cbd4dd1c01151617fc686469a6"
+    },
+    {
+      "id": "square-jpeg",
+      "fileName": "square.jpg",
+      "path": "/prototypes/mediarecorder/fixtures/square.jpg",
+      "mimeType": "image/jpeg",
+      "width": 960,
+      "height": 960,
+      "longEdgePx": 960,
+      "orientation": "square",
+      "samplePoints": [
+        {
+          "id": "northwest",
+          "x": 0.14,
+          "y": 0.14,
+          "rgb": [
+            6,
+            182,
+            212
+          ]
+        },
+        {
+          "id": "northeast",
+          "x": 0.86,
+          "y": 0.14,
+          "rgb": [
+            132,
+            204,
+            22
+          ]
+        },
+        {
+          "id": "southwest",
+          "x": 0.14,
+          "y": 0.86,
+          "rgb": [
+            251,
+            113,
+            133
+          ]
+        },
+        {
+          "id": "southeast",
+          "x": 0.86,
+          "y": 0.86,
+          "rgb": [
+            245,
+            158,
+            11
+          ]
+        },
+        {
+          "id": "center",
+          "x": 0.5,
+          "y": 0.5,
+          "rgb": [
+            75,
+            85,
+            99
+          ]
+        }
+      ],
+      "sizeBytes": 6075,
+      "sha256": "796ec6f2c724e7eeac7724916654145762d4d7dbd3b8ec97a800d3e2b216b499"
+    }
+  ],
+  "audio": [
+    {
+      "id": "audio-mpeg-10s",
+      "fileName": "audio-mpeg-10s.mp3",
+      "path": "/prototypes/mediarecorder/fixtures/audio-mpeg-10s.mp3",
+      "mimeType": "audio/mpeg",
+      "durationMs": 10000,
+      "sampleRateHz": 48000,
+      "channels": 2,
+      "markerWindows": {
+        "startMs": 350,
+        "endMs": 9200,
+        "toleranceMs": 250
+      },
+      "sizeBytes": 160940,
+      "sha256": "91421e65c14b4f3271a89c13214d49c2a7a881bd7fe0b29763f01a6e9b81421e"
+    },
+    {
+      "id": "audio-wav-10s",
+      "fileName": "audio-wav-10s.wav",
+      "path": "/prototypes/mediarecorder/fixtures/audio-wav-10s.wav",
+      "mimeType": "audio/wav",
+      "durationMs": 10000,
+      "sampleRateHz": 48000,
+      "channels": 2,
+      "markerWindows": {
+        "startMs": 350,
+        "endMs": 9200,
+        "toleranceMs": 250
+      },
+      "sizeBytes": 1920078,
+      "sha256": "39b90b63c08ff3385320916d4c7a89fdb99958fceb8a45cd0f63bb7c0944ac05"
+    },
+    {
+      "id": "audio-flac-10s",
+      "fileName": "audio-flac-10s.flac",
+      "path": "/prototypes/mediarecorder/fixtures/audio-flac-10s.flac",
+      "mimeType": "audio/flac",
+      "durationMs": 10000,
+      "sampleRateHz": 48000,
+      "channels": 2,
+      "markerWindows": {
+        "startMs": 350,
+        "endMs": 9200,
+        "toleranceMs": 250
+      },
+      "sizeBytes": 286987,
+      "sha256": "8736ac8378677467d2c4565a7c5c9263a8b32703d3520d69b10c808cccbce6d7"
+    },
+    {
+      "id": "audio-opus-10s",
+      "fileName": "audio-opus-10s.opus",
+      "path": "/prototypes/mediarecorder/fixtures/audio-opus-10s.opus",
+      "mimeType": "audio/opus",
+      "durationMs": 10000,
+      "sampleRateHz": 48000,
+      "channels": 2,
+      "markerWindows": {
+        "startMs": 350,
+        "endMs": 9200,
+        "toleranceMs": 250
+      },
+      "sizeBytes": 154905,
+      "sha256": "aa74206c1944e98dd1bac405f56b0e9524285f8084f2ff5ea9d77701324aa043"
+    },
+    {
+      "id": "audio-mpeg-30s",
+      "fileName": "audio-mpeg-30s.mp3",
+      "path": "/prototypes/mediarecorder/fixtures/audio-mpeg-30s.mp3",
+      "mimeType": "audio/mpeg",
+      "durationMs": 30000,
+      "sampleRateHz": 48000,
+      "channels": 2,
+      "markerWindows": {
+        "startMs": 350,
+        "endMs": 29200,
+        "toleranceMs": 250
+      },
+      "sizeBytes": 480812,
+      "sha256": "2705f549006212e588a27faa98521f8f08bc014017647a6df0f16628689ed2d6"
+    },
+    {
+      "id": "audio-wav-30s",
+      "fileName": "audio-wav-30s.wav",
+      "path": "/prototypes/mediarecorder/fixtures/audio-wav-30s.wav",
+      "mimeType": "audio/wav",
+      "durationMs": 30000,
+      "sampleRateHz": 48000,
+      "channels": 2,
+      "markerWindows": {
+        "startMs": 350,
+        "endMs": 29200,
+        "toleranceMs": 250
+      },
+      "sizeBytes": 5760078,
+      "sha256": "b4f55ecb580cd129eabfdf5a1e99a7330b51bd2caa7c480fe534082935aeb7e6"
+    },
+    {
+      "id": "audio-flac-30s",
+      "fileName": "audio-flac-30s.flac",
+      "path": "/prototypes/mediarecorder/fixtures/audio-flac-30s.flac",
+      "mimeType": "audio/flac",
+      "durationMs": 30000,
+      "sampleRateHz": 48000,
+      "channels": 2,
+      "markerWindows": {
+        "startMs": 350,
+        "endMs": 29200,
+        "toleranceMs": 250
+      },
+      "sizeBytes": 871605,
+      "sha256": "50036fd4ec46f0fdeff21e4c62d5481a9ead32cb7ee7b9859854b2369d23dac1"
+    },
+    {
+      "id": "audio-opus-30s",
+      "fileName": "audio-opus-30s.opus",
+      "path": "/prototypes/mediarecorder/fixtures/audio-opus-30s.opus",
+      "mimeType": "audio/opus",
+      "durationMs": 30000,
+      "sampleRateHz": 48000,
+      "channels": 2,
+      "markerWindows": {
+        "startMs": 350,
+        "endMs": 29200,
+        "toleranceMs": 250
+      },
+      "sizeBytes": 479245,
+      "sha256": "842bf16c6cc86d29387543404845e2e9f41c58ac421bfe0df1573cdc157de2d1"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "scenario-01",
+      "imageId": "landscape-jpeg",
+      "audioId": "audio-mpeg-10s",
+      "order": 1
+    },
+    {
+      "id": "scenario-02",
+      "imageId": "portrait-jpeg",
+      "audioId": "audio-wav-10s",
+      "order": 2
+    },
+    {
+      "id": "scenario-03",
+      "imageId": "square-jpeg",
+      "audioId": "audio-flac-10s",
+      "order": 3
+    },
+    {
+      "id": "scenario-04",
+      "imageId": "landscape-jpeg",
+      "audioId": "audio-opus-10s",
+      "order": 4
+    },
+    {
+      "id": "scenario-05",
+      "imageId": "portrait-jpeg",
+      "audioId": "audio-mpeg-30s",
+      "order": 5
+    },
+    {
+      "id": "scenario-06",
+      "imageId": "square-jpeg",
+      "audioId": "audio-wav-30s",
+      "order": 6
+    },
+    {
+      "id": "scenario-07",
+      "imageId": "landscape-jpeg",
+      "audioId": "audio-flac-30s",
+      "order": 7
+    },
+    {
+      "id": "scenario-08",
+      "imageId": "portrait-jpeg",
+      "audioId": "audio-opus-30s",
+      "order": 8
+    }
+  ]
+}

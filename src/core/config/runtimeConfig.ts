@@ -12,12 +12,17 @@ export type RuntimeConfigurationErrorCode =
   | 'VERSION_CODE_INVALID'
   | 'LOCALE_INVALID';
 
+interface PrototypeConfig {
+  mediaRecorderLabEnabled: boolean;
+}
+
 export type RuntimeConfig =
   | {
       mode: 'mock';
       appVersion: string;
       versionCode: number;
       defaultLocale: string;
+      prototype?: PrototypeConfig;
     }
   | {
       mode: 'remote';
@@ -26,36 +31,62 @@ export type RuntimeConfig =
       appVersion: string;
       versionCode: number;
       defaultLocale: string;
+      prototype?: PrototypeConfig;
     }
-  | { mode: 'invalid_configuration'; reason: RuntimeConfigurationErrorCode };
+  | {
+      mode: 'invalid_configuration';
+      reason: RuntimeConfigurationErrorCode;
+      prototype?: PrototypeConfig;
+    };
 
 const apiModeSchema = z.enum(['mock', 'remote']);
 const appVersionSchema = z.string().trim().min(1).max(32);
 const localeSchema = z.string().regex(/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/);
 
 export function readRuntimeConfig(env: ImportMetaEnv = import.meta.env): RuntimeConfig {
+  const prototypeEnabled = env.VITE_OWLI_STAGING_PROTOTYPE_MEDIARECORDER === 'enabled';
   const mode = apiModeSchema.safeParse(String(env.VITE_OWLI_API_MODE ?? 'mock'));
   if (!mode.success) {
-    return { mode: 'invalid_configuration', reason: 'API_MODE_INVALID' };
+    return {
+      mode: 'invalid_configuration',
+      reason: 'API_MODE_INVALID',
+      prototype: { mediaRecorderLabEnabled: false },
+    };
   }
 
   const appVersion = appVersionSchema.safeParse(env.VITE_OWLI_APP_VERSION ?? '0.1.0');
   if (!appVersion.success) {
-    return { mode: 'invalid_configuration', reason: 'APP_VERSION_INVALID' };
+    return {
+      mode: 'invalid_configuration',
+      reason: 'APP_VERSION_INVALID',
+      prototype: { mediaRecorderLabEnabled: false },
+    };
   }
 
   const versionCodeRaw = env.VITE_OWLI_VERSION_CODE ?? '1';
   if (!/^[1-9]\d*$/.test(versionCodeRaw)) {
-    return { mode: 'invalid_configuration', reason: 'VERSION_CODE_INVALID' };
+    return {
+      mode: 'invalid_configuration',
+      reason: 'VERSION_CODE_INVALID',
+      prototype: { mediaRecorderLabEnabled: false },
+    };
   }
   const versionCode = Number(versionCodeRaw);
   if (!Number.isSafeInteger(versionCode)) {
-    return { mode: 'invalid_configuration', reason: 'VERSION_CODE_INVALID' };
+    return {
+      mode: 'invalid_configuration',
+      reason: 'VERSION_CODE_INVALID',
+      prototype: { mediaRecorderLabEnabled: false },
+    };
   }
 
   const locale = localeSchema.safeParse(env.VITE_OWLI_DEFAULT_LOCALE ?? 'de-DE');
   if (!locale.success) {
-    return { mode: 'invalid_configuration', reason: 'LOCALE_INVALID' };
+    return {
+      mode: 'invalid_configuration',
+      reason: 'LOCALE_INVALID',
+      prototype: { mediaRecorderLabEnabled: false },
+    };
   }
 
   if (mode.data === 'mock') {
@@ -64,12 +95,17 @@ export function readRuntimeConfig(env: ImportMetaEnv = import.meta.env): Runtime
       appVersion: appVersion.data,
       versionCode,
       defaultLocale: locale.data,
+      prototype: { mediaRecorderLabEnabled: false },
     };
   }
 
   const rawBaseUrl = env.VITE_OWLI_API_BASE_URL;
   if (!rawBaseUrl) {
-    return { mode: 'invalid_configuration', reason: 'REMOTE_BASE_URL_MISSING' };
+    return {
+      mode: 'invalid_configuration',
+      reason: 'REMOTE_BASE_URL_MISSING',
+      prototype: { mediaRecorderLabEnabled: false },
+    };
   }
 
   let normalized: string;
@@ -83,11 +119,19 @@ export function readRuntimeConfig(env: ImportMetaEnv = import.meta.env): Runtime
       url.hash ||
       (url.pathname !== '/' && url.pathname !== '')
     ) {
-      return { mode: 'invalid_configuration', reason: 'REMOTE_BASE_URL_INVALID' };
+      return {
+        mode: 'invalid_configuration',
+        reason: 'REMOTE_BASE_URL_INVALID',
+        prototype: { mediaRecorderLabEnabled: false },
+      };
     }
     normalized = `${url.origin}/`;
   } catch {
-    return { mode: 'invalid_configuration', reason: 'REMOTE_BASE_URL_INVALID' };
+    return {
+      mode: 'invalid_configuration',
+      reason: 'REMOTE_BASE_URL_INVALID',
+      prototype: { mediaRecorderLabEnabled: false },
+    };
   }
 
   const target =
@@ -97,7 +141,11 @@ export function readRuntimeConfig(env: ImportMetaEnv = import.meta.env): Runtime
         ? 'production'
         : undefined;
   if (!target) {
-    return { mode: 'invalid_configuration', reason: 'REMOTE_BASE_URL_NOT_APPROVED' };
+    return {
+      mode: 'invalid_configuration',
+      reason: 'REMOTE_BASE_URL_NOT_APPROVED',
+      prototype: { mediaRecorderLabEnabled: false },
+    };
   }
 
   return {
@@ -107,5 +155,8 @@ export function readRuntimeConfig(env: ImportMetaEnv = import.meta.env): Runtime
     appVersion: appVersion.data,
     versionCode,
     defaultLocale: locale.data,
+    prototype: {
+      mediaRecorderLabEnabled: target === 'staging' && prototypeEnabled,
+    },
   };
 }

@@ -3,6 +3,11 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
+const prototypeLabEnabled = process.env.VITE_OWLI_STAGING_PROTOTYPE_MEDIARECORDER === 'enabled';
+const prototypeLabEntry = prototypeLabEnabled
+  ? path.resolve(import.meta.dirname, 'src/features/labs/mediaRecorderPrototype/entry.ts')
+  : path.resolve(import.meta.dirname, 'src/features/labs/mediaRecorderPrototype/entry.stub.tsx');
+
 export default defineConfig({
   plugins: [
     react(),
@@ -43,7 +48,16 @@ export default defineConfig({
   server: { port: 5173, strictPort: true },
   preview: { port: 4173, strictPort: true },
   resolve: {
-    alias: { '@': path.resolve(import.meta.dirname, 'src') },
+    alias: [
+      {
+        find: '@/features/labs/mediaRecorderPrototype/entry',
+        replacement: prototypeLabEntry,
+      },
+      {
+        find: '@',
+        replacement: path.resolve(import.meta.dirname, 'src'),
+      },
+    ],
   },
   build: {
     target: 'es2022',

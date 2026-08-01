@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
+import { readAppRoute } from '@/app/appRoute';
 import { createAppRuntime } from '@/app/runtime';
+import { MediaRecorderPrototypeLab } from '@/features/labs/mediaRecorderPrototype/entry';
 import { AudioPostcardPanel } from '@/features/postcard/AudioPostcardPanel';
 import { RemoteAssist } from '@/features/remote/RemoteAssist';
 import { SceneWorkspace } from '@/features/scene/SceneWorkspace';
@@ -12,31 +14,41 @@ import '@/app/app.css';
 
 export function App() {
   const runtime = useMemo(() => createAppRuntime(), []);
+  const route = readAppRoute(window.location.pathname);
+  const showLab = route.kind === 'mediarecorder-lab';
+  const headerCopy = showLab
+    ? 'Isolierte Staging-Messroute fuer den MediaRecorder-Prototyp. Kein normaler Produktfluss.'
+    : runtime.mode === 'remote'
+      ? 'Eine Szene aufnehmen oder auswählen, beschreiben lassen und Rückfragen stellen.'
+      : 'Szenen verstehen, Rückfragen stellen und Audio-Postcards erstellen – ohne App-Store.';
+  const modeBadge = showLab
+    ? 'Staging-Prototyp'
+    : runtime.mode === 'mock'
+      ? 'Demo-Modus'
+      : runtime.mode === 'remote'
+        ? 'Sichere Online-Beschreibung'
+        : 'Konfigurationsfehler';
 
   return (
     <>
       <header className="site-header">
         <div>
           <p className="brand-kicker">Owli-AI</p>
-          <h1>Assist im Browser</h1>
-          <p className="header-copy">
-            {runtime.mode === 'remote'
-              ? 'Eine Szene aufnehmen oder auswählen, beschreiben lassen und Rückfragen stellen.'
-              : 'Szenen verstehen, Rückfragen stellen und Audio-Postcards erstellen – ohne App-Store.'}
-          </p>
+          <h1>{showLab ? 'MediaRecorder Prototype Lab' : 'Assist im Browser'}</h1>
+          <p className="header-copy">{headerCopy}</p>
         </div>
-        <span className="mode-badge">
-          {runtime.mode === 'mock'
-            ? 'Demo-Modus'
-            : runtime.mode === 'remote'
-              ? 'Sichere Online-Beschreibung'
-              : 'Konfigurationsfehler'}
-        </span>
+        <span className="mode-badge">{modeBadge}</span>
       </header>
       <main id="main-content" className="app-shell">
-        {runtime.mode === 'mock' && <MockApplication runtime={runtime} />}
-        {runtime.mode === 'remote' && <RemoteApplication runtime={runtime} />}
-        {runtime.mode === 'invalid_configuration' && (
+        {showLab ? (
+          <MediaRecorderPrototypeLab
+            enabled={runtime.mode === 'remote' && runtime.prototype.mediaRecorderLabEnabled}
+          />
+        ) : runtime.mode === 'mock' ? (
+          <MockApplication runtime={runtime} />
+        ) : runtime.mode === 'remote' ? (
+          <RemoteApplication runtime={runtime} />
+        ) : (
           <section className="panel" aria-labelledby="configuration-title">
             <p className="eyebrow">Sicher angehalten</p>
             <h2 id="configuration-title">Online-Konfiguration nicht verfügbar</h2>
