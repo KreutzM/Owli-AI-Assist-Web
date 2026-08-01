@@ -2,6 +2,7 @@ import type {
   PrototypeContainerInspection,
   PrototypeRecorderCandidate,
 } from '@/features/labs/mediaRecorderPrototype/types';
+import { PROTOTYPE_LIMITS } from '@/features/labs/mediaRecorderPrototype/constants';
 
 const WEBM_EBML_HEADER = [0x1a, 0x45, 0xdf, 0xa3];
 const WEBM_TRACKS_ID = 0x1654ae6b;
@@ -13,10 +14,13 @@ export async function inspectRecordedContainer(
   blob: Blob,
   mimeType: string,
   candidate: PrototypeRecorderCandidate,
+  reserveInspectionBytes: (bytes: number) => () => void = () => () => undefined,
 ): Promise<PrototypeContainerInspection> {
-  const bytes = new Uint8Array(await blob.arrayBuffer());
   const container = expectedContainer(candidate.fileExtension, mimeType);
-  const inspection = container === 'webm' ? inspectWebm(bytes) : inspectMp4(bytes);
+  const inspection =
+    container === 'webm'
+      ? await inspectWebmBlob(blob, reserveInspectionBytes)
+      : await inspectMp4Blob(blob, reserveInspectionBytes);
 
   if (inspection.videoTrackCount !== 1 || inspection.audioTrackCount !== 1) {
     throw new Error(
@@ -24,6 +28,65 @@ export async function inspectRecordedContainer(
     );
   }
   return inspection;
+}
+
+async function inspectWebmBlob(
+  blob: Blob,
+  reserveInspectionBytes: (bytes: number) => () => void,
+): Promise<PrototypeContainerInspection> {
+  return await withBlobSlice(
+    blob,
+    0,
+    Math.min(blob.size, PROTOTYPE_LIMITS.maxContainerInspectionBytes),
+    reserveInspectionBytes,
+    inspectWebm,
+  );
+}
+
+async function inspectMp4Blob(
+  blob: Blob,
+  reserveInspectionBytes: (bytes: number) => () => void,
+): Promise<PrototypeContainerInspection> {
+  const sliceBytes = Math.min(
+    blob.size,
+    Math.floor(PROTOTYPE_LIMITS.maxContainerInspectionBytes / 2),
+  );
+  const headResult = await withBlobSlice(blob, 0, sliceBytes, reserveInspectionBytes, (bytes) => {
+    if (!isMp4(bytes)) throw new Error('MP4 output is missing the ftyp container signature.');
+    return inspectMp4Metadata(bytes);
+  });
+  if (headResult) return headResult;
+  if (sliceBytes === blob.size) throw new Error('MP4 output has no moov box.');
+
+  const tailResult = await withBlobSlice(
+    blob,
+    blob.size - sliceBytes,
+    blob.size,
+    reserveInspectionBytes,
+    inspectMp4MetadataAnywhere,
+  );
+  if (!tailResult) {
+    throw new Error(
+      `MP4 moov metadata exceeds the bounded ${PROTOTYPE_LIMITS.maxContainerInspectionBytes} byte inspection window.`,
+    );
+  }
+  return tailResult;
+}
+
+async function withBlobSlice<T>(
+  blob: Blob,
+  start: number,
+  end: number,
+  reserveInspectionBytes: (bytes: number) => () => void,
+  inspect: (bytes: Uint8Array) => T,
+): Promise<T> {
+  const slice = blob.slice(start, end);
+  const release = reserveInspectionBytes(slice.size);
+  try {
+    return inspect(new Uint8Array(await slice.arrayBuffer()));
+  } finally {
+    release();
+  }
 }
 
 function expectedContainer(suffix: string, mimeType: string): 'webm' | 'mp4' {
@@ -70,10 +133,28 @@ function inspectWebm(bytes: Uint8Array): PrototypeContainerInspection {
   };
 }
 
-function inspectMp4(bytes: Uint8Array): PrototypeContainerInspection {
-  if (!isMp4(bytes)) throw new Error('MP4 output is missing the ftyp container signature.');
+function inspectMp4Metadata(bytes: Uint8Array): PrototypeContainerInspection | undefined {
   const moov = findMp4Box(bytes, 'moov', 0, bytes.length);
-  if (!moov) throw new Error('MP4 output has no moov box.');
+  return moov ? inspectMp4Moov(bytes, moov) : undefined;
+}
+
+function inspectMp4MetadataAnywhere(bytes: Uint8Array): PrototypeContainerInspection | undefined {
+  for (let offset = 4; offset + 4 <= bytes.length; offset += 1) {
+    if (fourCc(bytes, offset) !== 'moov') continue;
+    const size = readUint32(bytes, offset - 4);
+    const boxStart = offset - 4;
+    if (size >= 8 && boxStart + size <= bytes.length) {
+      return inspectMp4Moov(bytes, {
+        type: 'moov',
+        dataStart: boxStart + 8,
+        dataEnd: boxStart + size,
+      });
+    }
+  }
+  return undefined;
+}
+
+function inspectMp4Moov(bytes: Uint8Array, moov: Mp4Box): PrototypeContainerInspection {
   const tracks = findAllMp4Boxes(bytes, 'trak', moov.dataStart, moov.dataEnd);
   const videoCodecs: string[] = [];
   const audioCodecs: string[] = [];

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { assertOutputContainer } from '@/features/labs/mediaRecorderPrototype/attemptSupport';
+import { PROTOTYPE_LIMITS } from '@/features/labs/mediaRecorderPrototype/constants';
 import type { PrototypeRecorderCandidate } from '@/features/labs/mediaRecorderPrototype/types';
 
 const webmCandidate: PrototypeRecorderCandidate = {
@@ -55,6 +56,29 @@ describe('media recorder prototype container inspection', () => {
       audioCodecs: ['mp4a'],
       codecsMatchCandidate: true,
     });
+  });
+
+  it('inspects a bounded slice instead of materializing the full output blob', async () => {
+    const valid = webmWithTracks('V_VP8', 'A_OPUS');
+    const largeBlob = new Blob(
+      [asBlobPart(valid), new Uint8Array(PROTOTYPE_LIMITS.maxContainerInspectionBytes + 1024)],
+      { type: webmCandidate.mimeType },
+    );
+    const reservations: number[] = [];
+
+    const inspection = await assertOutputContainer(
+      largeBlob,
+      webmCandidate.mimeType,
+      webmCandidate,
+      (bytes) => {
+        reservations.push(bytes);
+        return () => undefined;
+      },
+    );
+
+    expect(inspection.codecsMatchCandidate).toBe(true);
+    expect(reservations).toEqual([PROTOTYPE_LIMITS.maxContainerInspectionBytes]);
+    expect(reservations[0]).toBeLessThan(largeBlob.size);
   });
 });
 

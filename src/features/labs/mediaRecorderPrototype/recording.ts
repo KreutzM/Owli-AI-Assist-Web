@@ -1,9 +1,9 @@
 import { PROTOTYPE_LIMITS } from '@/features/labs/mediaRecorderPrototype/constants';
 import type { MemoryTracker } from '@/features/labs/mediaRecorderPrototype/attemptSupport';
 import type { PrototypeAttemptLifecycle } from '@/features/labs/mediaRecorderPrototype/attemptLifecycle';
-import type { PrototypeAttemptResources } from '@/features/labs/mediaRecorderPrototype/runAttempt';
 import type {
   PrototypeAttemptEvidence,
+  PrototypeAttemptResources,
   PrototypeRecorderCandidate,
 } from '@/features/labs/mediaRecorderPrototype/types';
 
@@ -72,8 +72,20 @@ export async function recordCanvasAudio(input: {
         chunkTimes.push(now);
         chunkSizes.push(event.data.size);
         chunkBytes += event.data.size;
-        input.memory.set('chunkBytes', chunkBytes);
-        input.attempt.memory.chunkBytes = chunkBytes;
+        try {
+          input.memory.setWithinLimit(
+            'chunkBytes',
+            chunkBytes,
+            'App-owned media bytes exceed the 64 MiB limit while collecting recorder chunks.',
+          );
+          input.attempt.memory.chunkBytes = chunkBytes;
+          input.attempt.memory.highWaterBytes = input.memory.highWater;
+        } catch (error) {
+          cleanup();
+          reject(error instanceof Error ? error : new Error('Recorder memory admission failed.'));
+          stopRecorder();
+          return;
+        }
         if (event.data.size > PROTOTYPE_LIMITS.maxChunkBytes) {
           cleanup();
           reject(new Error(`Chunk ${event.data.size} exceeds the per-chunk failure envelope.`));

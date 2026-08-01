@@ -20,6 +20,22 @@ export class MemoryTracker {
     this.highWater = Math.max(this.highWater, this.currentTotal);
   }
 
+  setWithinLimit(key: string, value: number, message: string): void {
+    const previous = this.#entries.get(key);
+    const projected = this.currentTotal - (previous ?? 0) + value;
+    assertAdmission(projected <= PROTOTYPE_LIMITS.maxAppOwnedMediaBytes, message);
+    this.set(key, value);
+  }
+
+  reserve(key: string, value: number, message: string): () => void {
+    const previous = this.#entries.get(key);
+    this.setWithinLimit(key, value, message);
+    return () => {
+      if (previous === undefined) this.delete(key);
+      else this.set(key, previous);
+    };
+  }
+
   delete(key: string) {
     this.#entries.delete(key);
   }
@@ -113,16 +129,29 @@ export function createAttemptDraft(
 }
 
 export function assertAdmission(condition: boolean, message: string) {
-  if (!condition) throw new Error(message);
+  if (!condition) throw new PrototypeAdmissionError(message);
+}
+
+export class PrototypeAdmissionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PrototypeAdmissionError';
+  }
 }
 
 export async function assertOutputContainer(
   blob: Blob,
   mimeType: string,
   candidate: PrototypeRecorderCandidate,
+  reserveInspectionBytes?: (bytes: number) => () => void,
 ): Promise<PrototypeContainerInspection> {
   if (!mimeType) throw new Error('Output MIME type is missing.');
-  const inspection = await inspectRecordedContainer(blob, mimeType, candidate);
+  const inspection = await inspectRecordedContainer(
+    blob,
+    mimeType,
+    candidate,
+    reserveInspectionBytes,
+  );
   const matched = matchRecordedCodecs(inspection, candidate);
   if (!matched.codecsMatchCandidate) {
     throw new Error('Recorded track codecs do not match the selected MediaRecorder candidate.');

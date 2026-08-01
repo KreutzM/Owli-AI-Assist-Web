@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { stopResources } from '@/features/labs/mediaRecorderPrototype/resourceCleanup';
-import type { PrototypeAttemptResources } from '@/features/labs/mediaRecorderPrototype/runAttempt';
+import type { PrototypeAttemptResources } from '@/features/labs/mediaRecorderPrototype/types';
 
 describe('media recorder prototype resource cleanup', () => {
   it('awaits an active recorder, ends every track, and closes the audio context', async () => {
@@ -90,6 +90,28 @@ describe('media recorder prototype resource cleanup', () => {
       await vi.advanceTimersByTimeAsync(1_000);
       await expect(result).resolves.toBe(false);
     } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('bounds a non-terminating audio-context close and still releases other resources', async () => {
+    vi.useFakeTimers();
+    const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const resources: PrototypeAttemptResources = {
+      audioContext: {
+        state: 'running',
+        close: vi.fn(() => new Promise<void>(() => undefined)),
+      } as unknown as AudioContext,
+      blobUrl: 'blob:bounded-cleanup',
+    };
+
+    try {
+      const result = stopResources(resources);
+      await vi.advanceTimersByTimeAsync(1_000);
+      await expect(result).resolves.toBe(false);
+      expect(revokeSpy).toHaveBeenCalledWith('blob:bounded-cleanup');
+    } finally {
+      revokeSpy.mockRestore();
       vi.useRealTimers();
     }
   });

@@ -20,6 +20,9 @@ export const PROTOTYPE_LIMITS = {
   seekDeadlineMs: 2_000,
   playbackProbeMs: 250,
   cancellationVisibleDeadlineMs: 250,
+  cleanupDeadlineMs: 2_000,
+  pendingQuarantineMs: 500,
+  maxContainerInspectionBytes: 2 * 1024 * 1024,
 } as const;
 
 export const RECORDER_CANDIDATE_ORDER = [

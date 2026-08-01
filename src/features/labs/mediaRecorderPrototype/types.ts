@@ -69,6 +69,15 @@ export interface PrototypeCapabilityProbe {
   supported: boolean;
 }
 
+export interface PrototypeVerifiedFixtureEvidence {
+  fixtureId: string;
+  kind: 'image' | 'audio';
+  fileName: string;
+  sha256: string;
+  sizeBytes: number;
+  verified: boolean;
+}
+
 export interface PrototypeMemoryEvidence {
   highWaterBytes: number;
   finalBytes: number;
@@ -80,6 +89,27 @@ export interface PrototypeMemoryEvidence {
   imageBitmapBytes: number;
   mediaElementBytes: number;
   transferBytes: number;
+}
+
+export type PrototypeAttemptPhase =
+  | 'admission'
+  | 'fixture-load'
+  | 'image-decode'
+  | 'audio-context'
+  | 'audio-decode'
+  | 'fixture-preflight'
+  | 'recording'
+  | 'finalization'
+  | 'container-inspection'
+  | 'validation'
+  | 'cleanup';
+
+export interface PrototypeAttemptFailure {
+  kind: 'cancelled' | 'deadline' | 'admission' | 'runtime';
+  phase: PrototypeAttemptPhase;
+  message: string;
+  deadlineMs?: number;
+  pendingOperationsSettled?: boolean;
 }
 
 export interface PrototypeContainerInspection {
@@ -152,7 +182,9 @@ export interface PrototypeAttemptEvidence {
   finishedAt: string;
   cancelled: boolean;
   cancelVisibleWithinMs?: number;
+  cleanupCompletedWithinMs?: number;
   cleanupCompleted: boolean;
+  failure?: PrototypeAttemptFailure;
   initializationMs: number;
   renderMs: number;
   finalizationMs: number;
@@ -168,6 +200,22 @@ export interface PrototypeAttemptEvidence {
     fileShare: 'unknown' | 'supported' | 'unsupported';
   };
   notes: string[];
+}
+
+export interface PrototypeAttemptResources {
+  recorder?: MediaRecorder;
+  stream?: MediaStream;
+  canvasStream?: MediaStream;
+  audioContext?: AudioContext;
+  validationAudioContext?: AudioContext;
+  validationVideo?: HTMLVideoElement;
+  destination?: MediaStreamAudioDestinationNode;
+  source?: AudioBufferSourceNode;
+  blobUrl?: string;
+  imageUrl?: string;
+  imageBitmap?: ImageBitmap;
+  canvas?: HTMLCanvasElement;
+  cleanupPromise?: Promise<boolean>;
 }
 
 export interface PrototypeScenarioResult {
@@ -211,14 +259,7 @@ export interface PrototypeMeasurementEvidence {
     seriesLength: number;
     backendRequestsObserved: number;
   };
-  fixtures: Array<{
-    fixtureId: string;
-    kind: 'image' | 'audio';
-    fileName: string;
-    sha256: string;
-    sizeBytes: number;
-    verified: boolean;
-  }>;
+  fixtures: PrototypeVerifiedFixtureEvidence[];
   probes: PrototypeCapabilityProbe[];
   results: PrototypeScenarioResult[];
   normalFlowUnchanged: boolean;

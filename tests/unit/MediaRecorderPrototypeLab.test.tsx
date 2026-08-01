@@ -81,7 +81,7 @@ describe('MediaRecorderPrototypeLab', () => {
 
   it('runs a single scenario through the harness and surfaces evidence', async () => {
     harnessMocks.createHarnessRun.mockReturnValue({
-      controller: { cancel: vi.fn(), attemptId: 1 },
+      controller: { cancel: vi.fn(), reportCancelVisible: vi.fn(), attemptId: 1 },
       promise: Promise.resolve({
         generatedAt: '2026-07-31T00:00:10.000Z',
         routePath: '/lab/mediarecorder-prototype',
@@ -147,8 +147,9 @@ describe('MediaRecorderPrototypeLab', () => {
   it('keeps the run locked until cancellation cleanup resolves', async () => {
     let resolveRun: ((value: unknown) => void) | undefined;
     const cancel = vi.fn();
+    const reportCancelVisible = vi.fn();
     harnessMocks.createHarnessRun.mockReturnValue({
-      controller: { cancel, attemptId: 7, runId: 9 },
+      controller: { cancel, reportCancelVisible, attemptId: 7, runId: 9 },
       promise: new Promise((resolve) => {
         resolveRun = resolve;
       }),
@@ -163,6 +164,7 @@ describe('MediaRecorderPrototypeLab', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Lauf abbrechen' })[0]!);
 
     expect(cancel).toHaveBeenCalledTimes(1);
+    expect(reportCancelVisible).toHaveBeenCalledTimes(1);
     expect(screen.getAllByRole('button', { name: 'Ausgewaehltes Szenario ausfuehren' })[0]!).toBeDisabled();
     expect(screen.getAllByRole('status')[0]!).toHaveTextContent(
       'Ein neuer Lauf ist erst nach vollstaendigem Cleanup verfuegbar.',

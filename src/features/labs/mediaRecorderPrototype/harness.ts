@@ -1,18 +1,17 @@
 import {
+  PROTOTYPE_LIMITS,
   PROTOTYPE_ROUTE_PATH,
   RECORDER_CANDIDATE_ORDER,
 } from '@/features/labs/mediaRecorderPrototype/constants';
 import { mediaRecorderFixtureManifest } from '@/features/labs/mediaRecorderPrototype/fixtureManifest';
 import { startBackendRequestTracking } from '@/features/labs/mediaRecorderPrototype/networkTracking';
 import { stopResources } from '@/features/labs/mediaRecorderPrototype/resourceCleanup';
-import {
-  PrototypeAttemptCancelledError,
-  runScenarioAttempt,
-  type PrototypeAttemptResources,
-} from '@/features/labs/mediaRecorderPrototype/runAttempt';
+import { PrototypeAttemptFailedError } from '@/features/labs/mediaRecorderPrototype/attemptFailure';
+import { runScenarioAttempt } from '@/features/labs/mediaRecorderPrototype/runAttempt';
 import { PrototypeAttemptDeadlineError } from '@/features/labs/mediaRecorderPrototype/attemptLifecycle';
 import type {
   PrototypeCapabilityProbe,
+  PrototypeAttemptResources,
   PrototypeMeasurementEvidence,
   PrototypeRecorderCandidate,
 } from '@/features/labs/mediaRecorderPrototype/types';
@@ -30,6 +29,7 @@ export interface PrototypeHarnessRunOptions {
 
 export interface PrototypeHarnessController {
   cancel(): void;
+  reportCancelVisible(): void;
   readonly attemptId: number;
   readonly runId: number;
 }
@@ -100,12 +100,18 @@ export function createHarnessRun(options: PrototypeHarnessRunOptions = {}): {
   let activeResources: PrototypeAttemptResources = {};
   let activeAttemptId = 0;
   let cancelRequestedAt: number | undefined;
+  let cancelVisibleWithinMs: number | undefined;
 
   const controller: PrototypeHarnessController = {
     cancel() {
       if (!cancelRequestedAt) cancelRequestedAt = performance.now();
       abortController.abort(new DOMException('Prototype attempt cancelled.', 'AbortError'));
       void stopResources(activeResources);
+    },
+    reportCancelVisible() {
+      if (cancelRequestedAt !== undefined && cancelVisibleWithinMs === undefined) {
+        cancelVisibleWithinMs = Math.round(performance.now() - cancelRequestedAt);
+      }
     },
     get attemptId() {
       return activeAttemptId;
@@ -172,7 +178,10 @@ export function createHarnessRun(options: PrototypeHarnessRunOptions = {}): {
           }
           if (cancelRequestedAt !== undefined) {
             attempt.cancelled = true;
-            attempt.cancelVisibleWithinMs = Math.round(performance.now() - cancelRequestedAt);
+            if (cancelVisibleWithinMs !== undefined) {
+              attempt.cancelVisibleWithinMs = cancelVisibleWithinMs;
+            }
+            attempt.cleanupCompletedWithinMs = Math.round(performance.now() - cancelRequestedAt);
           }
           evidence.fixtures = mergeVerifiedFixtures(evidence.fixtures, verifiedFixtures);
           evidence.results.push({
@@ -190,14 +199,39 @@ export function createHarnessRun(options: PrototypeHarnessRunOptions = {}): {
           }
         } catch (error) {
           const cleanupCompleted = await stopResources(activeResources);
-          if (error instanceof PrototypeAttemptCancelledError) {
+          if (error instanceof PrototypeAttemptFailedError) {
             const attempt = {
               ...error.attempt,
               cleanupCompleted,
               ...(cancelRequestedAt !== undefined
-                ? { cancelVisibleWithinMs: Math.round(performance.now() - cancelRequestedAt) }
+                ? {
+                    ...(cancelVisibleWithinMs !== undefined ? { cancelVisibleWithinMs } : {}),
+                    cleanupCompletedWithinMs: Math.round(performance.now() - cancelRequestedAt),
+                  }
                 : {}),
             };
+            if (
+              attempt.cancelVisibleWithinMs !== undefined &&
+              attempt.cancelVisibleWithinMs > PROTOTYPE_LIMITS.cancellationVisibleDeadlineMs
+            ) {
+              attempt.notes.push(
+                `Visible cancellation exceeded ${PROTOTYPE_LIMITS.cancellationVisibleDeadlineMs} ms.`,
+              );
+            }
+            if (!cleanupCompleted) {
+              attempt.notes.push(
+                'Cleanup could not verify that every renderer resource was released.',
+              );
+            }
+            if (
+              attempt.cleanupCompletedWithinMs !== undefined &&
+              attempt.cleanupCompletedWithinMs > PROTOTYPE_LIMITS.cleanupDeadlineMs
+            ) {
+              attempt.notes.push(
+                `Cleanup exceeded the ${PROTOTYPE_LIMITS.cleanupDeadlineMs} ms cancellation deadline.`,
+              );
+            }
+            evidence.fixtures = mergeVerifiedFixtures(evidence.fixtures, error.verifiedFixtures);
             evidence.results.push({
               scenarioId: scenario.id,
               scenarioOrder: scenario.order,
@@ -207,9 +241,12 @@ export function createHarnessRun(options: PrototypeHarnessRunOptions = {}): {
               requestedMimeType: candidate.mimeType,
               status: 'FAIL',
               attempt,
-              error: 'Attempt cancelled.',
+              error: error.message,
             });
-            break;
+            if (error.attempt.cancelled || error.cause instanceof PrototypeAttemptDeadlineError) {
+              break;
+            }
+            continue;
           }
           evidence.results.push({
             scenarioId: scenario.id,

@@ -173,6 +173,33 @@ test.describe('media recorder prototype lab', () => {
       timeout: 15_000,
     });
 
+    const cancelledRaw = await page.getByTestId('mediarecorder-prototype-evidence').textContent();
+    if (!cancelledRaw) throw new Error('Cancelled attempt evidence was not rendered.');
+    const cancelledEvidence = JSON.parse(cancelledRaw.slice(cancelledRaw.indexOf('{'))) as {
+      results: Array<{
+        status: string;
+        attempt?: {
+          cancelled: boolean;
+          cancelVisibleWithinMs?: number;
+          cleanupCompletedWithinMs?: number;
+          cleanupCompleted: boolean;
+          failure?: { kind: string; pendingOperationsSettled?: boolean };
+        };
+      }>;
+    };
+    expect(cancelledEvidence.results[0]).toMatchObject({
+      status: 'FAIL',
+      attempt: {
+        cancelled: true,
+        cleanupCompleted: true,
+        failure: { kind: 'cancelled' },
+      },
+    });
+    expect(cancelledEvidence.results[0]?.attempt?.cancelVisibleWithinMs).toBeLessThanOrEqual(250);
+    expect(cancelledEvidence.results[0]?.attempt?.cleanupCompletedWithinMs).toBeLessThanOrEqual(
+      2_000,
+    );
+
     await page.getByRole('button', { name: 'Ausgewaehltes Szenario ausfuehren' }).click();
     await expect
       .poll(

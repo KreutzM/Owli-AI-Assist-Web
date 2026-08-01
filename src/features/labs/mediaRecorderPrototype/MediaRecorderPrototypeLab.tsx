@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { mediaRecorderFixtureManifest } from '@/features/labs/mediaRecorderPrototype/fixtureManifest';
 import {
   createHarnessRun,
@@ -97,10 +98,14 @@ export function MediaRecorderPrototypeLab({ enabled }: MediaRecorderPrototypeLab
   };
 
   const cancelHarness = () => {
-    controllerRef.current?.cancel();
-    setStatusMessage(
-      'Der laufende Versuch wird abgebrochen. Ein neuer Lauf ist erst nach vollstaendigem Cleanup verfuegbar.',
-    );
+    const controller = controllerRef.current;
+    controller?.cancel();
+    flushSync(() => {
+      setStatusMessage(
+        'Der laufende Versuch wird abgebrochen. Ein neuer Lauf ist erst nach vollstaendigem Cleanup verfuegbar.',
+      );
+    });
+    controller?.reportCancelVisible();
   };
 
   const exportEvidence = () => {

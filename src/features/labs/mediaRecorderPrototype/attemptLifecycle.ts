@@ -1,7 +1,10 @@
 import { withTimeout } from '@/features/labs/mediaRecorderPrototype/attemptSupport';
 
 export class PrototypeAttemptDeadlineError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    readonly deadlineMs: number,
+  ) {
     super(message);
     this.name = 'PrototypeAttemptDeadlineError';
   }
@@ -13,7 +16,10 @@ export class PrototypeAttemptLifecycle {
   #pending = new Set<Promise<unknown>>();
   #onExternalAbort: () => void;
 
-  constructor(externalSignal: AbortSignal) {
+  constructor(
+    readonly attemptId: number,
+    externalSignal: AbortSignal,
+  ) {
     this.#onExternalAbort = () => this.abort(externalSignal.reason);
     if (externalSignal.aborted) this.#onExternalAbort();
     else externalSignal.addEventListener('abort', this.#onExternalAbort, { once: true });
@@ -24,7 +30,7 @@ export class PrototypeAttemptLifecycle {
     this.#pending.add(tracked);
     void tracked.finally(() => this.#pending.delete(tracked)).catch(() => undefined);
     return await withTimeout(tracked, timeoutMs, this.signal, message, () => {
-      const error = new PrototypeAttemptDeadlineError(message);
+      const error = new PrototypeAttemptDeadlineError(message, timeoutMs);
       this.abort(error);
       return error;
     });
@@ -40,8 +46,21 @@ export class PrototypeAttemptLifecycle {
     }
   }
 
-  async settlePending(): Promise<void> {
-    await Promise.allSettled([...this.#pending]);
+  accepts(attemptId: number): boolean {
+    return attemptId === this.attemptId && !this.signal.aborted;
+  }
+
+  async settlePending(timeoutMs: number): Promise<boolean> {
+    const pending = [...this.#pending];
+    if (pending.length === 0) return true;
+    let timeout: number | undefined;
+    const settled = Promise.allSettled(pending).then(() => true);
+    const expired = new Promise<false>((resolve) => {
+      timeout = window.setTimeout(() => resolve(false), timeoutMs);
+    });
+    const result = await Promise.race([settled, expired]);
+    if (timeout !== undefined) window.clearTimeout(timeout);
+    return result;
   }
 
   dispose(externalSignal: AbortSignal): void {

@@ -16,6 +16,8 @@ export async function validateRecording(input: {
   audio: ReturnType<typeof getMediaRecorderScenarioFixtures>['audio'];
   containerInspection: PrototypeContainerInspection;
   signal: AbortSignal;
+  onVideoCreated?(video: HTMLVideoElement): void;
+  onAudioContextCreated?(context: AudioContext): void;
 }): Promise<{
   expectedDurationMs: number;
   measuredDurationMs: number;
@@ -54,6 +56,7 @@ export async function validateRecording(input: {
 }> {
   throwIfAborted(input.signal);
   const video = document.createElement('video');
+  input.onVideoCreated?.(video);
   video.preload = 'auto';
   video.src = input.blobUrl;
   video.volume = 1;
@@ -69,7 +72,9 @@ export async function validateRecording(input: {
   const height = video.videoHeight;
   const expectedDurationMs = input.audio.durationMs;
   const sampleChecks = await collectSampleChecks(video, input.image, input.signal);
-  const audioEvidence = await analyzeAudioMarkers(video, input.audio, input.signal);
+  const audioEvidence = await analyzeAudioMarkers(video, input.audio, input.signal, (context) =>
+    input.onAudioContextCreated?.(context),
+  );
   const measuredDurationMs = Number.isFinite(video.duration)
     ? Math.round(video.duration * 1_000)
     : Math.round(video.currentTime * 1_000);

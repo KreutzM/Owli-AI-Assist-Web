@@ -24,6 +24,7 @@ export async function analyzeAudioMarkers(
   video: HTMLVideoElement,
   audio: ReturnType<typeof getMediaRecorderScenarioFixtures>['audio'],
   signal: AbortSignal,
+  onContextCreated?: (context: AudioContext) => void,
 ): Promise<{
   audioNonSilent: boolean;
   startMarkerDetected: boolean;
@@ -33,6 +34,7 @@ export async function analyzeAudioMarkers(
   samples: MarkerSnapshot[];
 }> {
   const context = new AudioContext({ sampleRate: audio.sampleRateHz });
+  onContextCreated?.(context);
   await context.resume();
   if (context.state !== 'running') {
     throw new Error(`Audio validation context did not enter running state (${context.state}).`);
