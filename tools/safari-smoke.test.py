@@ -127,6 +127,109 @@ class LocalHttpsReadinessTests(unittest.TestCase):
         self.assertIn("ConnectionRefusedError", str(caught.exception))
 
 
+class RemoteReadinessRetryTests(unittest.TestCase):
+    def unavailable_snapshot(self) -> dict[str, object]:
+        return {
+            "readyState": "complete",
+            "cameraPresent": False,
+            "cameraDisabled": None,
+            "filePresent": False,
+            "fileDisabled": None,
+            "retryPresent": True,
+            "retryDisabled": False,
+            "hasManifest": True,
+            "bodyText": safari_smoke.REMOTE_READINESS_RETRY_MESSAGE,
+        }
+
+    def ready_snapshot(self) -> dict[str, object]:
+        return {
+            "readyState": "complete",
+            "cameraPresent": True,
+            "cameraDisabled": False,
+            "filePresent": True,
+            "fileDisabled": False,
+            "retryPresent": False,
+            "retryDisabled": None,
+            "hasManifest": True,
+            "bodyText": "ready",
+        }
+
+    def test_explicit_retry_can_recover_within_same_deadline(self) -> None:
+        clock = FakeClock()
+        snapshots = iter(
+            [
+                self.unavailable_snapshot(),
+                {**self.unavailable_snapshot(), "bodyText": "Sichere Sitzung wird vorbereitet"},
+                self.ready_snapshot(),
+            ]
+        )
+        retry_count = 0
+
+        def retry_action(_driver: object) -> bool:
+            nonlocal retry_count
+            retry_count += 1
+            return True
+
+        result = safari_smoke.wait_for_remote_readiness(
+            object(),
+            timeout=5,
+            clock=clock,
+            sleep=clock.sleep,
+            snapshot_probe=lambda _driver: next(snapshots),
+            retry_action=retry_action,
+        )
+
+        self.assertTrue(safari_smoke.remote_readiness_complete(result))
+        self.assertEqual(retry_count, 1)
+        self.assertLess(clock.value, 5)
+
+    def test_persistent_application_unavailability_remains_hard(self) -> None:
+        clock = FakeClock()
+        retry_count = 0
+
+        def retry_action(_driver: object) -> bool:
+            nonlocal retry_count
+            retry_count += 1
+            return True
+
+        with self.assertRaisesRegex(TimeoutError, "retry attempted: True"):
+            safari_smoke.wait_for_remote_readiness(
+                object(),
+                timeout=2,
+                clock=clock,
+                sleep=clock.sleep,
+                snapshot_probe=lambda _driver: self.unavailable_snapshot(),
+                retry_action=retry_action,
+            )
+
+        self.assertEqual(retry_count, 1)
+
+    def test_other_substantive_readiness_failure_is_not_retried(self) -> None:
+        clock = FakeClock()
+        retry_count = 0
+        snapshot = {
+            **self.unavailable_snapshot(),
+            "bodyText": "Die Szenenbeschreibung ist in dieser Bereitstellung nicht freigegeben.",
+        }
+
+        def retry_action(_driver: object) -> bool:
+            nonlocal retry_count
+            retry_count += 1
+            return True
+
+        with self.assertRaisesRegex(TimeoutError, "retry attempted: False"):
+            safari_smoke.wait_for_remote_readiness(
+                object(),
+                timeout=1,
+                clock=clock,
+                sleep=clock.sleep,
+                snapshot_probe=lambda _driver: snapshot,
+                retry_action=retry_action,
+            )
+
+        self.assertEqual(retry_count, 0)
+
+
 class FakeResponse:
     def __enter__(self) -> "FakeResponse":
         return self
@@ -308,9 +411,12 @@ class WorkflowPolicyTests(unittest.TestCase):
         step = self.web_ci_step("Build deterministic Safari JPEG harness")
         headers = "tests/harness/safari-jpeg/dist/_headers"
         self.assertIn(f"test -f {headers}", step)
-        self.assertIn(f"grep -qE", step)
+        self.assertIn("grep -qE", step)
         self.assertIn(headers, step)
-        self.assertNotIn("grep -qE 'api-staging\\.owli-ai\\.com|https://api\\.owli-ai\\.com' dist/_headers", step)
+        self.assertNotIn(
+            "grep -qE 'api-staging\\.owli-ai\\.com|https://api\\.owli-ai\\.com' dist/_headers",
+            step,
+        )
 
     def test_remote_readiness_requires_successful_mandatory_local_path(self) -> None:
         step = self.step("Run live readiness/privacy Safari smoke")
