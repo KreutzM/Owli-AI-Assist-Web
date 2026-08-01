@@ -10,9 +10,7 @@ const SOURCE_DIGEST = readSourceDigest();
 const target = process.argv[2];
 const OUT_DIR =
   process.env.OWLI_WEB_OUT_DIR ??
-  (target === 'safari-jpeg-harness'
-    ? path.resolve('tests/harness/safari-jpeg/dist')
-    : 'dist');
+  (target === 'safari-jpeg-harness' ? path.resolve('tests/harness/safari-jpeg/dist') : 'dist');
 
 const printConfigOnly = process.argv.includes('--print-config');
 const targetConfig = {
