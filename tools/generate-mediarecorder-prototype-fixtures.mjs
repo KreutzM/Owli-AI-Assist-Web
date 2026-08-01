@@ -1,8 +1,10 @@
 import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import prettier from 'prettier';
 
 const root = process.cwd();
 const fixtureRoot = path.join(root, 'prototype-fixtures', 'mediarecorder', 'fixtures');
@@ -14,6 +16,7 @@ const manifestRoot = path.join(
   'mediaRecorderPrototype',
   'generated',
 );
+const manifestPath = path.join(manifestRoot, 'mediaRecorderFixtureManifest.json');
 const tempRoot = path.join(tmpdir(), 'owli-mediarecorder-prototype-fixtures');
 const ffmpeg = 'ffmpeg';
 const ffmpegVersion = readFfmpegVersion();
@@ -68,10 +71,20 @@ const imageFixtures = [
 
 const audioDurations = [10, 30];
 const audioFormats = [
-  { id: 'audio-mpeg', extension: 'mp3', mimeType: 'audio/mpeg', codecArgs: ['-c:a', 'libmp3lame', '-b:a', '128k'] },
+  {
+    id: 'audio-mpeg',
+    extension: 'mp3',
+    mimeType: 'audio/mpeg',
+    codecArgs: ['-c:a', 'libmp3lame', '-b:a', '128k'],
+  },
   { id: 'audio-wav', extension: 'wav', mimeType: 'audio/wav', codecArgs: ['-c:a', 'pcm_s16le'] },
   { id: 'audio-flac', extension: 'flac', mimeType: 'audio/flac', codecArgs: ['-c:a', 'flac'] },
-  { id: 'audio-opus', extension: 'opus', mimeType: 'audio/opus', codecArgs: ['-c:a', 'libopus', '-b:a', '96k'] },
+  {
+    id: 'audio-opus',
+    extension: 'opus',
+    mimeType: 'audio/opus',
+    codecArgs: ['-c:a', 'libopus', '-b:a', '96k'],
+  },
 ];
 
 const recorderCandidates = [
@@ -156,19 +169,15 @@ const manifest = {
   scenarios: scenarios.map((scenario, index) => ({ ...scenario, order: index + 1 })),
 };
 
-await writeFile(
-  path.join(manifestRoot, 'mediaRecorderFixtureManifest.json'),
-  `${JSON.stringify(manifest, null, 2)}\n`,
-  'utf8',
-);
+await writeFile(manifestPath, await formatManifestJson(manifest), 'utf8');
 
 function generateImage(image) {
   const outputPath = path.join(fixtureRoot, image.fileName);
+  if (existsSync(outputPath)) {
+    return;
+  }
   const drawBoxes = image.boxes
-    .map(
-      (box) =>
-        `drawbox=x=${box.x}:y=${box.y}:w=${box.w}:h=${box.h}:color=${box.color}:t=fill`,
-    )
+    .map((box) => `drawbox=x=${box.x}:y=${box.y}:w=${box.w}:h=${box.h}:color=${box.color}:t=fill`)
     .join(',');
   execFileSync(
     ffmpeg,
@@ -194,16 +203,20 @@ function generateAudioSource(durationSeconds, outputPath) {
   const endMarkerStart = durationSeconds === 10 ? 9.2 : 29.2;
   const endMarkerEnd = durationSeconds === 10 ? 9.45 : 29.45;
   const escapeCommas = (value) => value.replaceAll(',', '\\,');
-  const expressionLeft = escapeCommas([
-    `between(t,0.35,0.55)*0.92*sin(2*PI*1760*t)`,
-    `between(t,${endMarkerStart},${endMarkerEnd})*0.92*sin(2*PI*880*t)`,
-    `(1-between(t,0,0.35)-between(t,0.35,0.55)-between(t,${endMarkerStart},${endMarkerEnd})-between(t,${endMarkerEnd},${durationSeconds}))*(0.20*sin(2*PI*440*t)+0.08*sin(2*PI*660*t))`,
-  ].join('+'));
-  const expressionRight = escapeCommas([
-    `between(t,0.35,0.55)*0.78*sin(2*PI*1320*t)`,
-    `between(t,${endMarkerStart},${endMarkerEnd})*0.78*sin(2*PI*660*t)`,
-    `(1-between(t,0,0.35)-between(t,0.35,0.55)-between(t,${endMarkerStart},${endMarkerEnd})-between(t,${endMarkerEnd},${durationSeconds}))*(0.18*sin(2*PI*330*t)+0.06*sin(2*PI*550*t))`,
-  ].join('+'));
+  const expressionLeft = escapeCommas(
+    [
+      `between(t,0.35,0.55)*0.92*sin(2*PI*1760*t)`,
+      `between(t,${endMarkerStart},${endMarkerEnd})*0.92*sin(2*PI*880*t)`,
+      `(1-between(t,0,0.35)-between(t,0.35,0.55)-between(t,${endMarkerStart},${endMarkerEnd})-between(t,${endMarkerEnd},${durationSeconds}))*(0.20*sin(2*PI*440*t)+0.08*sin(2*PI*660*t))`,
+    ].join('+'),
+  );
+  const expressionRight = escapeCommas(
+    [
+      `between(t,0.35,0.55)*0.78*sin(2*PI*1320*t)`,
+      `between(t,${endMarkerStart},${endMarkerEnd})*0.78*sin(2*PI*660*t)`,
+      `(1-between(t,0,0.35)-between(t,0.35,0.55)-between(t,${endMarkerStart},${endMarkerEnd})-between(t,${endMarkerEnd},${durationSeconds}))*(0.18*sin(2*PI*330*t)+0.06*sin(2*PI*550*t))`,
+    ].join('+'),
+  );
 
   execFileSync(
     ffmpeg,
@@ -226,11 +239,10 @@ function generateAudioSource(durationSeconds, outputPath) {
 }
 
 function transcodeAudio(sourcePath, outputPath, codecArgs) {
-  execFileSync(
-    ffmpeg,
-    ['-y', '-i', sourcePath, ...codecArgs, outputPath],
-    { stdio: 'ignore' },
-  );
+  if (existsSync(outputPath)) {
+    return;
+  }
+  execFileSync(ffmpeg, ['-y', '-i', sourcePath, ...codecArgs, outputPath], { stdio: 'ignore' });
 }
 
 async function describeImage(image) {
@@ -300,4 +312,11 @@ function hexToRgb(color) {
 function readFfmpegVersion() {
   const output = execFileSync(ffmpeg, ['-version'], { encoding: 'utf8' });
   return output.split(/\r?\n/u)[0]?.trim() ?? 'unknown';
+}
+
+async function formatManifestJson(manifest) {
+  return prettier.format(JSON.stringify(manifest), {
+    filepath: manifestPath,
+    parser: 'json',
+  });
 }

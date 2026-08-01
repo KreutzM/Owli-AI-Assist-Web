@@ -5,7 +5,16 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist', 'dist-*', 'coverage', 'playwright-report', 'test-results', '.ai/repo-index.json'] },
+  {
+    ignores: [
+      'dist',
+      'dist-*',
+      'coverage',
+      'playwright-report',
+      'test-results',
+      '.ai/repo-index.json',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked.map((config) => ({
     ...config,

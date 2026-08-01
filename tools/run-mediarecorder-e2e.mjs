@@ -21,21 +21,39 @@ execFileSync('pnpm', ['build:staging:mediarecorder-prototype'], {
   shell: process.platform === 'win32',
 });
 
-const normalServer = spawn(process.execPath, ['tools/serve-built-web.mjs', '--root', 'dist-e2e-normal', '--port', '4173'], {
-  stdio: 'inherit',
-});
-const prototypeServer = spawn(process.execPath, ['tools/serve-built-web.mjs', '--root', 'dist-e2e-prototype', '--port', '5175'], {
-  stdio: 'inherit',
-});
+const normalServer = spawn(
+  process.execPath,
+  ['tools/serve-built-web.mjs', '--root', 'dist-e2e-normal', '--port', '4173'],
+  {
+    stdio: 'inherit',
+  },
+);
+const prototypeServer = spawn(
+  process.execPath,
+  ['tools/serve-built-web.mjs', '--root', 'dist-e2e-prototype', '--port', '5175'],
+  {
+    stdio: 'inherit',
+  },
+);
 
 try {
   await waitForServer(4173);
   await waitForServer(5175);
-  execFileSync('pnpm', ['exec', 'playwright', 'test', '--config=playwright.mediarecorder.config.mjs', ...playwrightArgs], {
-    stdio: 'inherit',
-    env: process.env,
-    shell: process.platform === 'win32',
-  });
+  execFileSync(
+    'pnpm',
+    [
+      'exec',
+      'playwright',
+      'test',
+      '--config=playwright.mediarecorder.config.mjs',
+      ...playwrightArgs,
+    ],
+    {
+      stdio: 'inherit',
+      env: process.env,
+      shell: process.platform === 'win32',
+    },
+  );
 } finally {
   normalServer.kill('SIGTERM');
   prototypeServer.kill('SIGTERM');

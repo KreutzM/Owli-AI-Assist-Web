@@ -52,7 +52,10 @@ describe('media recorder prototype fixture manifest', () => {
       'fixtures',
     );
 
-    for (const fixture of [...mediaRecorderFixtureManifest.images, ...mediaRecorderFixtureManifest.audio]) {
+    for (const fixture of [
+      ...mediaRecorderFixtureManifest.images,
+      ...mediaRecorderFixtureManifest.audio,
+    ]) {
       const bytes = await readFile(path.join(fixtureRoot, fixture.fileName));
       expect(bytes.byteLength).toBe(fixture.sizeBytes);
       expect(createHash('sha256').update(bytes).digest('hex')).toBe(fixture.sha256);

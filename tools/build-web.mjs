@@ -52,7 +52,11 @@ if (!target || !Object.hasOwn(targetConfig, target)) {
     'Build target must be exactly mock, staging, production, safari-jpeg-harness, or staging-mediarecorder-prototype.',
   );
 }
-if (target === 'staging-mediarecorder-prototype' && GIT_DIRTY && process.env.OWLI_ALLOW_DIRTY_PROTOTYPE_BUILD !== '1') {
+if (
+  target === 'staging-mediarecorder-prototype' &&
+  GIT_DIRTY &&
+  process.env.OWLI_ALLOW_DIRTY_PROTOTYPE_BUILD !== '1'
+) {
   throw new Error(
     'staging-mediarecorder-prototype requires a clean working tree unless OWLI_ALLOW_DIRTY_PROTOTYPE_BUILD=1 is set.',
   );
@@ -125,9 +129,11 @@ function run(command, args, env) {
 }
 
 function readGitDirty() {
-  return execFileSync('git', ['status', '--porcelain=v1', '--untracked-files=all'], {
-    encoding: 'utf8',
-  }).trim().length > 0;
+  return (
+    execFileSync('git', ['status', '--porcelain=v1', '--untracked-files=all'], {
+      encoding: 'utf8',
+    }).trim().length > 0
+  );
 }
 
 function readSourceDigest() {
@@ -135,5 +141,11 @@ function readSourceDigest() {
     encoding: 'utf8',
   });
   const diff = execFileSync('git', ['diff', '--binary', 'HEAD', '--'], { encoding: 'utf8' });
-  return createHash('sha256').update(GIT_SHA).update('\n').update(status).update('\n').update(diff).digest('hex');
+  return createHash('sha256')
+    .update(GIT_SHA)
+    .update('\n')
+    .update(status)
+    .update('\n')
+    .update(diff)
+    .digest('hex');
 }

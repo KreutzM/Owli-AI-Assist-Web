@@ -8,10 +8,7 @@ import {
 } from '@/features/labs/mediaRecorderPrototype/validationAudio';
 import { mediaRecorderFixtureManifest } from '@/features/labs/mediaRecorderPrototype/fixtureManifest';
 
-function markerSample(
-  timeMs: number,
-  overrides: Partial<MarkerSnapshot> = {},
-): MarkerSnapshot {
+function markerSample(timeMs: number, overrides: Partial<MarkerSnapshot> = {}): MarkerSnapshot {
   return {
     timeMs,
     rms: 0.01,
@@ -46,7 +43,9 @@ describe('media recorder prototype audio marker detection', () => {
   });
 
   it('detects the start and end markers in the real 10-second WAV fixture', async () => {
-    const fixture = mediaRecorderFixtureManifest.audio.find((audio) => audio.id === 'audio-wav-10s');
+    const fixture = mediaRecorderFixtureManifest.audio.find(
+      (audio) => audio.id === 'audio-wav-10s',
+    );
     if (!fixture) throw new Error('Missing audio-wav-10s fixture.');
     const buffer = await readFile(
       path.resolve('prototype-fixtures', 'mediarecorder', 'fixtures', fixture.fileName),

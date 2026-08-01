@@ -74,16 +74,48 @@ export async function analyzeAudioMarkers(
             timeMs: Math.round(video.currentTime * 1_000),
             rms: Math.max(computeByteRms(leftTimeDomain), computeByteRms(rightTimeDomain)),
             start: getChannelBands(
-              computeBandDb(leftFrequencyDomain, context.sampleRate, PROTOTYPE_AUDIO_MARKERS.start.left.targetHz),
-              maxBands(leftFrequencyDomain, context.sampleRate, PROTOTYPE_AUDIO_MARKERS.start.left.backgroundHz),
-              computeBandDb(rightFrequencyDomain, context.sampleRate, PROTOTYPE_AUDIO_MARKERS.start.right.targetHz),
-              maxBands(rightFrequencyDomain, context.sampleRate, PROTOTYPE_AUDIO_MARKERS.start.right.backgroundHz),
+              computeBandDb(
+                leftFrequencyDomain,
+                context.sampleRate,
+                PROTOTYPE_AUDIO_MARKERS.start.left.targetHz,
+              ),
+              maxBands(
+                leftFrequencyDomain,
+                context.sampleRate,
+                PROTOTYPE_AUDIO_MARKERS.start.left.backgroundHz,
+              ),
+              computeBandDb(
+                rightFrequencyDomain,
+                context.sampleRate,
+                PROTOTYPE_AUDIO_MARKERS.start.right.targetHz,
+              ),
+              maxBands(
+                rightFrequencyDomain,
+                context.sampleRate,
+                PROTOTYPE_AUDIO_MARKERS.start.right.backgroundHz,
+              ),
             ),
             end: getChannelBands(
-              computeBandDb(leftFrequencyDomain, context.sampleRate, PROTOTYPE_AUDIO_MARKERS.end.left.targetHz),
-              maxBands(leftFrequencyDomain, context.sampleRate, PROTOTYPE_AUDIO_MARKERS.end.left.backgroundHz),
-              computeBandDb(rightFrequencyDomain, context.sampleRate, PROTOTYPE_AUDIO_MARKERS.end.right.targetHz),
-              maxBands(rightFrequencyDomain, context.sampleRate, PROTOTYPE_AUDIO_MARKERS.end.right.backgroundHz),
+              computeBandDb(
+                leftFrequencyDomain,
+                context.sampleRate,
+                PROTOTYPE_AUDIO_MARKERS.end.left.targetHz,
+              ),
+              maxBands(
+                leftFrequencyDomain,
+                context.sampleRate,
+                PROTOTYPE_AUDIO_MARKERS.end.left.backgroundHz,
+              ),
+              computeBandDb(
+                rightFrequencyDomain,
+                context.sampleRate,
+                PROTOTYPE_AUDIO_MARKERS.end.right.targetHz,
+              ),
+              maxBands(
+                rightFrequencyDomain,
+                context.sampleRate,
+                PROTOTYPE_AUDIO_MARKERS.end.right.backgroundHz,
+              ),
             ),
           }),
         );
@@ -110,7 +142,9 @@ export async function analyzeAudioMarkers(
     };
     const onAbort = () => {
       cleanup();
-      reject(signal.reason instanceof Error ? signal.reason : new Error('Prototype validation aborted.'));
+      reject(
+        signal.reason instanceof Error ? signal.reason : new Error('Prototype validation aborted.'),
+      );
     };
 
     const cleanup = () => {
@@ -160,21 +194,62 @@ export function analyzeFixtureAudioBuffer(
     samples.push(
       createMarkerSnapshot({
         timeMs,
-        rms: Math.max(
-          computeWindowRms(left, centerSample),
-          computeWindowRms(right, centerSample),
-        ),
+        rms: Math.max(computeWindowRms(left, centerSample), computeWindowRms(right, centerSample)),
         start: getChannelBands(
-          computeBandDbFromWindow(left, audioBuffer.sampleRate, centerSample, PROTOTYPE_AUDIO_MARKERS.start.left.targetHz, PROTOTYPE_FFT_SIZE),
-          maxWindowBands(left, audioBuffer.sampleRate, centerSample, PROTOTYPE_AUDIO_MARKERS.start.left.backgroundHz),
-          computeBandDbFromWindow(right, audioBuffer.sampleRate, centerSample, PROTOTYPE_AUDIO_MARKERS.start.right.targetHz, PROTOTYPE_FFT_SIZE),
-          maxWindowBands(right, audioBuffer.sampleRate, centerSample, PROTOTYPE_AUDIO_MARKERS.start.right.backgroundHz),
+          computeBandDbFromWindow(
+            left,
+            audioBuffer.sampleRate,
+            centerSample,
+            PROTOTYPE_AUDIO_MARKERS.start.left.targetHz,
+            PROTOTYPE_FFT_SIZE,
+          ),
+          maxWindowBands(
+            left,
+            audioBuffer.sampleRate,
+            centerSample,
+            PROTOTYPE_AUDIO_MARKERS.start.left.backgroundHz,
+          ),
+          computeBandDbFromWindow(
+            right,
+            audioBuffer.sampleRate,
+            centerSample,
+            PROTOTYPE_AUDIO_MARKERS.start.right.targetHz,
+            PROTOTYPE_FFT_SIZE,
+          ),
+          maxWindowBands(
+            right,
+            audioBuffer.sampleRate,
+            centerSample,
+            PROTOTYPE_AUDIO_MARKERS.start.right.backgroundHz,
+          ),
         ),
         end: getChannelBands(
-          computeBandDbFromWindow(left, audioBuffer.sampleRate, centerSample, PROTOTYPE_AUDIO_MARKERS.end.left.targetHz, PROTOTYPE_FFT_SIZE),
-          maxWindowBands(left, audioBuffer.sampleRate, centerSample, PROTOTYPE_AUDIO_MARKERS.end.left.backgroundHz),
-          computeBandDbFromWindow(right, audioBuffer.sampleRate, centerSample, PROTOTYPE_AUDIO_MARKERS.end.right.targetHz, PROTOTYPE_FFT_SIZE),
-          maxWindowBands(right, audioBuffer.sampleRate, centerSample, PROTOTYPE_AUDIO_MARKERS.end.right.backgroundHz),
+          computeBandDbFromWindow(
+            left,
+            audioBuffer.sampleRate,
+            centerSample,
+            PROTOTYPE_AUDIO_MARKERS.end.left.targetHz,
+            PROTOTYPE_FFT_SIZE,
+          ),
+          maxWindowBands(
+            left,
+            audioBuffer.sampleRate,
+            centerSample,
+            PROTOTYPE_AUDIO_MARKERS.end.left.backgroundHz,
+          ),
+          computeBandDbFromWindow(
+            right,
+            audioBuffer.sampleRate,
+            centerSample,
+            PROTOTYPE_AUDIO_MARKERS.end.right.targetHz,
+            PROTOTYPE_FFT_SIZE,
+          ),
+          maxWindowBands(
+            right,
+            audioBuffer.sampleRate,
+            centerSample,
+            PROTOTYPE_AUDIO_MARKERS.end.right.backgroundHz,
+          ),
         ),
       }),
     );
@@ -221,7 +296,9 @@ function maxBands(
   frequencies: readonly number[],
 ): number {
   return clampDb(
-    Math.max(...frequencies.map((frequency) => computeBandDb(frequencyDomain, sampleRate, frequency))),
+    Math.max(
+      ...frequencies.map((frequency) => computeBandDb(frequencyDomain, sampleRate, frequency)),
+    ),
   );
 }
 
@@ -241,9 +318,7 @@ function maxWindowBands(
 }
 
 function computeByteRms(buffer: Uint8Array): number {
-  return computeRms(
-    Array.from(buffer, (value) => value / 128 - 1),
-  );
+  return computeRms(Array.from(buffer, (value) => value / 128 - 1));
 }
 
 function computeWindowRms(channel: Float32Array, centerSample: number): number {
