@@ -36,6 +36,16 @@ export class MemoryTracker {
     };
   }
 
+  transfer(fromKey: string, toKey: string, value: number, message: string): void {
+    const previousFrom = this.#entries.get(fromKey) ?? 0;
+    const previousTo = this.#entries.get(toKey) ?? 0;
+    const projected = this.currentTotal - previousFrom - previousTo + value;
+    assertAdmission(projected <= PROTOTYPE_LIMITS.maxAppOwnedMediaBytes, message);
+    this.#entries.delete(fromKey);
+    this.#entries.set(toKey, value);
+    this.highWater = Math.max(this.highWater, this.currentTotal);
+  }
+
   delete(key: string) {
     this.#entries.delete(key);
   }

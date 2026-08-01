@@ -4,7 +4,11 @@ const localChromiumExecutable = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testIgnore: [/remote-staging\.spec\.ts/u, /remote-media-layout-staging\.spec\.ts/u],
+  testIgnore: [
+    /remote-staging\.spec\.ts/u,
+    /remote-media-layout-staging\.spec\.ts/u,
+    /mediarecorder-prototype\.spec\.ts/u,
+  ],
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
@@ -15,24 +19,18 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
-  webServer: [
+  webServer: process.env.OWLI_E2E_EXTERNAL_SERVERS === '1' ? undefined : [
     {
-      command: 'pnpm build && node tools/serve-built-web.mjs --root dist-e2e-normal --port 4173',
+      command: 'pnpm build && pnpm preview',
       url: 'http://127.0.0.1:4173',
-      reuseExistingServer: false,
+      reuseExistingServer: !process.env.CI,
       timeout: 120_000,
-      gracefulShutdown: { signal: 'SIGTERM', timeout: 5_000 },
-      env: {
-        ...process.env,
-        OWLI_WEB_OUT_DIR: 'dist-e2e-normal',
-      },
     },
     {
       command: 'pnpm dev --host 0.0.0.0',
       url: 'http://127.0.0.1:5173',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
-      gracefulShutdown: { signal: 'SIGTERM', timeout: 5_000 },
       env: {
         ...process.env,
         VITE_OWLI_API_MODE: 'remote',
@@ -47,7 +45,6 @@ export default defineConfig({
       url: 'http://127.0.0.1:5174',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
-      gracefulShutdown: { signal: 'SIGTERM', timeout: 5_000 },
       env: {
         ...process.env,
         VITE_OWLI_API_MODE: 'remtoe',
@@ -55,18 +52,6 @@ export default defineConfig({
         VITE_OWLI_APP_VERSION: '0.1.0',
         VITE_OWLI_VERSION_CODE: '1',
         VITE_OWLI_DEFAULT_LOCALE: 'de-DE',
-      },
-    },
-    {
-      command: 'pnpm build:staging:mediarecorder-prototype && node tools/serve-built-web.mjs --root dist-e2e-prototype --port 5175',
-      url: 'http://127.0.0.1:5175',
-      reuseExistingServer: false,
-      timeout: 180_000,
-      gracefulShutdown: { signal: 'SIGTERM', timeout: 5_000 },
-      env: {
-        ...process.env,
-        OWLI_WEB_OUT_DIR: 'dist-e2e-prototype',
-        OWLI_ALLOW_DIRTY_PROTOTYPE_BUILD: '1',
       },
     },
   ],

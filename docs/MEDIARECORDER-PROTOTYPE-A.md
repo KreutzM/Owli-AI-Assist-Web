@@ -33,6 +33,7 @@ Web issue: `KreutzM/Owli-AI-Assist-Web#54`
 ## Measurement Workflow
 
 - `pnpm measure:mediarecorder` requires a clean working tree.
+- `pnpm test:e2e` covers the normal Chromium/WebKit application; the isolated Lab and its extra servers run only through `pnpm test:e2e:mediarecorder`.
 - The measurement build records `gitSha`, `gitDirty`, and `sourceDigest`.
 - Local evidence is written outside the repository by default under the system temp directory.
 - A `PASS` is a Scenario-Result for all content, playback, seeking, container, and codec gates. It is not a support decision: support still requires a 5/5 series plus an active-cancel and same-tab recovery run.
@@ -52,6 +53,7 @@ Web issue: `KreutzM/Owli-AI-Assist-Web#54`
 ## Known limits
 
 - Requested chunk cadence remains nominal only; delivery frequency is not guaranteed by `MediaRecorder`.
+- Chunk sizes and observed intervals are written on every `dataavailable` event, including attempts that later fail or are cancelled.
 - Browser-internal encoder buffering cannot be hard-bounded by application code.
 - A deadline aborts its own attempt context. Non-abortable browser work receives a bounded 500 ms quarantine; the attempt then proceeds to bounded cleanup and late results cannot update that attempt or a replacement run.
 - Container inspection reads at most 2 MiB of bounded WebM/MP4 metadata slices. The slice is reserved before allocation and all retained input, PCM, canvas, chunks, output, validation canvas, and inspection bytes are checked against the 64 MiB app-owned budget in every phase.

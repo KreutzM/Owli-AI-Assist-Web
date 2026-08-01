@@ -16,4 +16,17 @@ describe('media recorder prototype memory tracker', () => {
     );
     expect(memory.currentTotal).toBe(PROTOTYPE_LIMITS.maxAppOwnedMediaBytes - 1024);
   });
+
+  it('atomically transfers retained chunks into the final-output reservation', () => {
+    const memory = new MemoryTracker();
+    memory.setWithinLimit('retained-media', 40 * 1024 * 1024, 'retained media failed');
+    memory.setWithinLimit('chunkBytes', 24 * 1024 * 1024, 'chunk allocation failed');
+
+    memory.transfer('chunkBytes', 'finalBytes', 24 * 1024 * 1024, 'final output failed');
+    expect(memory.currentTotal).toBe(PROTOTYPE_LIMITS.maxAppOwnedMediaBytes);
+    expect(() =>
+      memory.transfer('chunkBytes', 'finalBytes', 25 * 1024 * 1024, 'final output failed'),
+    ).toThrow('final output failed');
+    expect(memory.currentTotal).toBe(PROTOTYPE_LIMITS.maxAppOwnedMediaBytes);
+  });
 });

@@ -33,10 +33,9 @@ export async function recordCanvasAudio(input: {
   const recorder = new MediaRecorder(stream, { mimeType: input.candidate.mimeType });
   input.resources.recorder = recorder;
 
-  const chunkTimes: number[] = [];
-  const chunkSizes: number[] = [];
   const chunks: Blob[] = [];
   let chunkBytes = 0;
+  let previousChunkAt: number | undefined;
   let renderStartedAt = 0;
   let finalizationStartedAt = 0;
   let stopped = false;
@@ -69,8 +68,9 @@ export async function recordCanvasAudio(input: {
       recorder.ondataavailable = (event) => {
         if (event.data.size === 0) return;
         const now = performance.now();
-        chunkTimes.push(now);
-        chunkSizes.push(event.data.size);
+        input.attempt.chunkIntervalsMs.push(Math.round(now - (previousChunkAt ?? renderStartedAt)));
+        input.attempt.chunkSizes.push(event.data.size);
+        previousChunkAt = now;
         chunkBytes += event.data.size;
         try {
           input.memory.setWithinLimit(
@@ -110,7 +110,19 @@ export async function recordCanvasAudio(input: {
       };
       recorder.onstop = () => {
         cleanup();
-        resolve(new Blob(chunks, { type: recorder.mimeType || input.candidate.mimeType }));
+        try {
+          input.memory.transfer(
+            'chunkBytes',
+            'finalBytes',
+            chunkBytes,
+            'App-owned media bytes exceed the 64 MiB limit before final blob creation.',
+          );
+          input.attempt.memory.finalBytes = chunkBytes;
+          input.attempt.memory.highWaterBytes = input.memory.highWater;
+          resolve(new Blob(chunks, { type: recorder.mimeType || input.candidate.mimeType }));
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error('Final blob memory admission failed.'));
+        }
       };
       input.source.onended = () => stopRecorder();
       input.lifecycle.signal.addEventListener('abort', onAbort, { once: true });
@@ -123,9 +135,5 @@ export async function recordCanvasAudio(input: {
     'Render deadline exceeded.',
   );
 
-  input.attempt.chunkIntervalsMs = chunkTimes.map((value, index) =>
-    index === 0 ? Math.round(value - renderStartedAt) : Math.round(value - chunkTimes[index - 1]!),
-  );
-  input.attempt.chunkSizes = chunkSizes;
   return { outputBlob, renderStartedAt, finalizationStartedAt };
 }

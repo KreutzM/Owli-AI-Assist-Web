@@ -23,7 +23,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test",
+    "test:e2e": "node tools/run-e2e.mjs",
     "test:e2e:mediarecorder": "node tools/run-mediarecorder-e2e.mjs",
     "test:e2e:staging": "playwright test --config=playwright.staging.config.ts",
     "test:a11y": "playwright test tests/e2e/accessibility.spec.ts tests/e2e/remote-readiness.spec.ts",
