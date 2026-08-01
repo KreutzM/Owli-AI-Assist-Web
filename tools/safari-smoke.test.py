@@ -282,9 +282,14 @@ class RemoteClassificationTests(unittest.TestCase):
 class WorkflowPolicyTests(unittest.TestCase):
     def setUp(self) -> None:
         self.workflow = (ROOT / ".github/workflows/apple-smoke.yml").read_text()
+        self.web_ci = (ROOT / ".github/workflows/ci.yml").read_text()
 
     def step(self, name: str) -> str:
         step = self.workflow.split(f"- name: {name}", 1)[1]
+        return step.split("- name:", 1)[0]
+
+    def web_ci_step(self, name: str) -> str:
+        step = self.web_ci.split(f"- name: {name}", 1)[1]
         return step.split("- name:", 1)[0]
 
     def test_focused_python_tests_are_mandatory(self) -> None:
@@ -298,6 +303,14 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn("tools/serve-built-web.mjs", step)
         self.assertIn("--root tests/harness/safari-jpeg/dist", step)
         self.assertIn("--target-url https://127.0.0.1:4180/", step)
+
+    def test_full_linux_checks_headers_from_actual_harness_root(self) -> None:
+        step = self.web_ci_step("Build deterministic Safari JPEG harness")
+        headers = "tests/harness/safari-jpeg/dist/_headers"
+        self.assertIn(f"test -f {headers}", step)
+        self.assertIn(f"grep -qE", step)
+        self.assertIn(headers, step)
+        self.assertNotIn("grep -qE 'api-staging\\.owli-ai\\.com|https://api\\.owli-ai\\.com' dist/_headers", step)
 
     def test_remote_readiness_requires_successful_mandatory_local_path(self) -> None:
         step = self.step("Run live readiness/privacy Safari smoke")
