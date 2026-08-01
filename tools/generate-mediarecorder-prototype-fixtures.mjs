@@ -20,6 +20,17 @@ const manifestPath = path.join(manifestRoot, 'mediaRecorderFixtureManifest.json'
 const tempRoot = path.join(tmpdir(), 'owli-mediarecorder-prototype-fixtures');
 const ffmpeg = 'ffmpeg';
 const ffmpegVersion = readFfmpegVersion();
+const canonicalManifest = await readCanonicalManifest();
+const canonicalFixturesByFileName = new Map(
+  [...(canonicalManifest?.images ?? []), ...(canonicalManifest?.audio ?? [])].map((fixture) => [
+    fixture.fileName,
+    fixture,
+  ]),
+);
+const fixtureProvenance = {
+  reusedCount: 0,
+  regeneratedCount: 0,
+};
 
 const imageFixtures = [
   {
@@ -115,7 +126,7 @@ await mkdir(manifestRoot, { recursive: true });
 await mkdir(tempRoot, { recursive: true });
 
 for (const image of imageFixtures) {
-  generateImage(image);
+  await generateImage(image);
 }
 
 const audioFixtures = [];
@@ -125,7 +136,7 @@ for (const durationSeconds of audioDurations) {
   for (const format of audioFormats) {
     const fileName = `${format.id}-${durationSeconds}s.${format.extension}`;
     const outputPath = path.join(fixtureRoot, fileName);
-    transcodeAudio(sourcePath, outputPath, format.codecArgs);
+    await transcodeAudio(sourcePath, outputPath, format.codecArgs);
     audioFixtures.push({
       id: `${format.id}-${durationSeconds}s`,
       fileName,
@@ -159,7 +170,7 @@ const manifest = {
   generatedAt: '2026-08-01',
   generator: {
     tool: 'tools/generate-mediarecorder-prototype-fixtures.mjs',
-    ffmpegVersion,
+    ffmpegVersion: resolveManifestFfmpegVersion(),
   },
   routePath: '/lab/mediarecorder-prototype',
   fixtureRoot: '/prototypes/mediarecorder/fixtures',
@@ -171,9 +182,11 @@ const manifest = {
 
 await writeFile(manifestPath, await formatManifestJson(manifest), 'utf8');
 
-function generateImage(image) {
+async function generateImage(image) {
   const outputPath = path.join(fixtureRoot, image.fileName);
   if (existsSync(outputPath)) {
+    await verifyCanonicalFixture(outputPath, image.fileName);
+    fixtureProvenance.reusedCount += 1;
     return;
   }
   const drawBoxes = image.boxes
@@ -197,6 +210,7 @@ function generateImage(image) {
     ],
     { stdio: 'ignore' },
   );
+  fixtureProvenance.regeneratedCount += 1;
 }
 
 function generateAudioSource(durationSeconds, outputPath) {
@@ -238,11 +252,14 @@ function generateAudioSource(durationSeconds, outputPath) {
   );
 }
 
-function transcodeAudio(sourcePath, outputPath, codecArgs) {
+async function transcodeAudio(sourcePath, outputPath, codecArgs) {
   if (existsSync(outputPath)) {
+    await verifyCanonicalFixture(outputPath, path.basename(outputPath));
+    fixtureProvenance.reusedCount += 1;
     return;
   }
   execFileSync(ffmpeg, ['-y', '-i', sourcePath, ...codecArgs, outputPath], { stdio: 'ignore' });
+  fixtureProvenance.regeneratedCount += 1;
 }
 
 async function describeImage(image) {
@@ -319,4 +336,40 @@ async function formatManifestJson(manifest) {
     filepath: manifestPath,
     parser: 'json',
   });
+}
+
+async function readCanonicalManifest() {
+  if (!existsSync(manifestPath)) {
+    return null;
+  }
+  return JSON.parse(await readFile(manifestPath, 'utf8'));
+}
+
+async function verifyCanonicalFixture(filePath, fileName) {
+  const canonicalFixture = canonicalFixturesByFileName.get(fileName);
+  if (!canonicalFixture) {
+    throw new Error(`Missing canonical manifest entry for fixture ${fileName}.`);
+  }
+  const data = await readFile(filePath);
+  const fileStat = await stat(filePath);
+  const sha256 = createHash('sha256').update(data).digest('hex');
+  if (fileStat.size !== canonicalFixture.sizeBytes || sha256 !== canonicalFixture.sha256) {
+    throw new Error(
+      `Checked-in fixture ${fileName} does not match canonical manifest bytes; refusing to legitimize drift.`,
+    );
+  }
+}
+
+function resolveManifestFfmpegVersion() {
+  if (fixtureProvenance.reusedCount === 0) {
+    return ffmpegVersion;
+  }
+  const canonicalFfmpegVersion = canonicalManifest?.generator?.ffmpegVersion;
+  if (!canonicalFfmpegVersion) {
+    throw new Error('Canonical manifest generator provenance is required when reusing fixtures.');
+  }
+  if (fixtureProvenance.regeneratedCount === 0) {
+    return canonicalFfmpegVersion;
+  }
+  return `reused canonical fixtures from ${canonicalFfmpegVersion}; regenerated missing fixtures with ${ffmpegVersion}`;
 }
