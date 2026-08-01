@@ -21,6 +21,8 @@ WEBDRIVER_URL = "http://127.0.0.1:4444"
 ELEMENT_KEY = "element-6066-11e4-a52e-4f735466cecf"
 PAGES_HOST = re.compile(r"^[a-z0-9-]+\.owli-ai-assist-web\.pages\.dev$")
 REMOTE_NETWORK_ERRNOS = {51, 54, 60, 61, 65, 101, 104, 110, 111, 113}
+REMOTE_READINESS_RETRY_MESSAGE = "Die Online-Vorbereitung ist derzeit nicht verfügbar."
+REMOTE_READINESS_RETRY_LABEL = "Erneut prüfen"
 
 
 class WebDriverError(RuntimeError):
@@ -287,8 +289,11 @@ def preflight_remote_https(
 def page_snapshot(driver: SafariDriver) -> dict[str, Any]:
     value = driver.execute(
         """
-        const camera = [...document.querySelectorAll('button')]
+        const buttons = [...document.querySelectorAll('button')];
+        const camera = buttons
           .find((button) => button.textContent?.trim() === 'Rückkamera öffnen');
+        const retry = buttons
+          .find((button) => button.textContent?.trim() === 'Erneut prüfen');
         const file = document.querySelector('#scene-file');
         return {
           readyState: document.readyState,
@@ -296,6 +301,8 @@ def page_snapshot(driver: SafariDriver) -> dict[str, Any]:
           cameraDisabled: camera ? camera.disabled : null,
           filePresent: Boolean(file),
           fileDisabled: file ? file.disabled : null,
+          retryPresent: Boolean(retry),
+          retryDisabled: retry ? retry.disabled : null,
           hasManifest: Boolean(document.querySelector('link[rel="manifest"]')),
           bodyText: document.body?.innerText ?? ''
         };
@@ -304,6 +311,29 @@ def page_snapshot(driver: SafariDriver) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise WebDriverError(f"Unexpected page snapshot: {value}")
     return value
+
+
+def click_remote_readiness_retry(driver: SafariDriver) -> bool:
+    value = driver.execute(
+        """
+        const retry = [...document.querySelectorAll('button')]
+          .find((button) => button.textContent?.trim() === 'Erneut prüfen');
+        if (!retry || retry.disabled) return false;
+        retry.click();
+        return true;
+        """
+    )
+    return value is True
+
+
+def remote_readiness_complete(snapshot: dict[str, Any]) -> bool:
+    return (
+        snapshot.get("readyState") == "complete"
+        and snapshot.get("cameraPresent") is True
+        and snapshot.get("cameraDisabled") is False
+        and snapshot.get("filePresent") is True
+        and snapshot.get("fileDisabled") is False
+    )
 
 
 def storage_snapshot(driver: SafariDriver) -> dict[str, Any]:
@@ -323,19 +353,64 @@ def storage_snapshot(driver: SafariDriver) -> dict[str, Any]:
     return value
 
 
-def wait_for_remote_readiness(driver: SafariDriver) -> dict[str, Any]:
-    return wait_until(
-        lambda: page_snapshot(driver),
-        lambda snapshot: (
-            snapshot.get("readyState") == "complete"
-            and snapshot.get("cameraPresent") is True
-            and snapshot.get("cameraDisabled") is False
-            and snapshot.get("filePresent") is True
-            and snapshot.get("fileDisabled") is False
-        ),
-        "remote readiness controls",
-        timeout=90,
-    )
+def wait_for_remote_readiness(
+    driver: SafariDriver,
+    *,
+    timeout: float = 90,
+    poll_interval: float = 0.5,
+    clock: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], None] = time.sleep,
+    snapshot_probe: Callable[[SafariDriver], dict[str, Any]] | None = None,
+    retry_action: Callable[[SafariDriver], bool] | None = None,
+) -> dict[str, Any]:
+    """Wait for real controls, exercising the application's explicit retry at most once."""
+    if timeout <= 0:
+        raise ValueError("Remote readiness timeout must be positive.")
+
+    read_snapshot = snapshot_probe or page_snapshot
+    click_retry = retry_action or click_remote_readiness_retry
+    started = clock()
+    deadline = started + timeout
+    retry_attempted = False
+    last_value: dict[str, Any] | None = None
+    last_error: BaseException | None = None
+
+    while True:
+        try:
+            last_value = read_snapshot(driver)
+            if remote_readiness_complete(last_value):
+                return last_value
+            last_error = None
+            body = str(last_value.get("bodyText", ""))
+            should_retry = (
+                not retry_attempted
+                and REMOTE_READINESS_RETRY_MESSAGE in body
+                and last_value.get("retryPresent") is True
+                and last_value.get("retryDisabled") is False
+            )
+            if should_retry:
+                retry_attempted = True
+                if not click_retry(driver):
+                    raise WebDriverError(
+                        f"Remote readiness retry button '{REMOTE_READINESS_RETRY_LABEL}' "
+                        "could not be activated."
+                    )
+        except Exception as error:  # noqa: BLE001 - retain the last diagnostic
+            last_error = error
+
+        now = clock()
+        if now >= deadline:
+            elapsed = now - started
+            diagnostic = (
+                f"last error: {type(last_error).__name__}: {last_error}"
+                if last_error
+                else f"last value: {last_value}"
+            )
+            raise TimeoutError(
+                f"Timed out after {elapsed:.1f}s waiting for remote readiness controls; "
+                f"retry attempted: {retry_attempted}; {diagnostic}"
+            )
+        sleep(min(poll_interval, max(0, deadline - now)))
 
 
 def run_smoke(
