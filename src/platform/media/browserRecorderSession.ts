@@ -91,9 +91,7 @@ export async function recordAudioCanvas(input: {
 }
 
 function abortReason(signal: AbortSignal): Error {
-  return signal.reason instanceof Error
-    ? signal.reason
-    : new DOMException('Aborted', 'AbortError');
+  return signal.reason instanceof Error ? signal.reason : new DOMException('Aborted', 'AbortError');
 }
 
 function asError(value: unknown, fallback: string): Error {
