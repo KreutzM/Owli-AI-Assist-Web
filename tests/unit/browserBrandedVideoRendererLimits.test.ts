@@ -77,6 +77,41 @@ describe('renderBrandedVideo admission and lifecycle', () => {
     await expect(renderBrandedVideo(input())).rejects.toThrow(/No approved WebM/u);
   });
 
+  it('closes scene and logo bitmaps that finish decoding after abort', async () => {
+    const controller = new AbortController();
+    const sceneClose = vi.fn();
+    const logoClose = vi.fn();
+    const scene = { width: 1280, height: 720, close: sceneClose } as unknown as ImageBitmap;
+    const logo = { width: 1024, height: 1024, close: logoClose } as unknown as ImageBitmap;
+    let resolveScene!: (bitmap: ImageBitmap) => void;
+    let resolveLogo!: (bitmap: ImageBitmap) => void;
+    class RecorderStub {
+      static isTypeSupported() {
+        return true;
+      }
+    }
+    vi.stubGlobal('MediaRecorder', RecorderStub);
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi
+        .fn()
+        .mockImplementationOnce(() => new Promise<ImageBitmap>((resolve) => (resolveScene = resolve)))
+        .mockImplementationOnce(() => new Promise<ImageBitmap>((resolve) => (resolveLogo = resolve))),
+    );
+
+    const rendering = renderBrandedVideo(input({ signal: controller.signal }));
+    controller.abort(new DOMException('cancelled', 'AbortError'));
+    await expect(rendering).rejects.toMatchObject({ name: 'AbortError' });
+
+    resolveScene(scene);
+    resolveLogo(logo);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(sceneClose).toHaveBeenCalledTimes(1);
+    expect(logoClose).toHaveBeenCalledTimes(1);
+  });
+
   it('releases the active render lock after an initialization failure so retry is possible', async () => {
     let supported = true;
     class RecorderStub {
