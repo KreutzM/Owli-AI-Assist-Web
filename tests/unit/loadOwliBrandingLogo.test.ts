@@ -18,7 +18,7 @@ function response(
   } = {},
 ): Response {
   const bytes = overrides.bytes ?? PNG_BYTES;
-  const value = new Response(bytes, {
+  const value = new Response(Uint8Array.from(bytes).buffer, {
     status: overrides.status ?? 200,
     headers: {
       'Content-Type': overrides.contentType ?? 'image/png',
@@ -37,7 +37,11 @@ describe('loadOwliBrandingLogo', () => {
     const fetchImplementation = vi.fn(async () => response());
     const signal = new AbortController().signal;
 
-    const blob = await loadOwliBrandingLogo(signal, fetchImplementation, ASSET_ORIGIN);
+    const blob = await loadOwliBrandingLogo(
+      signal,
+      fetchImplementation,
+      ASSET_ORIGIN,
+    );
 
     expect(new Uint8Array(await blob.arrayBuffer())).toEqual(PNG_BYTES);
     expect(blob.type).toBe('image/png');
@@ -52,12 +56,18 @@ describe('loadOwliBrandingLogo', () => {
   });
 
   it.each([
-    ['changed origin', { url: `https://example.com${OWLI_VIDEO_BRANDING_LOGO_PATH}` }],
+    [
+      'changed origin',
+      { url: `https://example.com${OWLI_VIDEO_BRANDING_LOGO_PATH}` },
+    ],
     ['changed path', { url: `${ASSET_ORIGIN}/assets/branding/other.png` }],
     ['wrong MIME', { contentType: 'image/jpeg' }],
     ['invalid length', { contentLength: 'invalid' }],
     ['length mismatch', { contentLength: '10' }],
-    ['invalid PNG signature', { bytes: new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9]) }],
+    [
+      'invalid PNG signature',
+      { bytes: new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9]) },
+    ],
   ])('fails closed for %s', async (_name, overrides) => {
     const fetchImplementation = vi.fn(async () => response(overrides));
 
@@ -76,7 +86,11 @@ describe('loadOwliBrandingLogo', () => {
     const fetchImplementation = vi.fn(async () => response());
 
     await expect(
-      loadOwliBrandingLogo(controller.signal, fetchImplementation, ASSET_ORIGIN),
+      loadOwliBrandingLogo(
+        controller.signal,
+        fetchImplementation,
+        ASSET_ORIGIN,
+      ),
     ).rejects.toMatchObject({ name: 'AbortError' });
     expect(fetchImplementation).not.toHaveBeenCalled();
   });
