@@ -43,6 +43,7 @@ export function RemoteAssist({ client, camera, normalizer, speech, locale }: Rem
   const previousSceneStatus = useRef(state.status);
   const [videoReady, setVideoReady] = useState(false);
   const [retryClock, setRetryClock] = useState(() => Date.now());
+  const runtimeApiBaseUrl = import.meta.env.VITE_OWLI_API_BASE_URL;
 
   const readinessEnabled =
     state.readiness?.sceneDescribeEnabled === true && state.selectedProfileId !== undefined;
@@ -65,7 +66,7 @@ export function RemoteAssist({ client, camera, normalizer, speech, locale }: Rem
   const readyPostcard = readyAudioPostcardResult(postcard.state);
   const stagingVideoEnabled = isStagingBrandedVideoExportAvailable({
     buildFlag: import.meta.env.VITE_OWLI_STAGING_BRANDED_VIDEO_EXPORT,
-    apiBaseUrl: import.meta.env.VITE_OWLI_API_BASE_URL,
+    apiBaseUrl: runtimeApiBaseUrl,
     image: state.image,
     result: readyPostcard,
     options: postcard.state.options,
@@ -198,16 +199,20 @@ export function RemoteAssist({ client, camera, normalizer, speech, locale }: Rem
         />
       )}
 
-      {stagingVideoEnabled && state.image && readyPostcard && postcard.state.options && (
-        <StagingBrandedVideoExport
-          key={`${state.image.previewUrl}:${readyPostcard.requestId}`}
-          enabled
-          image={state.image}
-          result={readyPostcard}
-          options={postcard.state.options}
-          apiBaseUrl={import.meta.env.VITE_OWLI_API_BASE_URL}
-        />
-      )}
+      {stagingVideoEnabled &&
+        runtimeApiBaseUrl &&
+        state.image &&
+        readyPostcard &&
+        postcard.state.options && (
+          <StagingBrandedVideoExport
+            key={`${state.image.previewUrl}:${readyPostcard.requestId}`}
+            enabled
+            image={state.image}
+            result={readyPostcard}
+            options={postcard.state.options}
+            apiBaseUrl={runtimeApiBaseUrl}
+          />
+        )}
 
       {state.status === 'complete' && (
         <section className="speech-disclosure" aria-labelledby="speech-title">
