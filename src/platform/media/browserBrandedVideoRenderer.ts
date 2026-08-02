@@ -98,7 +98,7 @@ export async function renderBrandedVideo(values: {
     if (event.data.size > 0) output.push(event.data);
   };
   const stopped = new Promise<void>((resolve, reject) => {
-    recorder.onstop = resolve;
+    recorder.onstop = () => resolve();
     recorder.onerror = () => reject(new Error('MediaRecorder failed.'));
   });
   const abort = () => {
