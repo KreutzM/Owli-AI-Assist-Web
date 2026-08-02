@@ -1,8 +1,5 @@
 import { BoundedRecorderChunks } from '@/platform/media/boundedRecorderChunks';
-import {
-  BRANDED_VIDEO_CANVAS,
-  drawBrandedVideoFrame,
-} from '@/platform/media/brandedVideoFrame';
+import { BRANDED_VIDEO_CANVAS, drawBrandedVideoFrame } from '@/platform/media/brandedVideoFrame';
 import { recordAudioCanvas } from '@/platform/media/browserRecorderSession';
 import { validateBrandedVideoOutput } from '@/platform/media/browserBrandedVideoValidation';
 import {
@@ -27,9 +24,7 @@ interface BrandedVideoRenderInput {
   signal: AbortSignal;
 }
 
-export async function renderBrandedVideo(
-  values: BrandedVideoRenderInput,
-): Promise<File> {
+export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promise<File> {
   assertInput(values);
   if (activeRenderToken) {
     throw new Error('A branded video render is already active in this tab.');
@@ -45,10 +40,7 @@ export async function renderBrandedVideo(
     values.signal.addEventListener('abort', forwardAbort, { once: true });
   }
   const totalDeadline = window.setTimeout(
-    () =>
-      controller.abort(
-        new DOMException('Video render deadline exceeded.', 'TimeoutError'),
-      ),
+    () => controller.abort(new DOMException('Video render deadline exceeded.', 'TimeoutError')),
     values.expectedDurationMs + BRANDED_VIDEO_TOTAL_SLACK_MS,
   );
 
@@ -63,26 +55,18 @@ export async function renderBrandedVideo(
   let collector: BoundedRecorderChunks | undefined;
   try {
     controller.signal.throwIfAborted();
-    const mimeType = MIME_CANDIDATES.find((candidate) =>
-      MediaRecorder.isTypeSupported(candidate),
-    );
+    const mimeType = MIME_CANDIDATES.find((candidate) => MediaRecorder.isTypeSupported(candidate));
     if (!mimeType) {
       throw new Error('No approved WebM MediaRecorder candidate is supported.');
     }
 
     [scene, logo] = await withDeadline(
-      Promise.all([
-        createImageBitmap(values.imageBlob),
-        createImageBitmap(values.logoBlob),
-      ]),
+      Promise.all([createImageBitmap(values.imageBlob), createImageBitmap(values.logoBlob)]),
       MEDIA_RECORDER_LIMITS.initializationDeadlineMs,
       controller.signal,
       'Image initialization deadline exceeded.',
     );
-    if (
-      Math.max(scene.width, scene.height) >
-      MEDIA_RECORDER_LIMITS.maxSourceLongEdgePx
-    ) {
+    if (Math.max(scene.width, scene.height) > MEDIA_RECORDER_LIMITS.maxSourceLongEdgePx) {
       throw new Error('Scene image exceeds the Candidate A normalization limit.');
     }
 
@@ -119,9 +103,7 @@ export async function renderBrandedVideo(
 
     const canvasBytes = canvas.width * canvas.height * 4;
     const decodedPcmBytes =
-      audioBuffer.length *
-      audioBuffer.numberOfChannels *
-      Float32Array.BYTES_PER_ELEMENT;
+      audioBuffer.length * audioBuffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
     collector = new BoundedRecorderChunks(
       values.imageBlob.size +
         values.logoBlob.size +
@@ -207,26 +189,17 @@ function assertInput(values: BrandedVideoRenderInput): void {
   }
 }
 
-function assertDecodedAudio(
-  buffer: AudioBuffer,
-  expectedDurationMs: number,
-): void {
-  const decodedPcmBytes =
-    buffer.length *
-    buffer.numberOfChannels *
-    Float32Array.BYTES_PER_ELEMENT;
+function assertDecodedAudio(buffer: AudioBuffer, expectedDurationMs: number): void {
+  const decodedPcmBytes = buffer.length * buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
   if (
     buffer.duration <= 0 ||
     buffer.numberOfChannels <= 0 ||
     buffer.numberOfChannels > MEDIA_RECORDER_LIMITS.maxChannels ||
     buffer.sampleRate > MEDIA_RECORDER_LIMITS.maxSampleRateHz ||
     decodedPcmBytes > MEDIA_RECORDER_LIMITS.maxDecodedPcmBytes ||
-    Math.abs(buffer.duration * 1_000 - expectedDurationMs) >
-      BRANDED_VIDEO_DURATION_DRIFT_MS
+    Math.abs(buffer.duration * 1_000 - expectedDurationMs) > BRANDED_VIDEO_DURATION_DRIFT_MS
   ) {
-    throw new Error(
-      'Decoded audio violates the Audio-Postcard or Candidate A contract.',
-    );
+    throw new Error('Decoded audio violates the Audio-Postcard or Candidate A contract.');
   }
   let energy = 0;
   let count = 0;
@@ -252,10 +225,7 @@ async function withDeadline<T>(
 ): Promise<T> {
   signal.throwIfAborted();
   return await new Promise<T>((resolve, reject) => {
-    const timeout = window.setTimeout(
-      () => finish(undefined, new Error(message)),
-      timeoutMs,
-    );
+    const timeout = window.setTimeout(() => finish(undefined, new Error(message)), timeoutMs);
     const onAbort = () => finish(undefined, abortReason(signal));
     const finish = (value?: T, error?: Error) => {
       window.clearTimeout(timeout);
@@ -272,9 +242,7 @@ async function withDeadline<T>(
 }
 
 function abortReason(signal: AbortSignal): Error {
-  return signal.reason instanceof Error
-    ? signal.reason
-    : new DOMException('Aborted', 'AbortError');
+  return signal.reason instanceof Error ? signal.reason : new DOMException('Aborted', 'AbortError');
 }
 
 function asError(value: unknown, fallback: string): Error {
