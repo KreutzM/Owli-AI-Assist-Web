@@ -4,14 +4,17 @@ import type { RemoteAssistClient } from '@/core/api/remoteAssistClient';
 import type { RemoteCamera } from '@/platform/camera/remoteCamera';
 import type { BrowserSceneImageNormalizer } from '@/platform/image/browserSceneImageNormalizer';
 import type { SpeechLifecycleGateway } from '@/platform/speech/browserSpeech';
+import {
+  isAudioPostcardActive,
+  readyAudioPostcardResult,
+} from '@/features/remote/audioPostcardState';
 import { isFollowupActive } from '@/features/remote/followupState';
-import { isAudioPostcardActive, readyAudioPostcardResult } from '@/features/remote/audioPostcardState';
 import { RemoteAudioPostcardPanel } from '@/features/remote/RemoteAudioPostcardPanel';
 import { RemoteFollowupPanel } from '@/features/remote/RemoteFollowupPanel';
 import { RemoteSceneContent } from '@/features/remote/RemoteSceneContent';
 import { StagingBrandedVideoExport } from '@/features/remote/StagingBrandedVideoExport';
-import { useFollowupAnnouncements } from '@/features/remote/useFollowupAnnouncements';
 import { useAudioPostcard } from '@/features/remote/useAudioPostcard';
+import { useFollowupAnnouncements } from '@/features/remote/useFollowupAnnouncements';
 import { useRemoteScene } from '@/features/remote/useRemoteScene';
 import { useSceneAnnouncements } from '@/features/remote/useSceneAnnouncements';
 import '@/features/remote/remote.css';
