@@ -75,7 +75,7 @@ describe('branded video frame layout', () => {
     const context = {
       font: '',
       measureText: () => ({ width: 330 }),
-    } as Pick<CanvasRenderingContext2D, 'font' | 'measureText'>;
+    };
 
     expect(fitBrandTextSize(context, layout)).toBe(29);
     expect(BRANDED_VIDEO_BRAND_TEXT).toBe('Owli-AI.com');
@@ -91,7 +91,7 @@ describe('branded video frame layout', () => {
     const context = {
       font: '',
       measureText: () => ({ width: 1_000 }),
-    } as Pick<CanvasRenderingContext2D, 'font' | 'measureText'>;
+    };
 
     expect(() => fitBrandTextSize(context, layout)).toThrow(/does not fit/u);
   });
