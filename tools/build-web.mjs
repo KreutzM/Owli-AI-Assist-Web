@@ -110,6 +110,7 @@ if (printConfigOnly) {
 
 function run(command, args, env) {
   return new Promise((resolve, reject) => {
+    // Direct Node execution preserves paths such as "C:\\Program Files\\..." on Windows.
     const child = spawn(command, args, {
       env,
       stdio: 'inherit',
