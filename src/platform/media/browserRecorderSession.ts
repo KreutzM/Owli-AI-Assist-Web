@@ -1,4 +1,4 @@
-import { BoundedRecorderChunks } from '@/platform/media/boundedRecorderChunks';
+import type { BoundedRecorderChunks } from '@/platform/media/boundedRecorderChunks';
 import { MEDIA_RECORDER_LIMITS } from '@/platform/media/mediaRecorderLimits';
 
 export async function recordAudioCanvas(input: {
