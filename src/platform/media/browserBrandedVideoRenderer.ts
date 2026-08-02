@@ -3,6 +3,7 @@ import {
   BRANDED_VIDEO_CANVAS,
   drawBrandedVideoFrame,
 } from '@/platform/media/brandedVideoFrame';
+import { recordAudioCanvas } from '@/platform/media/browserRecorderSession';
 import { validateBrandedVideoOutput } from '@/platform/media/browserBrandedVideoValidation';
 import {
   BRANDED_VIDEO_DURATION_DRIFT_MS,
@@ -18,24 +19,36 @@ const MIME_CANDIDATES = [
 const OUTPUT_FILE_NAME = 'owli-audio-postcard.webm';
 let activeRenderToken: symbol | undefined;
 
-export async function renderBrandedVideo(values: {
+interface BrandedVideoRenderInput {
   imageBlob: Blob;
   logoBlob: Blob;
   audioBlob: Blob;
   expectedDurationMs: number;
   signal: AbortSignal;
-}): Promise<File> {
+}
+
+export async function renderBrandedVideo(
+  values: BrandedVideoRenderInput,
+): Promise<File> {
   assertInput(values);
-  if (activeRenderToken) throw new Error('A branded video render is already active in this tab.');
+  if (activeRenderToken) {
+    throw new Error('A branded video render is already active in this tab.');
+  }
   const token = Symbol('branded-video-render');
   activeRenderToken = token;
 
   const controller = new AbortController();
   const forwardAbort = () => controller.abort(values.signal.reason);
-  if (values.signal.aborted) forwardAbort();
-  else values.signal.addEventListener('abort', forwardAbort, { once: true });
+  if (values.signal.aborted) {
+    forwardAbort();
+  } else {
+    values.signal.addEventListener('abort', forwardAbort, { once: true });
+  }
   const totalDeadline = window.setTimeout(
-    () => controller.abort(new DOMException('Video render deadline exceeded.', 'TimeoutError')),
+    () =>
+      controller.abort(
+        new DOMException('Video render deadline exceeded.', 'TimeoutError'),
+      ),
     values.expectedDurationMs + BRANDED_VIDEO_TOTAL_SLACK_MS,
   );
 
@@ -50,16 +63,26 @@ export async function renderBrandedVideo(values: {
   let collector: BoundedRecorderChunks | undefined;
   try {
     controller.signal.throwIfAborted();
-    const mimeType = MIME_CANDIDATES.find((candidate) => MediaRecorder.isTypeSupported(candidate));
-    if (!mimeType) throw new Error('No approved WebM MediaRecorder candidate is supported.');
+    const mimeType = MIME_CANDIDATES.find((candidate) =>
+      MediaRecorder.isTypeSupported(candidate),
+    );
+    if (!mimeType) {
+      throw new Error('No approved WebM MediaRecorder candidate is supported.');
+    }
 
     [scene, logo] = await withDeadline(
-      Promise.all([createImageBitmap(values.imageBlob), createImageBitmap(values.logoBlob)]),
+      Promise.all([
+        createImageBitmap(values.imageBlob),
+        createImageBitmap(values.logoBlob),
+      ]),
       MEDIA_RECORDER_LIMITS.initializationDeadlineMs,
       controller.signal,
       'Image initialization deadline exceeded.',
     );
-    if (Math.max(scene.width, scene.height) > MEDIA_RECORDER_LIMITS.maxSourceLongEdgePx) {
+    if (
+      Math.max(scene.width, scene.height) >
+      MEDIA_RECORDER_LIMITS.maxSourceLongEdgePx
+    ) {
       throw new Error('Scene image exceeds the Candidate A normalization limit.');
     }
 
@@ -89,11 +112,16 @@ export async function renderBrandedVideo(values: {
       ...canvasStream.getVideoTracks(),
       ...destination.stream.getAudioTracks(),
     ]);
-    recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2_500_000 });
+    recorder = new MediaRecorder(stream, {
+      mimeType,
+      videoBitsPerSecond: 2_500_000,
+    });
 
     const canvasBytes = canvas.width * canvas.height * 4;
     const decodedPcmBytes =
-      audioBuffer.length * audioBuffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
+      audioBuffer.length *
+      audioBuffer.numberOfChannels *
+      Float32Array.BYTES_PER_ELEMENT;
     collector = new BoundedRecorderChunks(
       values.imageBlob.size +
         values.logoBlob.size +
@@ -110,7 +138,9 @@ export async function renderBrandedVideo(values: {
       signal: controller.signal,
     });
     controller.signal.throwIfAborted();
-    const outputFile = new File([outputBlob], OUTPUT_FILE_NAME, { type: outputBlob.type });
+    const outputFile = new File([outputBlob], OUTPUT_FILE_NAME, {
+      type: outputBlob.type,
+    });
     await validateBrandedVideoOutput({
       blob: outputFile,
       fileName: outputFile.name,
@@ -151,98 +181,14 @@ export async function renderBrandedVideo(values: {
     collector?.clear();
     scene?.close();
     logo?.close();
-    if (audioContext && audioContext.state !== 'closed') await audioContext.close();
+    if (audioContext && audioContext.state !== 'closed') {
+      await audioContext.close();
+    }
     if (activeRenderToken === token) activeRenderToken = undefined;
   }
 }
 
-async function recordAudioCanvas(input: {
-  recorder: MediaRecorder;
-  source: AudioBufferSourceNode;
-  stream: MediaStream;
-  collector: BoundedRecorderChunks;
-  durationSeconds: number;
-  signal: AbortSignal;
-}): Promise<Blob> {
-  return await new Promise<Blob>((resolve, reject) => {
-    let settled = false;
-    let finalizationTimer: number | undefined;
-    const finish = (error?: Error) => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      if (error) reject(error);
-      else {
-        try {
-          resolve(input.collector.finalize(input.recorder.mimeType));
-        } catch (finalizeError) {
-          reject(asError(finalizeError, 'Recorder finalization failed.'));
-        }
-      }
-    };
-    const stopImmediately = () => {
-      input.stream.getTracks().forEach((track) => track.stop());
-      try {
-        input.source.stop();
-      } catch {
-        // Source may already be stopped.
-      }
-      if (input.recorder.state !== 'inactive') {
-        try {
-          input.recorder.stop();
-        } catch {
-          // Recorder may already be stopping.
-        }
-      }
-    };
-    const beginFinalization = () => {
-      if (input.recorder.state === 'inactive') return;
-      finalizationTimer = window.setTimeout(() => {
-        stopImmediately();
-        finish(new Error('Recorder finalization deadline exceeded.'));
-      }, MEDIA_RECORDER_LIMITS.finalizationDeadlineMs);
-      input.recorder.stop();
-    };
-    const onAbort = () => {
-      stopImmediately();
-      finish(abortReason(input.signal));
-    };
-    const cleanup = () => {
-      if (finalizationTimer !== undefined) window.clearTimeout(finalizationTimer);
-      input.signal.removeEventListener('abort', onAbort);
-      input.recorder.ondataavailable = null;
-      input.recorder.onerror = null;
-      input.recorder.onstop = null;
-      input.source.onended = null;
-    };
-
-    input.recorder.ondataavailable = (event) => {
-      try {
-        input.collector.add(event.data);
-      } catch (error) {
-        stopImmediately();
-        finish(asError(error, 'Recorder chunk admission failed.'));
-      }
-    };
-    input.recorder.onerror = () => {
-      stopImmediately();
-      finish(new Error('MediaRecorder failed.'));
-    };
-    input.recorder.onstop = () => finish();
-    input.source.onended = beginFinalization;
-    input.signal.addEventListener('abort', onAbort, { once: true });
-    input.recorder.start(MEDIA_RECORDER_LIMITS.requestedChunkCadenceMs);
-    input.source.start(0);
-    input.source.stop(input.durationSeconds);
-  });
-}
-
-function assertInput(values: {
-  imageBlob: Blob;
-  logoBlob: Blob;
-  audioBlob: Blob;
-  expectedDurationMs: number;
-}): void {
+function assertInput(values: BrandedVideoRenderInput): void {
   if (
     !Number.isFinite(values.expectedDurationMs) ||
     values.expectedDurationMs <= 0 ||
@@ -261,18 +207,26 @@ function assertInput(values: {
   }
 }
 
-function assertDecodedAudio(buffer: AudioBuffer, expectedDurationMs: number): void {
+function assertDecodedAudio(
+  buffer: AudioBuffer,
+  expectedDurationMs: number,
+): void {
   const decodedPcmBytes =
-    buffer.length * buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
+    buffer.length *
+    buffer.numberOfChannels *
+    Float32Array.BYTES_PER_ELEMENT;
   if (
     buffer.duration <= 0 ||
     buffer.numberOfChannels <= 0 ||
     buffer.numberOfChannels > MEDIA_RECORDER_LIMITS.maxChannels ||
     buffer.sampleRate > MEDIA_RECORDER_LIMITS.maxSampleRateHz ||
     decodedPcmBytes > MEDIA_RECORDER_LIMITS.maxDecodedPcmBytes ||
-    Math.abs(buffer.duration * 1_000 - expectedDurationMs) > BRANDED_VIDEO_DURATION_DRIFT_MS
+    Math.abs(buffer.duration * 1_000 - expectedDurationMs) >
+      BRANDED_VIDEO_DURATION_DRIFT_MS
   ) {
-    throw new Error('Decoded audio violates the Audio-Postcard or Candidate A contract.');
+    throw new Error(
+      'Decoded audio violates the Audio-Postcard or Candidate A contract.',
+    );
   }
   let energy = 0;
   let count = 0;
@@ -298,7 +252,10 @@ async function withDeadline<T>(
 ): Promise<T> {
   signal.throwIfAborted();
   return await new Promise<T>((resolve, reject) => {
-    const timeout = window.setTimeout(() => finish(undefined, new Error(message)), timeoutMs);
+    const timeout = window.setTimeout(
+      () => finish(undefined, new Error(message)),
+      timeoutMs,
+    );
     const onAbort = () => finish(undefined, abortReason(signal));
     const finish = (value?: T, error?: Error) => {
       window.clearTimeout(timeout);
@@ -315,7 +272,9 @@ async function withDeadline<T>(
 }
 
 function abortReason(signal: AbortSignal): Error {
-  return signal.reason instanceof Error ? signal.reason : new DOMException('Aborted', 'AbortError');
+  return signal.reason instanceof Error
+    ? signal.reason
+    : new DOMException('Aborted', 'AbortError');
 }
 
 function asError(value: unknown, fallback: string): Error {
