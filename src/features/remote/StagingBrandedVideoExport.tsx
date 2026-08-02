@@ -10,8 +10,7 @@ import type { NormalizedSceneImage } from '@/platform/image/browserSceneImageNor
 import { renderBrandedVideo } from '@/platform/media/browserBrandedVideoRenderer';
 import { canShareFile, shareFile } from '@/platform/share/browserShare';
 
-const CANCELLED_MESSAGE =
-  'Videoerstellung wurde abgebrochen. Die Audio-Postcard bleibt verfügbar.';
+const CANCELLED_MESSAGE = 'Videoerstellung wurde abgebrochen. Die Audio-Postcard bleibt verfügbar.';
 const SHARE_TITLE = 'Owli-AI Audio-Postcard';
 const SHARE_TEXT = 'Mit Owli-AI Assist erstellt';
 
@@ -48,12 +47,7 @@ export function isStagingBrandedVideoExportAvailable(input: {
     return false;
   }
   try {
-    validateAudioCapability(
-      input.result,
-      input.options,
-      input.apiBaseUrl,
-      input.now ?? Date.now(),
-    );
+    validateAudioCapability(input.result, input.options, input.apiBaseUrl, input.now ?? Date.now());
     return true;
   } catch {
     return false;
@@ -81,9 +75,7 @@ export function StagingBrandedVideoExport({
 
   const releaseResources = useCallback((publishIdle: boolean) => {
     attemptRef.current += 1;
-    controllerRef.current?.abort(
-      new DOMException('Video export invalidated.', 'AbortError'),
-    );
+    controllerRef.current?.abort(new DOMException('Video export invalidated.', 'AbortError'));
     controllerRef.current = undefined;
     if (outputUrlRef.current) {
       URL.revokeObjectURL(outputUrlRef.current);
@@ -189,8 +181,7 @@ export function StagingBrandedVideoExport({
     }
   };
 
-  const canShare =
-    state.status === 'ready' && canShareFile(state.file, SHARE_TITLE, SHARE_TEXT);
+  const canShare = state.status === 'ready' && canShareFile(state.file, SHARE_TITLE, SHARE_TEXT);
   const primaryLabel =
     state.status === 'error' || state.status === 'cancelled'
       ? 'Video erneut erstellen'
