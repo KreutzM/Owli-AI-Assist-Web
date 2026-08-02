@@ -6,7 +6,9 @@ const imageBlob = new Blob(['image'], { type: 'image/jpeg' });
 const logoBlob = new Blob(['logo'], { type: 'image/png' });
 const audioBlob = new Blob(['audio'], { type: 'audio/mpeg' });
 
-function input(overrides: Partial<Parameters<typeof renderBrandedVideo>[0]> = {}) {
+type RenderInput = Parameters<typeof renderBrandedVideo>[0];
+
+function input(overrides: Partial<RenderInput> = {}): RenderInput {
   return {
     imageBlob,
     logoBlob,
@@ -25,7 +27,9 @@ afterEach(() => {
 describe('renderBrandedVideo admission and lifecycle', () => {
   it('rejects a source duration above the Candidate A 30-second limit', async () => {
     await expect(
-      renderBrandedVideo(input({ expectedDurationMs: MEDIA_RECORDER_LIMITS.maxDurationMs + 1 })),
+      renderBrandedVideo(
+        input({ expectedDurationMs: MEDIA_RECORDER_LIMITS.maxDurationMs + 1 }),
+      ),
     ).rejects.toThrow(/duration.*Candidate A limit/u);
   });
 
@@ -43,23 +47,27 @@ describe('renderBrandedVideo admission and lifecycle', () => {
   });
 
   it('requires both the scene image and canonical logo', async () => {
-    await expect(renderBrandedVideo(input({ imageBlob: new Blob([]) }))).rejects.toThrow(
-      /canonical logo are required/u,
-    );
-    await expect(renderBrandedVideo(input({ logoBlob: new Blob([]) }))).rejects.toThrow(
-      /canonical logo are required/u,
-    );
+    await expect(
+      renderBrandedVideo(input({ imageBlob: new Blob([]) })),
+    ).rejects.toThrow(/canonical logo are required/u);
+    await expect(
+      renderBrandedVideo(input({ logoBlob: new Blob([]) })),
+    ).rejects.toThrow(/canonical logo are required/u);
   });
 
   it('allows at most one active render and releases the lock after abort cleanup', async () => {
     const controller = new AbortController();
+    let supported = true;
     class RecorderStub {
       static isTypeSupported() {
-        return true;
+        return supported;
       }
     }
     vi.stubGlobal('MediaRecorder', RecorderStub);
-    vi.stubGlobal('createImageBitmap', vi.fn(() => new Promise(() => undefined)));
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn(() => new Promise<ImageBitmap>(() => undefined)),
+    );
 
     const first = renderBrandedVideo(input({ signal: controller.signal }));
     await expect(renderBrandedVideo(input())).rejects.toThrow(/already active/u);
@@ -67,22 +75,26 @@ describe('renderBrandedVideo admission and lifecycle', () => {
     controller.abort(new DOMException('cancelled', 'AbortError'));
     await expect(first).rejects.toMatchObject({ name: 'AbortError' });
 
-    RecorderStub.isTypeSupported = () => false;
+    supported = false;
     await expect(renderBrandedVideo(input())).rejects.toThrow(/No approved WebM/u);
   });
 
   it('releases the active render lock after an initialization failure so retry is possible', async () => {
+    let supported = true;
     class RecorderStub {
       static isTypeSupported() {
-        return true;
+        return supported;
       }
     }
     vi.stubGlobal('MediaRecorder', RecorderStub);
-    vi.stubGlobal('createImageBitmap', vi.fn(async () => Promise.reject(new Error('decode failed'))));
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn(async () => Promise.reject(new Error('decode failed'))),
+    );
 
     await expect(renderBrandedVideo(input())).rejects.toThrow('decode failed');
 
-    RecorderStub.isTypeSupported = () => false;
+    supported = false;
     await expect(renderBrandedVideo(input())).rejects.toThrow(/No approved WebM/u);
   });
 });
