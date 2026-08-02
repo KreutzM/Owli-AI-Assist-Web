@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { downloadAudioPostcard } from '@/core/api/downloadAudioPostcard';
 import { loadOwliBrandingLogo } from '@/core/api/loadOwliBrandingLogo';
@@ -48,6 +48,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -90,6 +91,29 @@ describe('StagingBrandedVideoExport', () => {
     const { container } = renderExport(false);
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('removes and invalidates the export when the audio capability expires', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-02T12:00:00Z'));
+    const expiringResult = readyAudioPostcard({
+      expiresAt: new Date(Date.now() + 1_000).toISOString(),
+    });
+    render(
+      <StagingBrandedVideoExport
+        enabled
+        image={image}
+        result={expiringResult}
+        options={options}
+        apiBaseUrl={API_BASE_URL}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Gebrandetes Video erstellen' })).toBeVisible();
+
+    await act(async () => vi.advanceTimersByTimeAsync(1_001));
+
+    expect(screen.queryByRole('button', { name: 'Gebrandetes Video erstellen' })).toBeNull();
+    expect(downloadAudioPostcard).not.toHaveBeenCalled();
   });
 
   it('loads the existing audio and canonical logo before rendering a checked local video', async () => {
