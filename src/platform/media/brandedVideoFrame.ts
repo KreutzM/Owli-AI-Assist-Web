@@ -79,7 +79,10 @@ export function computeBrandedVideoLayout(
       x: logoArea.x + logoArea.width + brandingGap,
       y: band.y + brandingInnerPadding,
       width:
-        band.x + band.width - brandingInnerPadding - (logoArea.x + logoArea.width + brandingGap),
+        band.x +
+        band.width -
+        brandingInnerPadding -
+        (logoArea.x + logoArea.width + brandingGap),
       height: band.height - brandingInnerPadding * 2,
     },
     imageRadius: scaled(32),
@@ -94,14 +97,25 @@ export function drawBrandedVideoFrame(
   scene: CanvasImageSource & { width: number; height: number },
   logo: CanvasImageSource & { width: number; height: number },
 ): BrandedVideoLayout {
-  const layout = computeBrandedVideoLayout(scene.width, scene.height, logo.width, logo.height);
+  const layout = computeBrandedVideoLayout(
+    scene.width,
+    scene.height,
+    logo.width,
+    logo.height,
+  );
   context.save();
   context.globalAlpha = 1;
   context.globalCompositeOperation = 'source-over';
   context.fillStyle = BRANDED_VIDEO_COLORS.background;
   context.fillRect(0, 0, BRANDED_VIDEO_CANVAS.width, BRANDED_VIDEO_CANVAS.height);
 
-  context.drawImage(scene, layout.image.x, layout.image.y, layout.image.width, layout.image.height);
+  context.drawImage(
+    scene,
+    layout.image.x,
+    layout.image.y,
+    layout.image.width,
+    layout.image.height,
+  );
   context.strokeStyle = BRANDED_VIDEO_COLORS.imageStroke;
   context.lineWidth = Math.max(2, 2 * SCALE);
   roundedRect(context, layout.image, layout.imageRadius);
@@ -110,7 +124,13 @@ export function drawBrandedVideoFrame(
   context.fillStyle = BRANDED_VIDEO_COLORS.band;
   roundedRect(context, layout.band, layout.bandRadius);
   context.fill();
-  context.drawImage(logo, layout.logo.x, layout.logo.y, layout.logo.width, layout.logo.height);
+  context.drawImage(
+    logo,
+    layout.logo.x,
+    layout.logo.y,
+    layout.logo.width,
+    layout.logo.height,
+  );
 
   context.fillStyle = BRANDED_VIDEO_COLORS.text;
   context.textBaseline = 'middle';
@@ -131,7 +151,9 @@ export function fitBrandTextSize(
   let size = layout.nominalTextSize;
   for (let step = 0; step < MAX_TEXT_SHRINK_STEPS; step += 1) {
     context.font = `700 ${size}px system-ui, sans-serif`;
-    if (context.measureText(BRANDED_VIDEO_BRAND_TEXT).width <= layout.text.width) return size;
+    if (context.measureText(BRANDED_VIDEO_BRAND_TEXT).width <= layout.text.width) {
+      return size;
+    }
     size = Math.max(layout.minimumTextSize, size * 0.92);
   }
   context.font = `700 ${size}px system-ui, sans-serif`;
@@ -169,7 +191,13 @@ function roundedRect(
   radius: number,
 ): void {
   context.beginPath();
-  context.roundRect(rect.x, rect.y, rect.width, rect.height, Math.min(radius, rect.width / 2));
+  context.roundRect(
+    rect.x,
+    rect.y,
+    rect.width,
+    rect.height,
+    Math.min(radius, rect.width / 2),
+  );
 }
 
 function scaled(value: number): number {
