@@ -79,10 +79,7 @@ export function computeBrandedVideoLayout(
       x: logoArea.x + logoArea.width + brandingGap,
       y: band.y + brandingInnerPadding,
       width:
-        band.x +
-        band.width -
-        brandingInnerPadding -
-        (logoArea.x + logoArea.width + brandingGap),
+        band.x + band.width - brandingInnerPadding - (logoArea.x + logoArea.width + brandingGap),
       height: band.height - brandingInnerPadding * 2,
     },
     imageRadius: scaled(32),
@@ -97,25 +94,14 @@ export function drawBrandedVideoFrame(
   scene: CanvasImageSource & { width: number; height: number },
   logo: CanvasImageSource & { width: number; height: number },
 ): BrandedVideoLayout {
-  const layout = computeBrandedVideoLayout(
-    scene.width,
-    scene.height,
-    logo.width,
-    logo.height,
-  );
+  const layout = computeBrandedVideoLayout(scene.width, scene.height, logo.width, logo.height);
   context.save();
   context.globalAlpha = 1;
   context.globalCompositeOperation = 'source-over';
   context.fillStyle = BRANDED_VIDEO_COLORS.background;
   context.fillRect(0, 0, BRANDED_VIDEO_CANVAS.width, BRANDED_VIDEO_CANVAS.height);
 
-  context.drawImage(
-    scene,
-    layout.image.x,
-    layout.image.y,
-    layout.image.width,
-    layout.image.height,
-  );
+  context.drawImage(scene, layout.image.x, layout.image.y, layout.image.width, layout.image.height);
   context.strokeStyle = BRANDED_VIDEO_COLORS.imageStroke;
   context.lineWidth = Math.max(2, 2 * SCALE);
   roundedRect(context, layout.image, layout.imageRadius);
@@ -124,22 +110,12 @@ export function drawBrandedVideoFrame(
   context.fillStyle = BRANDED_VIDEO_COLORS.band;
   roundedRect(context, layout.band, layout.bandRadius);
   context.fill();
-  context.drawImage(
-    logo,
-    layout.logo.x,
-    layout.logo.y,
-    layout.logo.width,
-    layout.logo.height,
-  );
+  context.drawImage(logo, layout.logo.x, layout.logo.y, layout.logo.width, layout.logo.height);
 
   context.fillStyle = BRANDED_VIDEO_COLORS.text;
   context.textBaseline = 'middle';
   context.font = `700 ${fitBrandTextSize(context, layout)}px system-ui, sans-serif`;
-  context.fillText(
-    BRANDED_VIDEO_BRAND_TEXT,
-    layout.text.x,
-    layout.text.y + layout.text.height / 2,
-  );
+  context.fillText(BRANDED_VIDEO_BRAND_TEXT, layout.text.x, layout.text.y + layout.text.height / 2);
   context.restore();
   return layout;
 }
@@ -185,19 +161,9 @@ export function fitCenterInside(
   };
 }
 
-function roundedRect(
-  context: CanvasRenderingContext2D,
-  rect: FrameRect,
-  radius: number,
-): void {
+function roundedRect(context: CanvasRenderingContext2D, rect: FrameRect, radius: number): void {
   context.beginPath();
-  context.roundRect(
-    rect.x,
-    rect.y,
-    rect.width,
-    rect.height,
-    Math.min(radius, rect.width / 2),
-  );
+  context.roundRect(rect.x, rect.y, rect.width, rect.height, Math.min(radius, rect.width / 2));
 }
 
 function scaled(value: number): number {
