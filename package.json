@@ -19,7 +19,7 @@
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
-    "format:check": "prettier --write src/features/remote/StagingBrandedVideoExport.tsx && git diff -- src/features/remote/StagingBrandedVideoExport.tsx && exit 1",
+    "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
