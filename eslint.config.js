@@ -55,12 +55,6 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/features/remote/StagingBrandedVideoExport.tsx'],
-    rules: {
-      '@typescript-eslint/no-unnecessary-condition': 'off',
-    },
-  },
-  {
     files: ['**/*.test.{ts,tsx}', 'tests/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
