@@ -5,6 +5,10 @@ import type { NormalizedSceneImage } from '@/platform/image/browserSceneImageNor
 import { renderBrandedVideo } from '@/platform/media/browserBrandedVideoRenderer';
 import { canShareFile, shareFile } from '@/platform/share/browserShare';
 
+const SHARE_TITLE = 'Owli-AI Audio-Postcard';
+const SHARE_TEXT = 'Mit Owli-AI Assist erstellt';
+const ABORT_MESSAGE = 'Videoerstellung wurde abgebrochen. Die Audio-Postcard bleibt verfügbar.';
+
 type ExportState =
   | { status: 'idle'; message: string }
   | { status: 'rendering'; message: string }
@@ -25,22 +29,22 @@ export function StagingBrandedVideoExport({
   const attemptRef = useRef(0);
   const actionRef = useRef<HTMLButtonElement>(null);
 
-  const release = useCallback(() => {
+  const cleanup = useCallback((message = '') => {
     attemptRef.current += 1;
     controllerRef.current?.abort();
     controllerRef.current = undefined;
     setState((current) => {
       if (current.status === 'ready') URL.revokeObjectURL(current.url);
-      return { status: 'idle', message: '' };
+      return { status: 'idle', message };
     });
   }, []);
 
-  useEffect(() => release, [release]);
+  useEffect(() => () => cleanup(), [cleanup, image, result]);
 
   if (!enabled) return null;
 
   const createVideo = async () => {
-    release();
+    cleanup();
     const attempt = attemptRef.current;
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -65,30 +69,33 @@ export function StagingBrandedVideoExport({
         status: 'error',
         message:
           error instanceof DOMException && error.name === 'AbortError'
-            ? 'Videoerstellung wurde abgebrochen. Die Audio-Postcard bleibt verfügbar.'
+            ? ABORT_MESSAGE
             : 'Das Video konnte nicht erstellt werden. Die Audio-Postcard bleibt verfügbar.',
       });
     } finally {
       if (controllerRef.current === controller) controllerRef.current = undefined;
-      actionRef.current?.focus();
     }
+  };
+
+  const abortVideo = () => {
+    cleanup(ABORT_MESSAGE);
+    actionRef.current?.focus();
   };
 
   const shareVideo = async () => {
     if (state.status !== 'ready') return;
     try {
-      await shareFile(state.file, 'Owli-AI Audio-Postcard', 'Mit Owli-AI Assist erstellt');
+      await shareFile(state.file, SHARE_TITLE, SHARE_TEXT);
       setState({ ...state, message: 'Teilen-Dialog wurde geöffnet.' });
     } catch (error) {
       if (!(error instanceof DOMException && error.name === 'AbortError')) {
         setState({ ...state, message: 'Video konnte nicht geteilt werden.' });
       }
-    } finally {
-      actionRef.current?.focus();
     }
   };
 
-  const canShare = state.status === 'ready' && canShareFile(state.file);
+  const canShare =
+    state.status === 'ready' && canShareFile(state.file, SHARE_TITLE, SHARE_TEXT);
 
   return (
     <section className="audio-postcard-video-export" aria-labelledby="video-export-title">
@@ -108,7 +115,7 @@ export function StagingBrandedVideoExport({
           {state.status === 'rendering' ? 'Video wird erstellt …' : 'Gebrandetes Video erstellen'}
         </button>
         {state.status === 'rendering' && (
-          <button className="button button--secondary" type="button" onClick={release}>
+          <button className="button button--secondary" type="button" onClick={abortVideo}>
             Videoerstellung abbrechen
           </button>
         )}
