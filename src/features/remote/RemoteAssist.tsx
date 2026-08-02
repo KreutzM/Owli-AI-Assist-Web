@@ -12,7 +12,10 @@ import { isFollowupActive } from '@/features/remote/followupState';
 import { RemoteAudioPostcardPanel } from '@/features/remote/RemoteAudioPostcardPanel';
 import { RemoteFollowupPanel } from '@/features/remote/RemoteFollowupPanel';
 import { RemoteSceneContent } from '@/features/remote/RemoteSceneContent';
-import { StagingBrandedVideoExport } from '@/features/remote/StagingBrandedVideoExport';
+import {
+  isStagingBrandedVideoExportAvailable,
+  StagingBrandedVideoExport,
+} from '@/features/remote/StagingBrandedVideoExport';
 import { useAudioPostcard } from '@/features/remote/useAudioPostcard';
 import { useFollowupAnnouncements } from '@/features/remote/useFollowupAnnouncements';
 import { useRemoteScene } from '@/features/remote/useRemoteScene';
@@ -60,9 +63,13 @@ export function RemoteAssist({ client, camera, normalizer, speech, locale }: Rem
   });
   const postcardActive = isAudioPostcardActive(postcard.state.status);
   const readyPostcard = readyAudioPostcardResult(postcard.state);
-  const stagingVideoEnabled =
-    import.meta.env.VITE_OWLI_STAGING_BRANDED_VIDEO_EXPORT === 'enabled' &&
-    import.meta.env.VITE_OWLI_API_BASE_URL === 'https://api-staging.owli-ai.com/';
+  const stagingVideoEnabled = isStagingBrandedVideoExportAvailable({
+    buildFlag: import.meta.env.VITE_OWLI_STAGING_BRANDED_VIDEO_EXPORT,
+    apiBaseUrl: import.meta.env.VITE_OWLI_API_BASE_URL,
+    image: state.image,
+    result: readyPostcard,
+    options: postcard.state.options,
+  });
   const active = sceneActive || followupActive || postcardActive;
   const cameraVisible = state.status === 'camera_starting' || state.status === 'camera_ready';
   const sceneRetrySeconds =
@@ -191,11 +198,14 @@ export function RemoteAssist({ client, camera, normalizer, speech, locale }: Rem
         />
       )}
 
-      {state.status === 'complete' && state.image && readyPostcard && (
+      {stagingVideoEnabled && state.image && readyPostcard && postcard.state.options && (
         <StagingBrandedVideoExport
-          enabled={stagingVideoEnabled}
+          key={`${state.image.previewUrl}:${readyPostcard.requestId}`}
+          enabled
           image={state.image}
           result={readyPostcard}
+          options={postcard.state.options}
+          apiBaseUrl={import.meta.env.VITE_OWLI_API_BASE_URL}
         />
       )}
 
