@@ -19,7 +19,7 @@
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
-    "format:check": "prettier --write src/features/remote/StagingBrandedVideoExport.tsx src/platform/media/boundedRecorderChunks.ts src/platform/media/brandedVideoFrame.ts src/platform/media/brandedVideoFrameValidation.ts src/platform/media/browserBrandedVideoRenderer.ts src/platform/media/browserBrandedVideoValidation.ts src/platform/media/browserRecorderSession.ts tests/unit/boundedRecorderChunks.test.ts tests/unit/browserBrandedVideoRendererLimits.test.ts tests/unit/downloadAudioPostcard.test.ts tests/unit/loadOwliBrandingLogo.test.ts && git diff -- src/features/remote/StagingBrandedVideoExport.tsx src/platform/media/boundedRecorderChunks.ts src/platform/media/brandedVideoFrame.ts src/platform/media/brandedVideoFrameValidation.ts src/platform/media/browserBrandedVideoRenderer.ts src/platform/media/browserBrandedVideoValidation.ts src/platform/media/browserRecorderSession.ts tests/unit/boundedRecorderChunks.test.ts tests/unit/browserBrandedVideoRendererLimits.test.ts tests/unit/downloadAudioPostcard.test.ts tests/unit/loadOwliBrandingLogo.test.ts && exit 1",
+    "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
