@@ -65,6 +65,9 @@ export function StagingBrandedVideoExport({
     status: 'idle',
     message: '',
   });
+  const [capabilityUsable, setCapabilityUsable] = useState(
+    () => Date.now() < Date.parse(result.expiresAt),
+  );
   const controllerRef = useRef<AbortController | undefined>(undefined);
   const outputUrlRef = useRef<string | undefined>(undefined);
   const attemptRef = useRef(0);
@@ -83,6 +86,15 @@ export function StagingBrandedVideoExport({
     }
     if (publishIdle) setState({ status: 'idle', message: '' });
   }, []);
+
+  useEffect(() => {
+    const remainingMs = Math.max(0, Date.parse(result.expiresAt) - Date.now());
+    const timer = window.setTimeout(() => {
+      releaseResources(true);
+      setCapabilityUsable(false);
+    }, remainingMs);
+    return () => window.clearTimeout(timer);
+  }, [releaseResources, result.expiresAt]);
 
   useEffect(() => {
     const onHidden = () => {
@@ -104,7 +116,7 @@ export function StagingBrandedVideoExport({
     if (state.status === 'error') primaryActionRef.current?.focus();
   }, [state.status]);
 
-  if (!enabled) return null;
+  if (!enabled || !capabilityUsable) return null;
 
   const createVideo = async () => {
     releaseResources(false);
