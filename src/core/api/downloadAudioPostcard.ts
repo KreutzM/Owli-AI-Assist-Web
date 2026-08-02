@@ -62,6 +62,8 @@ export async function downloadAudioPostcard({
       signal.throwIfAborted();
       if (now() >= expiresAt) throw new Error('Audio capability expired during download.');
       const next = await reader.read();
+      signal.throwIfAborted();
+      if (now() >= expiresAt) throw new Error('Audio capability expired during download.');
       if (next.done) break;
       if (next.value.byteLength > maxBytes) {
         throw new Error('Audio chunk exceeds the approved input limit.');
@@ -80,8 +82,9 @@ export async function downloadAudioPostcard({
     throw error;
   }
 
-  signal.throwIfAborted();
-  if (size !== declaredLength) throw new Error('Audio response length does not match its contract.');
+  if (size !== declaredLength) {
+    throw new Error('Audio response length does not match its contract.');
+  }
   return new Blob(chunks, { type: result.audio.mimeType });
 }
 
