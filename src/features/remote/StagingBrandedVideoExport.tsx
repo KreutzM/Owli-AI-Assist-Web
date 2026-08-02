@@ -44,7 +44,10 @@ export function StagingBrandedVideoExport({
     const attempt = attemptRef.current;
     const controller = new AbortController();
     controllerRef.current = controller;
-    setState({ status: 'rendering', message: 'Gebrandetes Staging-Video wird erstellt …' });
+    setState({
+      status: 'rendering',
+      message: 'Gebrandetes Staging-Video wird erstellt …',
+    });
     try {
       const audioBlob = await downloadAudioPostcard(result, controller.signal);
       const file = await renderBrandedVideo({
@@ -91,7 +94,9 @@ export function StagingBrandedVideoExport({
     <section className="audio-postcard-video-export" aria-labelledby="video-export-title">
       <p className="eyebrow">Nur Staging · experimenteller Export</p>
       <h4 id="video-export-title">Gebrandetes Audio-Postcard-Video</h4>
-      <p>Das Video wird ausschließlich lokal im Browser aus dem aktuellen Bild und Audio erstellt.</p>
+      <p>
+        Das Video wird ausschließlich lokal im Browser aus dem aktuellen Bild und Audio erstellt.
+      </p>
       <div className="scene-actions audio-postcard-actions">
         <button
           ref={actionRef}
@@ -118,7 +123,11 @@ export function StagingBrandedVideoExport({
             Dein Browser unterstützt die Video-Wiedergabe nicht.
           </video>
           <div className="scene-actions audio-postcard-actions">
-            <a className="button button--secondary" href={state.url} download={state.file.name}>
+            <a
+              className="button button--secondary"
+              href={state.url}
+              download={state.file.name}
+            >
               Video herunterladen
             </a>
             {canShare && (
