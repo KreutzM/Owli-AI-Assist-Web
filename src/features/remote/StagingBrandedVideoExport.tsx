@@ -42,9 +42,6 @@ export function StagingBrandedVideoExport({
   }, []);
 
   useEffect(() => release, [release]);
-  useEffect(() => {
-    release();
-  }, [image.previewUrl, release, result.audio.url]);
 
   if (!enabled) return null;
 
@@ -123,7 +120,6 @@ export function StagingBrandedVideoExport({
       </p>
       {state.status === 'ready' && (
         <div className="audio-postcard-result">
-          {/* Generated music has adjacent textual alternatives rather than a timed caption track. */}
           {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
           <video controls playsInline preload="metadata" src={state.url}>
             Dein Browser unterstützt die Video-Wiedergabe nicht.
@@ -284,7 +280,7 @@ async function renderBrandedVideo(
     await audioContext.close();
   }
 
-  const blob = new Blob(output, { type: recorder.mimeType || mimeType });
+  const blob = new Blob(output, { type: recorder.mimeType });
   if (!blob.type.startsWith('video/webm')) throw new Error('Unexpected output container.');
   return new File([blob], 'owli-audio-postcard.webm', { type: blob.type });
 }
