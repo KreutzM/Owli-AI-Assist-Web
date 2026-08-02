@@ -46,7 +46,9 @@ function input(fetchImplementation: typeof fetch, now = Date.now) {
 
 describe('downloadAudioPostcard', () => {
   it('performs one exact no-store capability GET and returns the validated bytes', async () => {
-    const fetchImplementation = vi.fn(async () => validResponse());
+    const fetchImplementation = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => validResponse(),
+    );
 
     const blob = await downloadAudioPostcard(input(fetchImplementation));
 
