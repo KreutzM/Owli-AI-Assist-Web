@@ -46,7 +46,7 @@ describe('branded video frame layout', () => {
     expect(BRANDED_VIDEO_CANVAS).toEqual({ width: 540, height: 960 });
     expect(BRANDED_VIDEO_CANVAS.width / BRANDED_VIDEO_CANVAS.height).toBe(9 / 16);
     expect(layout.canvas).toEqual({ x: 0, y: 0, width: 540, height: 960 });
-    expect(layout.imageArea).toEqual({ x: 32, y: 32, width: 476, height: 728 });
+    expect(layout.imageArea).toEqual({ x: 32, y: 32, width: 476, height: 756 });
     expect(layout.band).toEqual({ x: 32, y: 812, width: 476, height: 112 });
     expect(layout.logoArea).toEqual({ x: 52, y: 836, width: 82, height: 64 });
     expect(layout.text).toEqual({ x: 150, y: 832, width: 338, height: 72 });
