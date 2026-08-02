@@ -101,7 +101,11 @@ export function waitForMediaEvent(
     };
     const onAbort = () => {
       cleanup();
-      reject(signal.reason instanceof Error ? signal.reason : new Error(`Waiting for ${eventName} aborted.`));
+      reject(
+        signal.reason instanceof Error
+          ? signal.reason
+          : new Error(`Waiting for ${eventName} aborted.`),
+      );
     };
     const cleanup = () => {
       window.clearTimeout(timeout);

@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Run a narrow, non-sensitive Safari smoke against approved Owli staging targets."""
+"""Run the narrow Safari smoke and its bounded local HTTPS readiness probe."""
 
 from __future__ import annotations
 
 import argparse
 import base64
 import json
+import os
 import re
+import socket
+import ssl
 import time
 import urllib.error
 import urllib.parse
@@ -17,11 +20,9 @@ from typing import Any, Callable
 WEBDRIVER_URL = "http://127.0.0.1:4444"
 ELEMENT_KEY = "element-6066-11e4-a52e-4f735466cecf"
 PAGES_HOST = re.compile(r"^[a-z0-9-]+\.owli-ai-assist-web\.pages\.dev$")
-REMOTE_READINESS_MESSAGES = (
-    "Die Online-Vorbereitung ist derzeit nicht verfügbar.",
-    "Die Szenenbeschreibung ist in dieser Bereitstellung nicht freigegeben.",
-    "Der Dienst ist vorübergehend ausgelastet.",
-)
+REMOTE_NETWORK_ERRNOS = {51, 54, 60, 61, 65, 101, 104, 110, 111, 113}
+REMOTE_READINESS_RETRY_MESSAGE = "Die Online-Vorbereitung ist derzeit nicht verfügbar."
+REMOTE_READINESS_RETRY_LABEL = "Erneut prüfen"
 
 
 class WebDriverError(RuntimeError):
@@ -29,11 +30,11 @@ class WebDriverError(RuntimeError):
 
 
 class RemoteReadinessUnavailable(RuntimeError):
-    """Raised only for an explicit, known remote-readiness UI state."""
+    """Raised only when a direct approved-target HTTPS preflight cannot connect."""
 
-    def __init__(self, message: str, snapshot: dict[str, Any]) -> None:
+    def __init__(self, message: str, *, error_type: str) -> None:
         super().__init__(message)
-        self.snapshot = snapshot
+        self.error_type = error_type
 
 
 class SafariDriver:
@@ -190,11 +191,109 @@ def wait_until(
     raise TimeoutError(f"Timed out waiting for {description}{diagnostic}")
 
 
+def wait_for_local_https(
+    url: str,
+    server_pid: int,
+    server_log: Path,
+    *,
+    timeout: float = 90,
+    poll_interval: float = 1,
+    clock: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], None] = time.sleep,
+    probe: Callable[[str], None] | None = None,
+    process_alive: Callable[[int], bool] | None = None,
+    log_reader: Callable[[Path], str] | None = None,
+) -> None:
+    """Wait for the real HTTPS endpoint, while failing fast if its process exits."""
+    if timeout <= 0:
+        raise ValueError("Local HTTPS readiness timeout must be positive.")
+
+    def default_probe(target: str) -> None:
+        request = urllib.request.Request(target, method="GET")
+        context = ssl._create_unverified_context()  # noqa: SLF001 - loopback test certificate
+        with urllib.request.urlopen(request, timeout=2, context=context) as response:
+            if response.status >= 400:
+                raise RuntimeError(f"Local HTTPS endpoint returned HTTP {response.status}.")
+
+    def default_process_alive(pid: int) -> bool:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        return True
+
+    read_log = log_reader or (lambda path: path.read_text(encoding="utf-8", errors="replace"))
+    check_process = process_alive or default_process_alive
+    check_endpoint = probe or default_probe
+    started = clock()
+    deadline = started + timeout
+    last_error: BaseException | None = None
+
+    while True:
+        if not check_process(server_pid):
+            log = read_log(server_log)
+            raise RuntimeError(
+                "Local HTTPS server exited before readiness.\n"
+                f"--- local HTTPS server log ---\n{log}"
+            )
+        try:
+            check_endpoint(url)
+            return
+        except Exception as error:  # noqa: BLE001 - retain the last endpoint diagnostic
+            last_error = error
+
+        now = clock()
+        if now >= deadline:
+            elapsed = now - started
+            log = read_log(server_log)
+            raise TimeoutError(
+                f"Timed out after {elapsed:.1f}s waiting for local HTTPS endpoint {url}; "
+                f"last probe error: {type(last_error).__name__}: {last_error}.\n"
+                f"--- local HTTPS server log ---\n{log}"
+            )
+        sleep(min(poll_interval, max(0, deadline - now)))
+
+
+def is_direct_remote_transport_error(error: BaseException) -> bool:
+    """Classify only typed network failures from the approved-target HTTPS preflight."""
+    candidate: BaseException | object = error.reason if isinstance(error, urllib.error.URLError) else error
+    if isinstance(candidate, (ConnectionRefusedError, ConnectionResetError, socket.gaierror, socket.timeout)):
+        return True
+    return isinstance(candidate, OSError) and candidate.errno in REMOTE_NETWORK_ERRNOS
+
+
+def preflight_remote_https(
+    target_url: str,
+    *,
+    opener: Callable[..., Any] = urllib.request.urlopen,
+    timeout: float = 10,
+) -> None:
+    """Verify direct HTTPS transport before any SafariDriver command is issued."""
+    request = urllib.request.Request(target_url, method="GET")
+    try:
+        with opener(request, timeout=timeout) as response:
+            response.read(1)
+    except urllib.error.HTTPError:
+        # An HTTP response proves transport reachability. Browser/application checks decide validity.
+        return
+    except Exception as error:
+        if is_direct_remote_transport_error(error):
+            reason = error.reason if isinstance(error, urllib.error.URLError) else error
+            raise RemoteReadinessUnavailable(
+                str(reason),
+                error_type=type(reason).__name__,
+            ) from error
+        raise
+
+
 def page_snapshot(driver: SafariDriver) -> dict[str, Any]:
     value = driver.execute(
         """
-        const camera = [...document.querySelectorAll('button')]
+        const buttons = [...document.querySelectorAll('button')];
+        const camera = buttons
           .find((button) => button.textContent?.trim() === 'Rückkamera öffnen');
+        const retry = buttons
+          .find((button) => button.textContent?.trim() === 'Erneut prüfen');
         const file = document.querySelector('#scene-file');
         return {
           readyState: document.readyState,
@@ -202,6 +301,8 @@ def page_snapshot(driver: SafariDriver) -> dict[str, Any]:
           cameraDisabled: camera ? camera.disabled : null,
           filePresent: Boolean(file),
           fileDisabled: file ? file.disabled : null,
+          retryPresent: Boolean(retry),
+          retryDisabled: retry ? retry.disabled : null,
           hasManifest: Boolean(document.querySelector('link[rel="manifest"]')),
           bodyText: document.body?.innerText ?? ''
         };
@@ -210,6 +311,29 @@ def page_snapshot(driver: SafariDriver) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise WebDriverError(f"Unexpected page snapshot: {value}")
     return value
+
+
+def click_remote_readiness_retry(driver: SafariDriver) -> bool:
+    value = driver.execute(
+        """
+        const retry = [...document.querySelectorAll('button')]
+          .find((button) => button.textContent?.trim() === 'Erneut prüfen');
+        if (!retry || retry.disabled) return false;
+        retry.click();
+        return true;
+        """
+    )
+    return value is True
+
+
+def remote_readiness_complete(snapshot: dict[str, Any]) -> bool:
+    return (
+        snapshot.get("readyState") == "complete"
+        and snapshot.get("cameraPresent") is True
+        and snapshot.get("cameraDisabled") is False
+        and snapshot.get("filePresent") is True
+        and snapshot.get("fileDisabled") is False
+    )
 
 
 def storage_snapshot(driver: SafariDriver) -> dict[str, Any]:
@@ -229,39 +353,83 @@ def storage_snapshot(driver: SafariDriver) -> dict[str, Any]:
     return value
 
 
-def wait_for_remote_readiness(driver: SafariDriver) -> dict[str, Any]:
-    try:
-        return wait_until(
-            lambda: page_snapshot(driver),
-            lambda snapshot: (
-                snapshot.get("readyState") == "complete"
-                and snapshot.get("cameraPresent") is True
-                and snapshot.get("cameraDisabled") is False
-                and snapshot.get("filePresent") is True
-                and snapshot.get("fileDisabled") is False
-            ),
-            "remote readiness controls",
-            timeout=90,
-        )
-    except TimeoutError:
-        snapshot = page_snapshot(driver)
-        body = str(snapshot.get("bodyText", ""))
-        matched = next((message for message in REMOTE_READINESS_MESSAGES if message in body), None)
-        if matched:
-            raise RemoteReadinessUnavailable(matched, snapshot) from None
-        raise
+def wait_for_remote_readiness(
+    driver: SafariDriver,
+    *,
+    timeout: float = 90,
+    poll_interval: float = 0.5,
+    clock: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], None] = time.sleep,
+    snapshot_probe: Callable[[SafariDriver], dict[str, Any]] | None = None,
+    retry_action: Callable[[SafariDriver], bool] | None = None,
+) -> dict[str, Any]:
+    """Wait for real controls, exercising the application's explicit retry at most once."""
+    if timeout <= 0:
+        raise ValueError("Remote readiness timeout must be positive.")
+
+    read_snapshot = snapshot_probe or page_snapshot
+    click_retry = retry_action or click_remote_readiness_retry
+    started = clock()
+    deadline = started + timeout
+    retry_attempted = False
+    last_value: dict[str, Any] | None = None
+    last_error: BaseException | None = None
+
+    while True:
+        try:
+            last_value = read_snapshot(driver)
+            if remote_readiness_complete(last_value):
+                return last_value
+            last_error = None
+            body = str(last_value.get("bodyText", ""))
+            should_retry = (
+                not retry_attempted
+                and REMOTE_READINESS_RETRY_MESSAGE in body
+                and last_value.get("retryPresent") is True
+                and last_value.get("retryDisabled") is False
+            )
+            if should_retry:
+                retry_attempted = True
+                if not click_retry(driver):
+                    raise WebDriverError(
+                        f"Remote readiness retry button '{REMOTE_READINESS_RETRY_LABEL}' "
+                        "could not be activated."
+                    )
+        except Exception as error:  # noqa: BLE001 - retain the last diagnostic
+            last_error = error
+
+        now = clock()
+        if now >= deadline:
+            elapsed = now - started
+            diagnostic = (
+                f"last error: {type(last_error).__name__}: {last_error}"
+                if last_error
+                else f"last value: {last_value}"
+            )
+            raise TimeoutError(
+                f"Timed out after {elapsed:.1f}s waiting for remote readiness controls; "
+                f"retry attempted: {retry_attempted}; {diagnostic}"
+            )
+        sleep(min(poll_interval, max(0, deadline - now)))
 
 
-def run_smoke(target_url: str, artifacts: Path) -> dict[str, Any]:
+def run_smoke(
+    target_url: str,
+    artifacts: Path,
+    *,
+    preflight: Callable[[str], None] | None = None,
+    driver_factory: Callable[[], SafariDriver] = SafariDriver,
+) -> dict[str, Any]:
     artifacts.mkdir(parents=True, exist_ok=True)
-    driver = SafariDriver()
+    (preflight or preflight_remote_https)(target_url)
+    driver = driver_factory()
     checks: dict[str, str] = {}
 
     try:
         driver.start()
         driver.navigate(target_url)
-
         readiness = wait_for_remote_readiness(driver)
+
         if readiness.get("hasManifest") is not True:
             raise AssertionError("Manifest link is missing.")
         checks["readiness"] = "PASS"
@@ -289,12 +457,43 @@ def run_smoke(target_url: str, artifacts: Path) -> dict[str, Any]:
         driver.quit()
 
 
+def write_result(path: Path, result: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(result, indent=2))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--target-url", required=True)
-    parser.add_argument("--artifacts", required=True, type=Path)
+    parser.add_argument("--target-url")
+    parser.add_argument("--artifacts", type=Path)
     parser.add_argument("--allow-inconclusive-remote-readiness", action="store_true")
+    parser.add_argument("--wait-for-local-https", action="store_true")
+    parser.add_argument("--server-pid", type=int)
+    parser.add_argument("--server-log", type=Path)
+    parser.add_argument("--readiness-timeout", type=float, default=90)
     args = parser.parse_args()
+
+    if args.wait_for_local_https:
+        if not args.target_url or args.server_pid is None or args.server_log is None:
+            parser.error(
+                "--wait-for-local-https requires --target-url, --server-pid, and --server-log"
+            )
+        try:
+            wait_for_local_https(
+                args.target_url,
+                args.server_pid,
+                args.server_log,
+                timeout=args.readiness_timeout,
+            )
+        except Exception as error:  # noqa: BLE001 - workflow-facing diagnostic
+            print(f"{type(error).__name__}: {error}")
+            return 1
+        print(f"Local HTTPS endpoint is ready: {args.target_url}")
+        return 0
+
+    if not args.target_url or args.artifacts is None:
+        parser.error("Safari smoke requires --target-url and --artifacts")
 
     target_url = validate_target(args.target_url)
     result_path = args.artifacts / "result.json"
@@ -305,11 +504,9 @@ def main() -> int:
             "targetUrl": target_url,
             "status": "INCONCLUSIVE_REMOTE_READINESS",
             "reason": str(error),
-            "snapshot": error.snapshot,
+            "errorType": error.error_type,
         }
-        args.artifacts.mkdir(parents=True, exist_ok=True)
-        result_path.write_text(json.dumps(inconclusive, indent=2) + "\n", encoding="utf-8")
-        print(json.dumps(inconclusive, indent=2))
+        write_result(result_path, inconclusive)
         return 0 if args.allow_inconclusive_remote_readiness else 1
     except Exception as error:  # noqa: BLE001 - emit a safe top-level failure report
         failure = {
@@ -318,14 +515,10 @@ def main() -> int:
             "errorType": type(error).__name__,
             "error": str(error),
         }
-        args.artifacts.mkdir(parents=True, exist_ok=True)
-        result_path.write_text(json.dumps(failure, indent=2) + "\n", encoding="utf-8")
-        print(json.dumps(failure, indent=2))
+        write_result(result_path, failure)
         return 1
 
-    success = {"status": "PASS", **result}
-    result_path.write_text(json.dumps(success, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps(success, indent=2))
+    write_result(result_path, {"status": "PASS", **result})
     return 0
 
 

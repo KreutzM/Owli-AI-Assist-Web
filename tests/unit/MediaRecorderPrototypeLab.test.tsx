@@ -73,7 +73,9 @@ describe('MediaRecorderPrototypeLab', () => {
   it('fails closed without the explicit staging prototype flag', () => {
     render(<MediaRecorderPrototypeLab enabled={false} />);
 
-    expect(screen.getByRole('heading', { name: 'MediaRecorder-Lab ist fail-closed' })).toBeVisible();
+    expect(
+      screen.getByRole('heading', { name: 'MediaRecorder-Lab ist fail-closed' }),
+    ).toBeVisible();
     expect(screen.getByRole('alert')).toHaveTextContent(
       'VITE_OWLI_STAGING_PROTOTYPE_MEDIARECORDER=enabled',
     );
@@ -130,7 +132,9 @@ describe('MediaRecorderPrototypeLab', () => {
     });
 
     render(<MediaRecorderPrototypeLab enabled />);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Ausgewaehltes Szenario ausfuehren' })[0]!);
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Ausgewaehltes Szenario ausfuehren' })[0]!,
+    );
 
     await waitFor(() => {
       expect(harnessMocks.createHarnessRun).toHaveBeenCalledWith(
@@ -156,7 +160,9 @@ describe('MediaRecorderPrototypeLab', () => {
     });
 
     render(<MediaRecorderPrototypeLab enabled />);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Ausgewaehltes Szenario ausfuehren' })[0]!);
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Ausgewaehltes Szenario ausfuehren' })[0]!,
+    );
 
     await waitFor(() =>
       expect(screen.getAllByRole('button', { name: 'Lauf abbrechen' })[0]!).toBeEnabled(),
@@ -165,7 +171,9 @@ describe('MediaRecorderPrototypeLab', () => {
 
     expect(cancel).toHaveBeenCalledTimes(1);
     expect(reportCancelVisible).toHaveBeenCalledTimes(1);
-    expect(screen.getAllByRole('button', { name: 'Ausgewaehltes Szenario ausfuehren' })[0]!).toBeDisabled();
+    expect(
+      screen.getAllByRole('button', { name: 'Ausgewaehltes Szenario ausfuehren' })[0]!,
+    ).toBeDisabled();
     expect(screen.getAllByRole('status')[0]!).toHaveTextContent(
       'Ein neuer Lauf ist erst nach vollstaendigem Cleanup verfuegbar.',
     );
@@ -207,7 +215,9 @@ describe('MediaRecorderPrototypeLab', () => {
     });
 
     await waitFor(() =>
-      expect(screen.getAllByRole('button', { name: 'Ausgewaehltes Szenario ausfuehren' })[0]!).toBeEnabled(),
+      expect(
+        screen.getAllByRole('button', { name: 'Ausgewaehltes Szenario ausfuehren' })[0]!,
+      ).toBeEnabled(),
     );
   });
 });

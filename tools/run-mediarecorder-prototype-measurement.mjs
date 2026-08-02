@@ -22,9 +22,13 @@ execFileSync('pnpm', ['build:staging:mediarecorder-prototype'], {
   shell: process.platform === 'win32',
 });
 
-const server = spawn(process.execPath, ['tools/serve-built-web.mjs', '--root', BUILD_DIR, '--port', String(PORT)], {
-  stdio: 'inherit',
-});
+const server = spawn(
+  process.execPath,
+  ['tools/serve-built-web.mjs', '--root', BUILD_DIR, '--port', String(PORT)],
+  {
+    stdio: 'inherit',
+  },
+);
 
 try {
   await waitForServer(PORT);
@@ -35,15 +39,21 @@ try {
       await page.goto(`http://127.0.0.1:${PORT}/lab/mediarecorder-prototype`);
       await page.selectOption('#mediarecorder-candidate', candidateId);
       await page.getByRole('button', { name: 'Ausgewaehltes Szenario ausfuehren' }).click();
-      const handle = await page.waitForFunction(() => {
-        const host = globalThis.document?.querySelector('[data-testid="mediarecorder-prototype-evidence"]');
-        if (!host) return undefined;
-        const raw = host.textContent ?? '';
-        const start = raw.indexOf('{');
-        if (start < 0) return undefined;
-        const parsed = JSON.parse(raw.slice(start));
-        return parsed.results?.length === 1 && parsed.run?.completedAt ? parsed : undefined;
-      }, null, { timeout: 60_000 });
+      const handle = await page.waitForFunction(
+        () => {
+          const host = globalThis.document?.querySelector(
+            '[data-testid="mediarecorder-prototype-evidence"]',
+          );
+          if (!host) return undefined;
+          const raw = host.textContent ?? '';
+          const start = raw.indexOf('{');
+          if (start < 0) return undefined;
+          const parsed = JSON.parse(raw.slice(start));
+          return parsed.results?.length === 1 && parsed.run?.completedAt ? parsed : undefined;
+        },
+        null,
+        { timeout: 60_000 },
+      );
       const evidence = await handle.jsonValue();
       const file = path.join(
         EVIDENCE_DIR,
