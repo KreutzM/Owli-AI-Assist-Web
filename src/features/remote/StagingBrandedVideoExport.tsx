@@ -204,7 +204,7 @@ async function renderBrandedVideo(
   if (declaredLength > MAX_AUDIO_BYTES) throw new Error('Audio exceeds the approved input limit.');
 
   const reader = audioResponse.body.getReader();
-  const chunks: Uint8Array[] = [];
+  const chunks: ArrayBuffer[] = [];
   let size = 0;
   while (true) {
     const next = await reader.read();
@@ -214,7 +214,9 @@ async function renderBrandedVideo(
       await reader.cancel();
       throw new Error('Audio exceeds the approved input limit.');
     }
-    chunks.push(next.value);
+    const copy = new Uint8Array(next.value.byteLength);
+    copy.set(next.value);
+    chunks.push(copy.buffer);
   }
   throwIfAborted(signal);
 
