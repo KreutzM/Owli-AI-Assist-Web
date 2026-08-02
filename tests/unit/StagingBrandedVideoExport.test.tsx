@@ -31,15 +31,17 @@ const image = {
 const result = readyAudioPostcard();
 const options = audioPostcardOptions();
 const API_BASE_URL = 'https://api-staging.owli-ai.com/';
+const revokeObjectUrlCall = vi.fn<(url: string) => void>();
 
 beforeEach(() => {
+  revokeObjectUrlCall.mockClear();
   vi.mocked(downloadAudioPostcard).mockResolvedValue(audioBlob);
   vi.mocked(loadOwliBrandingLogo).mockResolvedValue(logoBlob);
   vi.mocked(renderBrandedVideo).mockResolvedValue(outputFile);
   vi.mocked(canShareFile).mockReturnValue(false);
   vi.mocked(shareFile).mockResolvedValue(undefined);
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:video-1');
-  vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+  vi.spyOn(URL, 'revokeObjectURL').mockImplementation((url) => revokeObjectUrlCall(url));
   vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
   vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
 });
@@ -159,7 +161,7 @@ describe('StagingBrandedVideoExport', () => {
 
     view.unmount();
 
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:video-1');
+    expect(revokeObjectUrlCall).toHaveBeenCalledWith('blob:video-1');
   });
 
   it('keeps playback and download ready after a user cancels sharing', async () => {
