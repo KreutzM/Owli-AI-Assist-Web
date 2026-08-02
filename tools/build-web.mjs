@@ -26,6 +26,7 @@ const targetConfig = {
     VITE_OWLI_APP_VERSION: '0.1.0',
     VITE_OWLI_VERSION_CODE: '1',
     VITE_OWLI_DEFAULT_LOCALE: 'de-DE',
+    VITE_OWLI_STAGING_BRANDED_VIDEO_EXPORT: 'enabled',
   },
   production: {
     VITE_OWLI_API_MODE: 'mock',
@@ -112,7 +113,6 @@ function run(command, args, env) {
     const child = spawn(command, args, {
       env,
       stdio: 'inherit',
-      // Direct Node execution preserves paths such as "C:\Program Files\..." on Windows.
       shell: process.platform === 'win32' && command !== process.execPath,
     });
     child.once('error', reject);
