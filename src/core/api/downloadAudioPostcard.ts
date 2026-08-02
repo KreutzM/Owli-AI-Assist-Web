@@ -26,7 +26,7 @@ export async function downloadAudioPostcard(
   const reader = response.body.getReader();
   const chunks: ArrayBuffer[] = [];
   let size = 0;
-  while (true) {
+  for (;;) {
     const next = await reader.read();
     if (next.done) break;
     size += next.value.byteLength;
