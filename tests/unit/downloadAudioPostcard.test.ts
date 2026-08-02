@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { downloadAudioPostcard } from '@/core/api/downloadAudioPostcard';
-import {
-  audioPostcardOptions,
-  readyAudioPostcard,
-} from './audioPostcardFixtures';
+import { audioPostcardOptions, readyAudioPostcard } from './audioPostcardFixtures';
 
 const API_BASE_URL = 'https://api-staging.owli-ai.com/';
 const AUDIO_BYTES = new Uint8Array([1, 2, 3, 4]);
@@ -71,9 +68,9 @@ describe('downloadAudioPostcard', () => {
       expiresAt: new Date(Date.now() - 1).toISOString(),
     });
 
-    await expect(
-      downloadAudioPostcard({ ...input(fetchImplementation), result }),
-    ).rejects.toThrow(/Invalid Audio-Postcard playback capability/u);
+    await expect(downloadAudioPostcard({ ...input(fetchImplementation), result })).rejects.toThrow(
+      /Invalid Audio-Postcard playback capability/u,
+    );
     expect(fetchImplementation).not.toHaveBeenCalled();
   });
 
@@ -91,17 +88,14 @@ describe('downloadAudioPostcard', () => {
     const base = readyAudioPostcard();
     const result = { ...base, audio: { ...base.audio, url } };
 
-    await expect(
-      downloadAudioPostcard({ ...input(fetchImplementation), result }),
-    ).rejects.toThrow(/Invalid Audio-Postcard playback capability/u);
+    await expect(downloadAudioPostcard({ ...input(fetchImplementation), result })).rejects.toThrow(
+      /Invalid Audio-Postcard playback capability/u,
+    );
     expect(fetchImplementation).not.toHaveBeenCalled();
   });
 
   it.each([
-    [
-      'redirected URL',
-      { url: `${readyAudioPostcard().audio.url}&redirected=1` },
-    ],
+    ['redirected URL', { url: `${readyAudioPostcard().audio.url}&redirected=1` }],
     ['wrong MIME', { headers: { 'Content-Type': 'audio/wav' } }],
     ['missing Content-Length', { headers: { 'Content-Length': '' } }],
     ['invalid Content-Length', { headers: { 'Content-Length': '4.5' } }],
@@ -112,9 +106,7 @@ describe('downloadAudioPostcard', () => {
   ])('rejects a response with %s', async (_name, responseOverrides) => {
     const fetchImplementation = vi.fn(async () => validResponse(responseOverrides));
 
-    await expect(
-      downloadAudioPostcard(input(fetchImplementation)),
-    ).rejects.toBeInstanceOf(Error);
+    await expect(downloadAudioPostcard(input(fetchImplementation))).rejects.toBeInstanceOf(Error);
     expect(fetchImplementation).toHaveBeenCalledTimes(1);
   });
 
@@ -125,9 +117,9 @@ describe('downloadAudioPostcard', () => {
       }),
     );
 
-    await expect(
-      downloadAudioPostcard(input(fetchImplementation)),
-    ).rejects.toThrow(/approved input limit/u);
+    await expect(downloadAudioPostcard(input(fetchImplementation))).rejects.toThrow(
+      /approved input limit/u,
+    );
   });
 
   it('rejects streaming bytes above the declared length without retry', async () => {
@@ -135,9 +127,9 @@ describe('downloadAudioPostcard', () => {
       validResponse({ headers: { 'Content-Length': '3' }, body: AUDIO_BYTES }),
     );
 
-    await expect(
-      downloadAudioPostcard(input(fetchImplementation)),
-    ).rejects.toThrow(/approved input limit/u);
+    await expect(downloadAudioPostcard(input(fetchImplementation))).rejects.toThrow(
+      /approved input limit/u,
+    );
     expect(fetchImplementation).toHaveBeenCalledTimes(1);
   });
 
