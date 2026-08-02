@@ -73,11 +73,7 @@ function assertRegionHasWhite(
   let white = 0;
   for (const point of sampleRect(rect, 24, 8)) {
     const pixel = context.getImageData(point.x, point.y, 1, 1).data;
-    if (
-      (pixel[0] ?? 0) > 190 &&
-      (pixel[1] ?? 0) > 190 &&
-      (pixel[2] ?? 0) > 190
-    ) {
+    if ((pixel[0] ?? 0) > 190 && (pixel[1] ?? 0) > 190 && (pixel[2] ?? 0) > 190) {
       white += 1;
     }
   }
@@ -91,10 +87,7 @@ function sampleRect(rect: FrameRect, columns: number, rows: number) {
       points.push({
         x: Math.min(
           BRANDED_VIDEO_CANVAS.width - 1,
-          Math.max(
-            0,
-            Math.round(rect.x + (rect.width * column) / (columns + 1)),
-          ),
+          Math.max(0, Math.round(rect.x + (rect.width * column) / (columns + 1))),
         ),
         y: Math.min(
           BRANDED_VIDEO_CANVAS.height - 1,
