@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AudioPostcardReadyResult } from '@/core/api/remoteAudioPostcardContracts';
 import type { NormalizedSceneImage } from '@/platform/image/browserSceneImageNormalizer';
 
@@ -27,29 +27,30 @@ export function StagingBrandedVideoExport({
   result: AudioPostcardReadyResult;
 }) {
   const [state, setState] = useState<ExportState>({ status: 'idle', message: '' });
-  const controllerRef = useRef<AbortController>();
+  const controllerRef = useRef<AbortController | undefined>(undefined);
   const attemptRef = useRef(0);
   const actionRef = useRef<HTMLButtonElement>(null);
 
-  const release = () => {
+  const release = useCallback(() => {
+    attemptRef.current += 1;
     controllerRef.current?.abort();
     controllerRef.current = undefined;
     setState((current) => {
       if (current.status === 'ready') URL.revokeObjectURL(current.url);
       return { status: 'idle', message: '' };
     });
-  };
+  }, []);
 
-  useEffect(() => release, []);
+  useEffect(() => release, [release]);
   useEffect(() => {
     release();
-  }, [image.previewUrl, result.audio.url]);
+  }, [image.previewUrl, release, result.audio.url]);
 
   if (!enabled) return null;
 
   const createVideo = async () => {
     release();
-    const attempt = ++attemptRef.current;
+    const attempt = attemptRef.current;
     const controller = new AbortController();
     controllerRef.current = controller;
     setState({ status: 'rendering', message: 'Gebrandetes Staging-Video wird erstellt …' });
@@ -132,7 +133,11 @@ export function StagingBrandedVideoExport({
               Video herunterladen
             </a>
             {canShare && (
-              <button className="button button--secondary" type="button" onClick={() => void shareVideo()}>
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={() => void shareVideo()}
+              >
                 Video teilen
               </button>
             )}
@@ -151,21 +156,42 @@ export function computeBrandedLayout(sourceWidth: number, sourceHeight: number) 
   const bandHeight = 224 * scale;
   const bottom = 72 * scale;
   const imageBottom = HEIGHT - bottom - bandHeight - gap;
-  const box = { x: outer, y: top, width: WIDTH - outer * 2, height: imageBottom - top };
+  const box = {
+    x: outer,
+    y: top,
+    width: WIDTH - outer * 2,
+    height: imageBottom - top,
+  };
   const imageScale = Math.min(box.width / sourceWidth, box.height / sourceHeight, 1);
   const width = sourceWidth * imageScale;
   const height = sourceHeight * imageScale;
   return {
-    image: { x: box.x + (box.width - width) / 2, y: box.y + (box.height - height) / 2, width, height },
-    band: { x: outer, y: HEIGHT - bottom - bandHeight, width: WIDTH - outer * 2, height: bandHeight },
+    image: {
+      x: box.x + (box.width - width) / 2,
+      y: box.y + (box.height - height) / 2,
+      width,
+      height,
+    },
+    band: {
+      x: outer,
+      y: HEIGHT - bottom - bandHeight,
+      width: WIDTH - outer * 2,
+      height: bandHeight,
+    },
   };
 }
 
-async function renderBrandedVideo(imageBlob: Blob, result: AudioPostcardReadyResult, signal: AbortSignal) {
+async function renderBrandedVideo(
+  imageBlob: Blob,
+  result: AudioPostcardReadyResult,
+  signal: AbortSignal,
+) {
   throwIfAborted(signal);
   const mimeType = MIME_CANDIDATES.find((candidate) => MediaRecorder.isTypeSupported(candidate));
   if (!mimeType) throw new Error('No approved MediaRecorder video container is supported.');
-  const audioResponse = await fetch(result.audio.url, {
+
+  const capability = new URL(result.audio.url);
+  const audioResponse = await fetch(capability, {
     method: 'GET',
     credentials: 'omit',
     cache: 'no-store',
@@ -173,8 +199,14 @@ async function renderBrandedVideo(imageBlob: Blob, result: AudioPostcardReadyRes
     signal,
   });
   if (!audioResponse.ok || !audioResponse.body) throw new Error('Audio capability fetch failed.');
+  if (new URL(audioResponse.url).origin !== capability.origin) {
+    throw new Error('Audio capability response origin changed.');
+  }
   const contentType = audioResponse.headers.get('content-type')?.split(';', 1)[0];
   if (contentType !== result.audio.mimeType) throw new Error('Audio MIME changed during download.');
+  const declaredLength = Number(audioResponse.headers.get('content-length') ?? '0');
+  if (declaredLength > MAX_AUDIO_BYTES) throw new Error('Audio exceeds the approved input limit.');
+
   const reader = audioResponse.body.getReader();
   const chunks: Uint8Array[] = [];
   let size = 0;
@@ -189,12 +221,14 @@ async function renderBrandedVideo(imageBlob: Blob, result: AudioPostcardReadyRes
     chunks.push(next.value);
   }
   throwIfAborted(signal);
+
   const audioBlob = new Blob(chunks, { type: result.audio.mimeType });
   const [bitmap, audioBuffer] = await Promise.all([
     createImageBitmap(imageBlob),
     decodeAudio(audioBlob),
   ]);
   throwIfAborted(signal);
+
   const canvas = document.createElement('canvas');
   canvas.width = WIDTH;
   canvas.height = HEIGHT;
@@ -213,7 +247,10 @@ async function renderBrandedVideo(imageBlob: Blob, result: AudioPostcardReadyRes
     ...canvas.captureStream(30).getVideoTracks(),
     ...destination.stream.getAudioTracks(),
   ]);
-  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2_500_000 });
+  const recorder = new MediaRecorder(stream, {
+    mimeType,
+    videoBitsPerSecond: 2_500_000,
+  });
   const output: BlobPart[] = [];
   recorder.ondataavailable = (event) => {
     if (event.data.size > 0) output.push(event.data);
@@ -223,7 +260,11 @@ async function renderBrandedVideo(imageBlob: Blob, result: AudioPostcardReadyRes
     recorder.onerror = () => reject(new Error('MediaRecorder failed.'));
   });
   const abort = () => {
-    source.stop();
+    try {
+      source.stop();
+    } catch {
+      // Source may already have ended.
+    }
     if (recorder.state !== 'inactive') recorder.stop();
   };
   signal.addEventListener('abort', abort, { once: true });
@@ -242,10 +283,10 @@ async function renderBrandedVideo(imageBlob: Blob, result: AudioPostcardReadyRes
     source.disconnect();
     await audioContext.close();
   }
+
   const blob = new Blob(output, { type: recorder.mimeType || mimeType });
-  const suffix = blob.type.startsWith('video/webm') ? 'webm' : 'bin';
-  if (suffix === 'bin') throw new Error('Unexpected output container.');
-  return new File([blob], `owli-audio-postcard.${suffix}`, { type: blob.type });
+  if (!blob.type.startsWith('video/webm')) throw new Error('Unexpected output container.');
+  return new File([blob], 'owli-audio-postcard.webm', { type: blob.type });
 }
 
 function drawFrame(context: CanvasRenderingContext2D, bitmap: ImageBitmap) {
@@ -253,12 +294,32 @@ function drawFrame(context: CanvasRenderingContext2D, bitmap: ImageBitmap) {
   context.fillStyle = '#101418';
   context.fillRect(0, 0, WIDTH, HEIGHT);
   context.save();
-  roundedRect(context, layout.image.x, layout.image.y, layout.image.width, layout.image.height, 16);
+  roundedRect(
+    context,
+    layout.image.x,
+    layout.image.y,
+    layout.image.width,
+    layout.image.height,
+    16,
+  );
   context.clip();
-  context.drawImage(bitmap, layout.image.x, layout.image.y, layout.image.width, layout.image.height);
+  context.drawImage(
+    bitmap,
+    layout.image.x,
+    layout.image.y,
+    layout.image.width,
+    layout.image.height,
+  );
   context.restore();
   context.fillStyle = 'rgba(28, 35, 43, 0.9)';
-  roundedRect(context, layout.band.x, layout.band.y, layout.band.width, layout.band.height, 18);
+  roundedRect(
+    context,
+    layout.band.x,
+    layout.band.y,
+    layout.band.width,
+    layout.band.height,
+    18,
+  );
   context.fill();
   drawOwliMark(context, layout.band.x + 20, layout.band.y + 24, 82, 64);
   context.fillStyle = '#ffffff';
@@ -267,44 +328,57 @@ function drawFrame(context: CanvasRenderingContext2D, bitmap: ImageBitmap) {
   context.fillText('Owli-AI.com', layout.band.x + 118, layout.band.y + layout.band.height / 2);
 }
 
-function drawOwliMark(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number) {
-  const r = Math.min(width, height) / 2;
+function drawOwliMark(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) {
+  const radius = Math.min(width, height) / 2;
   context.save();
   context.translate(x + width / 2, y + height / 2);
   context.fillStyle = '#7c3aed';
   context.beginPath();
-  context.arc(0, 0, r, 0, Math.PI * 2);
+  context.arc(0, 0, radius, 0, Math.PI * 2);
   context.fill();
   context.fillStyle = '#f59e0b';
   context.beginPath();
-  context.moveTo(-r * 0.75, -r * 0.45);
-  context.lineTo(-r * 0.25, -r * 1.05);
-  context.lineTo(-r * 0.05, -r * 0.35);
-  context.moveTo(r * 0.75, -r * 0.45);
-  context.lineTo(r * 0.25, -r * 1.05);
-  context.lineTo(r * 0.05, -r * 0.35);
+  context.moveTo(-radius * 0.75, -radius * 0.45);
+  context.lineTo(-radius * 0.25, -radius * 1.05);
+  context.lineTo(-radius * 0.05, -radius * 0.35);
+  context.moveTo(radius * 0.75, -radius * 0.45);
+  context.lineTo(radius * 0.25, -radius * 1.05);
+  context.lineTo(radius * 0.05, -radius * 0.35);
   context.fill();
   context.fillStyle = '#ffffff';
   context.beginPath();
-  context.arc(-r * 0.35, -r * 0.05, r * 0.28, 0, Math.PI * 2);
-  context.arc(r * 0.35, -r * 0.05, r * 0.28, 0, Math.PI * 2);
+  context.arc(-radius * 0.35, -radius * 0.05, radius * 0.28, 0, Math.PI * 2);
+  context.arc(radius * 0.35, -radius * 0.05, radius * 0.28, 0, Math.PI * 2);
   context.fill();
   context.fillStyle = '#101418';
   context.beginPath();
-  context.arc(-r * 0.35, -r * 0.05, r * 0.11, 0, Math.PI * 2);
-  context.arc(r * 0.35, -r * 0.05, r * 0.11, 0, Math.PI * 2);
+  context.arc(-radius * 0.35, -radius * 0.05, radius * 0.11, 0, Math.PI * 2);
+  context.arc(radius * 0.35, -radius * 0.05, radius * 0.11, 0, Math.PI * 2);
   context.fill();
   context.fillStyle = '#22c55e';
   context.beginPath();
-  context.moveTo(0, r * 0.05);
-  context.lineTo(-r * 0.14, r * 0.3);
-  context.lineTo(r * 0.14, r * 0.3);
+  context.moveTo(0, radius * 0.05);
+  context.lineTo(-radius * 0.14, radius * 0.3);
+  context.lineTo(radius * 0.14, radius * 0.3);
   context.closePath();
   context.fill();
   context.restore();
 }
 
-function roundedRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+function roundedRect(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
   context.beginPath();
   context.roundRect(x, y, width, height, Math.min(radius, width / 2, height / 2));
 }
