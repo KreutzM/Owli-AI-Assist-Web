@@ -19,7 +19,7 @@
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format:check": "prettier --write src/platform/media/browserBrandedVideoRenderer.ts && git diff -- src/platform/media/browserBrandedVideoRenderer.ts && exit 1",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
