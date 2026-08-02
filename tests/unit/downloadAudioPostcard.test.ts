@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { downloadAudioPostcard } from '@/core/api/downloadAudioPostcard';
-import { audioPostcardOptions, readyAudioPostcard } from './audioPostcardFixtures';
+import {
+  audioPostcardOptions,
+  readyAudioPostcard,
+} from './audioPostcardFixtures';
 
 const API_BASE_URL = 'https://api-staging.owli-ai.com/';
 const AUDIO_BYTES = new Uint8Array([1, 2, 3, 4]);
@@ -15,7 +18,7 @@ function validResponse(
 ): Response {
   const result = readyAudioPostcard();
   const body = overrides.body ?? AUDIO_BYTES;
-  const response = new Response(body, {
+  const response = new Response(Uint8Array.from(body).buffer, {
     status: overrides.status ?? 200,
     headers: {
       'Content-Type': result.audio.mimeType,
@@ -64,7 +67,9 @@ describe('downloadAudioPostcard', () => {
 
   it('rejects an expired capability without starting a GET', async () => {
     const fetchImplementation = vi.fn(async () => validResponse());
-    const result = readyAudioPostcard({ expiresAt: new Date(Date.now() - 1).toISOString() });
+    const result = readyAudioPostcard({
+      expiresAt: new Date(Date.now() - 1).toISOString(),
+    });
 
     await expect(
       downloadAudioPostcard({ ...input(fetchImplementation), result }),
@@ -93,7 +98,10 @@ describe('downloadAudioPostcard', () => {
   });
 
   it.each([
-    ['redirected URL', { url: `${readyAudioPostcard().audio.url}&redirected=1` }],
+    [
+      'redirected URL',
+      { url: `${readyAudioPostcard().audio.url}&redirected=1` },
+    ],
     ['wrong MIME', { headers: { 'Content-Type': 'audio/wav' } }],
     ['missing Content-Length', { headers: { 'Content-Length': '' } }],
     ['invalid Content-Length', { headers: { 'Content-Length': '4.5' } }],
@@ -104,18 +112,22 @@ describe('downloadAudioPostcard', () => {
   ])('rejects a response with %s', async (_name, responseOverrides) => {
     const fetchImplementation = vi.fn(async () => validResponse(responseOverrides));
 
-    await expect(downloadAudioPostcard(input(fetchImplementation))).rejects.toBeInstanceOf(Error);
+    await expect(
+      downloadAudioPostcard(input(fetchImplementation)),
+    ).rejects.toBeInstanceOf(Error);
     expect(fetchImplementation).toHaveBeenCalledTimes(1);
   });
 
   it('rejects a declared response above the options limit', async () => {
     const fetchImplementation = vi.fn(async () =>
-      validResponse({ headers: { 'Content-Length': String(32 * 1_024 * 1_024 + 1) } }),
+      validResponse({
+        headers: { 'Content-Length': String(32 * 1_024 * 1_024 + 1) },
+      }),
     );
 
-    await expect(downloadAudioPostcard(input(fetchImplementation))).rejects.toThrow(
-      /approved input limit/u,
-    );
+    await expect(
+      downloadAudioPostcard(input(fetchImplementation)),
+    ).rejects.toThrow(/approved input limit/u);
   });
 
   it('rejects streaming bytes above the declared length without retry', async () => {
@@ -123,16 +135,18 @@ describe('downloadAudioPostcard', () => {
       validResponse({ headers: { 'Content-Length': '3' }, body: AUDIO_BYTES }),
     );
 
-    await expect(downloadAudioPostcard(input(fetchImplementation))).rejects.toThrow(
-      /approved input limit/u,
-    );
+    await expect(
+      downloadAudioPostcard(input(fetchImplementation)),
+    ).rejects.toThrow(/approved input limit/u);
     expect(fetchImplementation).toHaveBeenCalledTimes(1);
   });
 
   it('rejects expiry that occurs while the response stream is being consumed', async () => {
     const times = [1_000, 1_000, 901_000, 901_000];
     const now = vi.fn(() => times.shift() ?? 901_000);
-    const result = readyAudioPostcard({ expiresAt: new Date(900_000).toISOString() });
+    const result = readyAudioPostcard({
+      expiresAt: new Date(900_000).toISOString(),
+    });
     const options = audioPostcardOptions({ playbackTtlSeconds: 900 });
     const fetchImplementation = vi.fn(async () => validResponse());
 
@@ -155,7 +169,10 @@ describe('downloadAudioPostcard', () => {
     const fetchImplementation = vi.fn(async () => validResponse());
 
     await expect(
-      downloadAudioPostcard({ ...input(fetchImplementation), signal: controller.signal }),
+      downloadAudioPostcard({
+        ...input(fetchImplementation),
+        signal: controller.signal,
+      }),
     ).rejects.toMatchObject({ name: 'AbortError' });
     expect(fetchImplementation).not.toHaveBeenCalled();
   });
