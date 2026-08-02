@@ -27,9 +27,7 @@ afterEach(() => {
 describe('renderBrandedVideo admission and lifecycle', () => {
   it('rejects a source duration above the Candidate A 30-second limit', async () => {
     await expect(
-      renderBrandedVideo(
-        input({ expectedDurationMs: MEDIA_RECORDER_LIMITS.maxDurationMs + 1 }),
-      ),
+      renderBrandedVideo(input({ expectedDurationMs: MEDIA_RECORDER_LIMITS.maxDurationMs + 1 })),
     ).rejects.toThrow(/duration.*Candidate A limit/u);
   });
 
@@ -47,12 +45,12 @@ describe('renderBrandedVideo admission and lifecycle', () => {
   });
 
   it('requires both the scene image and canonical logo', async () => {
-    await expect(
-      renderBrandedVideo(input({ imageBlob: new Blob([]) })),
-    ).rejects.toThrow(/canonical logo are required/u);
-    await expect(
-      renderBrandedVideo(input({ logoBlob: new Blob([]) })),
-    ).rejects.toThrow(/canonical logo are required/u);
+    await expect(renderBrandedVideo(input({ imageBlob: new Blob([]) }))).rejects.toThrow(
+      /canonical logo are required/u,
+    );
+    await expect(renderBrandedVideo(input({ logoBlob: new Blob([]) }))).rejects.toThrow(
+      /canonical logo are required/u,
+    );
   });
 
   it('allows at most one active render and releases the lock after abort cleanup', async () => {
