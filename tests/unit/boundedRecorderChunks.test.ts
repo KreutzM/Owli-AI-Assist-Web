@@ -18,9 +18,7 @@ describe('BoundedRecorderChunks', () => {
 
   it('rejects an unexpected single chunk above the Candidate A envelope', () => {
     const collector = new BoundedRecorderChunks(0);
-    const oversized = new Blob([
-      new Uint8Array(MEDIA_RECORDER_LIMITS.maxChunkBytes + 1),
-    ]);
+    const oversized = new Blob([new Uint8Array(MEDIA_RECORDER_LIMITS.maxChunkBytes + 1)]);
 
     expect(() => collector.add(oversized)).toThrow(/per-chunk limit/u);
     expect(collector.totalBytes).toBe(0);
@@ -33,9 +31,7 @@ describe('BoundedRecorderChunks', () => {
     for (let count = 0; count < 4; count += 1) {
       collector.add(chunk);
     }
-    expect(() => collector.add(new Blob([new Uint8Array([1])]))).toThrow(
-      /hard output/u,
-    );
+    expect(() => collector.add(new Blob([new Uint8Array([1])]))).toThrow(/hard output/u);
   });
 
   it('rejects a final output above the target envelope', () => {
@@ -53,12 +49,8 @@ describe('BoundedRecorderChunks', () => {
       () => new BoundedRecorderChunks(MEDIA_RECORDER_LIMITS.maxAppOwnedMediaBytes + 1),
     ).toThrow(/App-owned media bytes/u);
 
-    const collector = new BoundedRecorderChunks(
-      MEDIA_RECORDER_LIMITS.maxAppOwnedMediaBytes - 10,
-    );
-    expect(() => collector.add(new Blob([new Uint8Array(11)]))).toThrow(
-      /aggregate limit/u,
-    );
+    const collector = new BoundedRecorderChunks(MEDIA_RECORDER_LIMITS.maxAppOwnedMediaBytes - 10);
+    expect(() => collector.add(new Blob([new Uint8Array(11)]))).toThrow(/aggregate limit/u);
   });
 
   it('clears all app-owned chunk references after cleanup', () => {
