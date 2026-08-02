@@ -136,14 +136,7 @@ function drawFrame(context: CanvasRenderingContext2D, bitmap: ImageBitmap): void
   context.fillStyle = '#101418';
   context.fillRect(0, 0, WIDTH, HEIGHT);
   context.save();
-  roundedRect(
-    context,
-    layout.image.x,
-    layout.image.y,
-    layout.image.width,
-    layout.image.height,
-    16,
-  );
+  roundedRect(context, layout.image.x, layout.image.y, layout.image.width, layout.image.height, 16);
   context.clip();
   context.drawImage(
     bitmap,
@@ -154,14 +147,7 @@ function drawFrame(context: CanvasRenderingContext2D, bitmap: ImageBitmap): void
   );
   context.restore();
   context.fillStyle = 'rgba(28, 35, 43, 0.9)';
-  roundedRect(
-    context,
-    layout.band.x,
-    layout.band.y,
-    layout.band.width,
-    layout.band.height,
-    18,
-  );
+  roundedRect(context, layout.band.x, layout.band.y, layout.band.width, layout.band.height, 18);
   context.fill();
   drawOwliMark(context, layout.band.x + 20, layout.band.y + 24, 82, 64);
   context.fillStyle = '#ffffff';
