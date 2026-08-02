@@ -67,25 +67,22 @@ export function StagingBrandedVideoExport({
 }) {
   const [state, setState] = useState<ExportState>({ status: 'idle', message: '' });
   const controllerRef = useRef<AbortController | undefined>(undefined);
+  const outputUrlRef = useRef<string | undefined>(undefined);
   const attemptRef = useRef(0);
-  const stateRef = useRef(state);
   const primaryActionRef = useRef<HTMLButtonElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const downloadRef = useRef<HTMLAnchorElement>(null);
   const shareRef = useRef<HTMLButtonElement>(null);
-  stateRef.current = state;
 
   const releaseResources = useCallback((publishIdle: boolean) => {
     attemptRef.current += 1;
     controllerRef.current?.abort(new DOMException('Video export invalidated.', 'AbortError'));
     controllerRef.current = undefined;
-    const current = stateRef.current;
-    if (current.status === 'ready') URL.revokeObjectURL(current.url);
-    if (publishIdle) {
-      const idle = { status: 'idle', message: '' } as const;
-      stateRef.current = idle;
-      setState(idle);
+    if (outputUrlRef.current) {
+      URL.revokeObjectURL(outputUrlRef.current);
+      outputUrlRef.current = undefined;
     }
+    if (publishIdle) setState({ status: 'idle', message: '' });
   }, []);
 
   useEffect(() => {
@@ -115,12 +112,10 @@ export function StagingBrandedVideoExport({
     const attempt = attemptRef.current;
     const controller = new AbortController();
     controllerRef.current = controller;
-    const rendering = {
+    setState({
       status: 'rendering',
       message: 'Gebrandetes Staging-Video wird lokal erstellt …',
-    } as const;
-    stateRef.current = rendering;
-    setState(rendering);
+    });
     try {
       const [audioBlob, logoBlob] = await Promise.all([
         downloadAudioPostcard({ result, options, apiBaseUrl, signal: controller.signal }),
@@ -135,25 +130,22 @@ export function StagingBrandedVideoExport({
       });
       if (attempt !== attemptRef.current || controller.signal.aborted) return;
       const url = URL.createObjectURL(file);
-      const ready = {
+      outputUrlRef.current = url;
+      setState({
         status: 'ready',
         message: 'Gebrandetes Video ist geprüft und bereit.',
         file,
         url,
-      } as const;
-      stateRef.current = ready;
-      setState(ready);
+      });
     } catch (error) {
       if (attempt !== attemptRef.current) return;
-      const failed = {
+      setState({
         status: 'error',
         message:
           error instanceof DOMException && error.name === 'AbortError'
             ? CANCELLED_MESSAGE
             : 'Das Video konnte nicht sicher erstellt oder geprüft werden. Die Audio-Postcard bleibt verfügbar.',
-      } as const;
-      stateRef.current = failed;
-      setState(failed);
+      });
     } finally {
       if (controllerRef.current === controller) controllerRef.current = undefined;
     }
@@ -161,9 +153,7 @@ export function StagingBrandedVideoExport({
 
   const cancelVideo = () => {
     releaseResources(false);
-    const cancelled = { status: 'cancelled', message: CANCELLED_MESSAGE } as const;
-    stateRef.current = cancelled;
-    setState(cancelled);
+    setState({ status: 'cancelled', message: CANCELLED_MESSAGE });
     window.setTimeout(() => primaryActionRef.current?.focus(), 0);
   };
 
@@ -171,19 +161,15 @@ export function StagingBrandedVideoExport({
     if (state.status !== 'ready') return;
     try {
       await shareFile(state.file, SHARE_TITLE, SHARE_TEXT);
-      const ready = { ...state, message: 'Teilen-Dialog wurde geöffnet.' };
-      stateRef.current = ready;
-      setState(ready);
+      setState({ ...state, message: 'Teilen-Dialog wurde geöffnet.' });
     } catch (error) {
-      const ready = {
+      setState({
         ...state,
         message:
           error instanceof DOMException && error.name === 'AbortError'
             ? 'Teilen wurde abgebrochen. Video, Wiedergabe und Download bleiben verfügbar.'
             : 'Video konnte nicht geteilt werden. Wiedergabe und Download bleiben verfügbar.',
-      };
-      stateRef.current = ready;
-      setState(ready);
+      });
     } finally {
       shareRef.current?.focus();
     }
@@ -255,11 +241,7 @@ export function StagingBrandedVideoExport({
               className="button button--secondary"
               href={state.url}
               download={state.file.name}
-              onClick={() => {
-                const ready = { ...state, message: 'Video-Download wurde gestartet.' };
-                stateRef.current = ready;
-                setState(ready);
-              }}
+              onClick={() => setState({ ...state, message: 'Video-Download wurde gestartet.' })}
             >
               Video herunterladen
             </a>
