@@ -60,11 +60,10 @@ export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promi
       throw new Error('No approved WebM MediaRecorder candidate is supported.');
     }
 
-    [scene, logo] = await withDeadline(
-      Promise.all([createImageBitmap(values.imageBlob), createImageBitmap(values.logoBlob)]),
-      MEDIA_RECORDER_LIMITS.initializationDeadlineMs,
+    [scene, logo] = await decodeBrandedBitmaps(
+      values.imageBlob,
+      values.logoBlob,
       controller.signal,
-      'Image initialization deadline exceeded.',
     );
     if (Math.max(scene.width, scene.height) > MEDIA_RECORDER_LIMITS.maxSourceLongEdgePx) {
       throw new Error('Scene image exceeds the Candidate A normalization limit.');
@@ -167,6 +166,43 @@ export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promi
       await audioContext.close();
     }
     if (activeRenderToken === token) activeRenderToken = undefined;
+  }
+}
+
+async function decodeBrandedBitmaps(
+  imageBlob: Blob,
+  logoBlob: Blob,
+  signal: AbortSignal,
+): Promise<[ImageBitmap, ImageBitmap]> {
+  const closed = new Set<ImageBitmap>();
+  const close = (bitmap: ImageBitmap) => {
+    if (closed.has(bitmap)) return;
+    closed.add(bitmap);
+    bitmap.close();
+  };
+  let resolvedScene: ImageBitmap | undefined;
+  let resolvedLogo: ImageBitmap | undefined;
+  const scenePromise = createImageBitmap(imageBlob).then((bitmap) => {
+    resolvedScene = bitmap;
+    return bitmap;
+  });
+  const logoPromise = createImageBitmap(logoBlob).then((bitmap) => {
+    resolvedLogo = bitmap;
+    return bitmap;
+  });
+  try {
+    return await withDeadline(
+      Promise.all([scenePromise, logoPromise]),
+      MEDIA_RECORDER_LIMITS.initializationDeadlineMs,
+      signal,
+      'Image initialization deadline exceeded.',
+    );
+  } catch (error) {
+    if (resolvedScene) close(resolvedScene);
+    if (resolvedLogo) close(resolvedLogo);
+    void scenePromise.then(close, () => undefined);
+    void logoPromise.then(close, () => undefined);
+    throw error;
   }
 }
 
