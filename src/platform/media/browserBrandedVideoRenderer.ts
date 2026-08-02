@@ -1,225 +1,323 @@
-const WIDTH = 540;
-const HEIGHT = 960;
+import { BoundedRecorderChunks } from '@/platform/media/boundedRecorderChunks';
+import {
+  BRANDED_VIDEO_CANVAS,
+  drawBrandedVideoFrame,
+} from '@/platform/media/brandedVideoFrame';
+import { validateBrandedVideoOutput } from '@/platform/media/browserBrandedVideoValidation';
+import {
+  BRANDED_VIDEO_DURATION_DRIFT_MS,
+  BRANDED_VIDEO_TOTAL_SLACK_MS,
+  MEDIA_RECORDER_LIMITS,
+} from '@/platform/media/mediaRecorderLimits';
+
 const MIME_CANDIDATES = [
   'video/webm;codecs=vp8,opus',
-  'video/webm;codecs=vp9,opus',
   'video/webm',
+  'video/webm;codecs=vp9,opus',
 ] as const;
-
-export interface BrandedVideoLayout {
-  image: { x: number; y: number; width: number; height: number };
-  band: { x: number; y: number; width: number; height: number };
-}
-
-export function computeBrandedVideoLayout(
-  sourceWidth: number,
-  sourceHeight: number,
-): BrandedVideoLayout {
-  const scale = WIDTH / 1080;
-  const outer = 64 * scale;
-  const top = 64 * scale;
-  const gap = 48 * scale;
-  const bandHeight = 224 * scale;
-  const bottom = 72 * scale;
-  const imageBottom = HEIGHT - bottom - bandHeight - gap;
-  const box = {
-    x: outer,
-    y: top,
-    width: WIDTH - outer * 2,
-    height: imageBottom - top,
-  };
-  const imageScale = Math.min(box.width / sourceWidth, box.height / sourceHeight, 1);
-  const width = sourceWidth * imageScale;
-  const height = sourceHeight * imageScale;
-  return {
-    image: {
-      x: box.x + (box.width - width) / 2,
-      y: box.y + (box.height - height) / 2,
-      width,
-      height,
-    },
-    band: {
-      x: outer,
-      y: HEIGHT - bottom - bandHeight,
-      width: WIDTH - outer * 2,
-      height: bandHeight,
-    },
-  };
-}
+const OUTPUT_FILE_NAME = 'owli-audio-postcard.webm';
+let activeRenderToken: symbol | undefined;
 
 export async function renderBrandedVideo(values: {
   imageBlob: Blob;
+  logoBlob: Blob;
   audioBlob: Blob;
   expectedDurationMs: number;
   signal: AbortSignal;
 }): Promise<File> {
-  throwIfAborted(values.signal);
-  const mimeType = MIME_CANDIDATES.find((candidate) => MediaRecorder.isTypeSupported(candidate));
-  if (!mimeType) throw new Error('No approved MediaRecorder video container is supported.');
+  assertInput(values);
+  if (activeRenderToken) throw new Error('A branded video render is already active in this tab.');
+  const token = Symbol('branded-video-render');
+  activeRenderToken = token;
 
-  const [bitmap, audioBuffer] = await Promise.all([
-    createImageBitmap(values.imageBlob),
-    decodeAudio(values.audioBlob),
-  ]);
-  throwIfAborted(values.signal);
-  const durationDriftMs = Math.abs(audioBuffer.duration * 1_000 - values.expectedDurationMs);
-  if (durationDriftMs > 1_000) {
-    bitmap.close();
-    throw new Error('Decoded audio duration differs from the Audio-Postcard contract.');
-  }
-
-  const canvas = document.createElement('canvas');
-  canvas.width = WIDTH;
-  canvas.height = HEIGHT;
-  const context = canvas.getContext('2d', { alpha: false });
-  if (!context) {
-    bitmap.close();
-    throw new Error('2D canvas unavailable.');
-  }
-  drawFrame(context, bitmap);
-  bitmap.close();
-
-  const audioContext = new AudioContext({ sampleRate: audioBuffer.sampleRate });
-  await audioContext.resume();
-  const destination = audioContext.createMediaStreamDestination();
-  const source = audioContext.createBufferSource();
-  source.buffer = audioBuffer;
-  source.connect(destination);
-  const stream = new MediaStream([
-    ...canvas.captureStream(30).getVideoTracks(),
-    ...destination.stream.getAudioTracks(),
-  ]);
-  const recorder = new MediaRecorder(stream, {
-    mimeType,
-    videoBitsPerSecond: 2_500_000,
-  });
-  const output: BlobPart[] = [];
-  recorder.ondataavailable = (event) => {
-    if (event.data.size > 0) output.push(event.data);
-  };
-  const stopped = new Promise<void>((resolve, reject) => {
-    recorder.onstop = () => resolve();
-    recorder.onerror = () => reject(new Error('MediaRecorder failed.'));
-  });
-  const abort = () => {
-    try {
-      source.stop();
-    } catch {
-      // Source may already have ended.
-    }
-    if (recorder.state !== 'inactive') recorder.stop();
-  };
-  values.signal.addEventListener('abort', abort, { once: true });
-  try {
-    recorder.start(250);
-    source.start();
-    source.stop(audioBuffer.duration);
-    source.onended = () => {
-      if (recorder.state !== 'inactive') recorder.stop();
-    };
-    await stopped;
-    throwIfAborted(values.signal);
-  } finally {
-    values.signal.removeEventListener('abort', abort);
-    stream.getTracks().forEach((track) => track.stop());
-    source.disconnect();
-    await audioContext.close();
-  }
-
-  const blob = new Blob(output, { type: recorder.mimeType });
-  if (!blob.type.startsWith('video/webm')) throw new Error('Unexpected output container.');
-  return new File([blob], 'owli-audio-postcard.webm', { type: blob.type });
-}
-
-function drawFrame(context: CanvasRenderingContext2D, bitmap: ImageBitmap): void {
-  const layout = computeBrandedVideoLayout(bitmap.width, bitmap.height);
-  context.fillStyle = '#101418';
-  context.fillRect(0, 0, WIDTH, HEIGHT);
-  context.save();
-  roundedRect(context, layout.image.x, layout.image.y, layout.image.width, layout.image.height, 16);
-  context.clip();
-  context.drawImage(
-    bitmap,
-    layout.image.x,
-    layout.image.y,
-    layout.image.width,
-    layout.image.height,
+  const controller = new AbortController();
+  const forwardAbort = () => controller.abort(values.signal.reason);
+  if (values.signal.aborted) forwardAbort();
+  else values.signal.addEventListener('abort', forwardAbort, { once: true });
+  const totalDeadline = window.setTimeout(
+    () => controller.abort(new DOMException('Video render deadline exceeded.', 'TimeoutError')),
+    values.expectedDurationMs + BRANDED_VIDEO_TOTAL_SLACK_MS,
   );
-  context.restore();
-  context.fillStyle = 'rgba(28, 35, 43, 0.9)';
-  roundedRect(context, layout.band.x, layout.band.y, layout.band.width, layout.band.height, 18);
-  context.fill();
-  drawOwliMark(context, layout.band.x + 20, layout.band.y + 24, 82, 64);
-  context.fillStyle = '#ffffff';
-  context.font = '700 29px system-ui, sans-serif';
-  context.textBaseline = 'middle';
-  context.fillText('Owli-AI.com', layout.band.x + 118, layout.band.y + layout.band.height / 2);
-}
 
-function drawOwliMark(
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-): void {
-  const radius = Math.min(width, height) / 2;
-  context.save();
-  context.translate(x + width / 2, y + height / 2);
-  context.fillStyle = '#7c3aed';
-  context.beginPath();
-  context.arc(0, 0, radius, 0, Math.PI * 2);
-  context.fill();
-  context.fillStyle = '#f59e0b';
-  context.beginPath();
-  context.moveTo(-radius * 0.75, -radius * 0.45);
-  context.lineTo(-radius * 0.25, -radius * 1.05);
-  context.lineTo(-radius * 0.05, -radius * 0.35);
-  context.moveTo(radius * 0.75, -radius * 0.45);
-  context.lineTo(radius * 0.25, -radius * 1.05);
-  context.lineTo(radius * 0.05, -radius * 0.35);
-  context.fill();
-  context.fillStyle = '#ffffff';
-  context.beginPath();
-  context.arc(-radius * 0.35, -radius * 0.05, radius * 0.28, 0, Math.PI * 2);
-  context.arc(radius * 0.35, -radius * 0.05, radius * 0.28, 0, Math.PI * 2);
-  context.fill();
-  context.fillStyle = '#101418';
-  context.beginPath();
-  context.arc(-radius * 0.35, -radius * 0.05, radius * 0.11, 0, Math.PI * 2);
-  context.arc(radius * 0.35, -radius * 0.05, radius * 0.11, 0, Math.PI * 2);
-  context.fill();
-  context.fillStyle = '#22c55e';
-  context.beginPath();
-  context.moveTo(0, radius * 0.05);
-  context.lineTo(-radius * 0.14, radius * 0.3);
-  context.lineTo(radius * 0.14, radius * 0.3);
-  context.closePath();
-  context.fill();
-  context.restore();
-}
-
-function roundedRect(
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-): void {
-  context.beginPath();
-  context.roundRect(x, y, width, height, Math.min(radius, width / 2, height / 2));
-}
-
-async function decodeAudio(blob: Blob): Promise<AudioBuffer> {
-  const context = new AudioContext();
+  let scene: ImageBitmap | undefined;
+  let logo: ImageBitmap | undefined;
+  let audioContext: AudioContext | undefined;
+  let source: AudioBufferSourceNode | undefined;
+  let destination: MediaStreamAudioDestinationNode | undefined;
+  let stream: MediaStream | undefined;
+  let canvasStream: MediaStream | undefined;
+  let recorder: MediaRecorder | undefined;
+  let collector: BoundedRecorderChunks | undefined;
   try {
-    return await context.decodeAudioData(await blob.arrayBuffer());
+    controller.signal.throwIfAborted();
+    const mimeType = MIME_CANDIDATES.find((candidate) => MediaRecorder.isTypeSupported(candidate));
+    if (!mimeType) throw new Error('No approved WebM MediaRecorder candidate is supported.');
+
+    [scene, logo] = await withDeadline(
+      Promise.all([createImageBitmap(values.imageBlob), createImageBitmap(values.logoBlob)]),
+      MEDIA_RECORDER_LIMITS.initializationDeadlineMs,
+      controller.signal,
+      'Image initialization deadline exceeded.',
+    );
+    if (Math.max(scene.width, scene.height) > MEDIA_RECORDER_LIMITS.maxSourceLongEdgePx) {
+      throw new Error('Scene image exceeds the Candidate A normalization limit.');
+    }
+
+    audioContext = new AudioContext();
+    const audioBuffer = await withDeadline(
+      audioContext.decodeAudioData(await values.audioBlob.arrayBuffer()),
+      MEDIA_RECORDER_LIMITS.initializationDeadlineMs,
+      controller.signal,
+      'Audio initialization deadline exceeded.',
+    );
+    assertDecodedAudio(audioBuffer, values.expectedDurationMs);
+    await audioContext.resume();
+
+    const canvas = document.createElement('canvas');
+    canvas.width = BRANDED_VIDEO_CANVAS.width;
+    canvas.height = BRANDED_VIDEO_CANVAS.height;
+    const context = canvas.getContext('2d', { alpha: false });
+    if (!context) throw new Error('2D canvas unavailable.');
+    const layout = drawBrandedVideoFrame(context, scene, logo);
+
+    destination = audioContext.createMediaStreamDestination();
+    source = audioContext.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(destination);
+    canvasStream = canvas.captureStream(30);
+    stream = new MediaStream([
+      ...canvasStream.getVideoTracks(),
+      ...destination.stream.getAudioTracks(),
+    ]);
+    recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2_500_000 });
+
+    const canvasBytes = canvas.width * canvas.height * 4;
+    const decodedPcmBytes =
+      audioBuffer.length * audioBuffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
+    collector = new BoundedRecorderChunks(
+      values.imageBlob.size +
+        values.logoBlob.size +
+        values.audioBlob.size +
+        canvasBytes +
+        decodedPcmBytes,
+    );
+    const outputBlob = await recordAudioCanvas({
+      recorder,
+      source,
+      stream,
+      collector,
+      durationSeconds: audioBuffer.duration,
+      signal: controller.signal,
+    });
+    controller.signal.throwIfAborted();
+    const outputFile = new File([outputBlob], OUTPUT_FILE_NAME, { type: outputBlob.type });
+    await validateBrandedVideoOutput({
+      blob: outputFile,
+      fileName: outputFile.name,
+      expectedDurationMs: values.expectedDurationMs,
+      referenceCanvas: canvas,
+      layout,
+      signal: controller.signal,
+    });
+    controller.signal.throwIfAborted();
+    return outputFile;
   } finally {
-    await context.close();
+    window.clearTimeout(totalDeadline);
+    values.signal.removeEventListener('abort', forwardAbort);
+    if (recorder) {
+      recorder.ondataavailable = null;
+      recorder.onerror = null;
+      recorder.onstop = null;
+      if (recorder.state !== 'inactive') {
+        try {
+          recorder.stop();
+        } catch {
+          // The recorder may already be stopping after an abort or limit violation.
+        }
+      }
+    }
+    if (source) {
+      source.onended = null;
+      try {
+        source.stop();
+      } catch {
+        // The source may already have reached its scheduled stop.
+      }
+      source.disconnect();
+    }
+    destination?.disconnect();
+    stream?.getTracks().forEach((track) => track.stop());
+    canvasStream?.getTracks().forEach((track) => track.stop());
+    collector?.clear();
+    scene?.close();
+    logo?.close();
+    if (audioContext && audioContext.state !== 'closed') await audioContext.close();
+    if (activeRenderToken === token) activeRenderToken = undefined;
   }
 }
 
-function throwIfAborted(signal: AbortSignal): void {
-  if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+async function recordAudioCanvas(input: {
+  recorder: MediaRecorder;
+  source: AudioBufferSourceNode;
+  stream: MediaStream;
+  collector: BoundedRecorderChunks;
+  durationSeconds: number;
+  signal: AbortSignal;
+}): Promise<Blob> {
+  return await new Promise<Blob>((resolve, reject) => {
+    let settled = false;
+    let finalizationTimer: number | undefined;
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (error) reject(error);
+      else {
+        try {
+          resolve(input.collector.finalize(input.recorder.mimeType));
+        } catch (finalizeError) {
+          reject(asError(finalizeError, 'Recorder finalization failed.'));
+        }
+      }
+    };
+    const stopImmediately = () => {
+      input.stream.getTracks().forEach((track) => track.stop());
+      try {
+        input.source.stop();
+      } catch {
+        // Source may already be stopped.
+      }
+      if (input.recorder.state !== 'inactive') {
+        try {
+          input.recorder.stop();
+        } catch {
+          // Recorder may already be stopping.
+        }
+      }
+    };
+    const beginFinalization = () => {
+      if (input.recorder.state === 'inactive') return;
+      finalizationTimer = window.setTimeout(() => {
+        stopImmediately();
+        finish(new Error('Recorder finalization deadline exceeded.'));
+      }, MEDIA_RECORDER_LIMITS.finalizationDeadlineMs);
+      input.recorder.stop();
+    };
+    const onAbort = () => {
+      stopImmediately();
+      finish(abortReason(input.signal));
+    };
+    const cleanup = () => {
+      if (finalizationTimer !== undefined) window.clearTimeout(finalizationTimer);
+      input.signal.removeEventListener('abort', onAbort);
+      input.recorder.ondataavailable = null;
+      input.recorder.onerror = null;
+      input.recorder.onstop = null;
+      input.source.onended = null;
+    };
+
+    input.recorder.ondataavailable = (event) => {
+      try {
+        input.collector.add(event.data);
+      } catch (error) {
+        stopImmediately();
+        finish(asError(error, 'Recorder chunk admission failed.'));
+      }
+    };
+    input.recorder.onerror = () => {
+      stopImmediately();
+      finish(new Error('MediaRecorder failed.'));
+    };
+    input.recorder.onstop = () => finish();
+    input.source.onended = beginFinalization;
+    input.signal.addEventListener('abort', onAbort, { once: true });
+    input.recorder.start(MEDIA_RECORDER_LIMITS.requestedChunkCadenceMs);
+    input.source.start(0);
+    input.source.stop(input.durationSeconds);
+  });
+}
+
+function assertInput(values: {
+  imageBlob: Blob;
+  logoBlob: Blob;
+  audioBlob: Blob;
+  expectedDurationMs: number;
+}): void {
+  if (
+    !Number.isFinite(values.expectedDurationMs) ||
+    values.expectedDurationMs <= 0 ||
+    values.expectedDurationMs > MEDIA_RECORDER_LIMITS.maxDurationMs
+  ) {
+    throw new Error('Audio duration is outside the Candidate A limit.');
+  }
+  if (
+    values.audioBlob.size <= 0 ||
+    values.audioBlob.size > MEDIA_RECORDER_LIMITS.hardCompressedInputBytes
+  ) {
+    throw new Error('Compressed audio is outside the Candidate A input limit.');
+  }
+  if (values.imageBlob.size <= 0 || values.logoBlob.size <= 0) {
+    throw new Error('Scene image and canonical logo are required.');
+  }
+}
+
+function assertDecodedAudio(buffer: AudioBuffer, expectedDurationMs: number): void {
+  const decodedPcmBytes =
+    buffer.length * buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
+  if (
+    buffer.duration <= 0 ||
+    buffer.numberOfChannels <= 0 ||
+    buffer.numberOfChannels > MEDIA_RECORDER_LIMITS.maxChannels ||
+    buffer.sampleRate > MEDIA_RECORDER_LIMITS.maxSampleRateHz ||
+    decodedPcmBytes > MEDIA_RECORDER_LIMITS.maxDecodedPcmBytes ||
+    Math.abs(buffer.duration * 1_000 - expectedDurationMs) > BRANDED_VIDEO_DURATION_DRIFT_MS
+  ) {
+    throw new Error('Decoded audio violates the Audio-Postcard or Candidate A contract.');
+  }
+  let energy = 0;
+  let count = 0;
+  for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+    const data = buffer.getChannelData(channel);
+    const stride = Math.max(1, Math.floor(data.length / 20_000));
+    for (let index = 0; index < data.length; index += stride) {
+      const value = data[index] ?? 0;
+      energy += value * value;
+      count += 1;
+    }
+  }
+  if (count === 0 || Math.sqrt(energy / count) < 0.0001) {
+    throw new Error('Decoded Audio-Postcard is empty or silent.');
+  }
+}
+
+async function withDeadline<T>(
+  operation: Promise<T>,
+  timeoutMs: number,
+  signal: AbortSignal,
+  message: string,
+): Promise<T> {
+  signal.throwIfAborted();
+  return await new Promise<T>((resolve, reject) => {
+    const timeout = window.setTimeout(() => finish(undefined, new Error(message)), timeoutMs);
+    const onAbort = () => finish(undefined, abortReason(signal));
+    const finish = (value?: T, error?: Error) => {
+      window.clearTimeout(timeout);
+      signal.removeEventListener('abort', onAbort);
+      if (error) reject(error);
+      else resolve(value as T);
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    operation.then(
+      (value) => finish(value),
+      (error) => finish(undefined, asError(error, message)),
+    );
+  });
+}
+
+function abortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new DOMException('Aborted', 'AbortError');
+}
+
+function asError(value: unknown, fallback: string): Error {
+  return value instanceof Error ? value : new Error(fallback);
 }
