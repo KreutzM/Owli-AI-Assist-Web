@@ -32,6 +32,11 @@ export interface BrandedVideoLayout {
   minimumTextSize: number;
 }
 
+interface BrandTextMeasurementContext {
+  font: string;
+  measureText(text: string): { width: number };
+}
+
 export function computeBrandedVideoLayout(
   sourceWidth: number,
   sourceHeight: number,
@@ -121,7 +126,7 @@ export function drawBrandedVideoFrame(
 }
 
 export function fitBrandTextSize(
-  context: Pick<CanvasRenderingContext2D, 'font' | 'measureText'>,
+  context: BrandTextMeasurementContext,
   layout: BrandedVideoLayout,
 ): number {
   let size = layout.nominalTextSize;
