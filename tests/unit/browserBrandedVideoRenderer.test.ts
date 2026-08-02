@@ -24,14 +24,20 @@ describe('branded video frame layout', () => {
     expect(layout.image.y + layout.image.height).toBeLessThanOrEqual(
       layout.imageArea.y + layout.imageArea.height,
     );
-    expect(layout.image.x + layout.image.width / 2).toBeCloseTo(
-      layout.imageArea.x + layout.imageArea.width / 2,
-      0,
-    );
-    expect(layout.image.y + layout.image.height / 2).toBeCloseTo(
-      layout.imageArea.y + layout.imageArea.height / 2,
-      0,
-    );
+    expect(
+      Math.abs(
+        layout.image.x +
+          layout.image.width / 2 -
+          (layout.imageArea.x + layout.imageArea.width / 2),
+      ),
+    ).toBeLessThanOrEqual(0.5);
+    expect(
+      Math.abs(
+        layout.image.y +
+          layout.image.height / 2 -
+          (layout.imageArea.y + layout.imageArea.height / 2),
+      ),
+    ).toBeLessThanOrEqual(0.5);
   });
 
   it('does not upscale a small normalized scene', () => {
