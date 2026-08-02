@@ -3,6 +3,7 @@ import { downloadAudioPostcard } from '@/core/api/downloadAudioPostcard';
 import type { AudioPostcardReadyResult } from '@/core/api/remoteAudioPostcardContracts';
 import type { NormalizedSceneImage } from '@/platform/image/browserSceneImageNormalizer';
 import { renderBrandedVideo } from '@/platform/media/browserBrandedVideoRenderer';
+import { canShareFile, shareFile } from '@/platform/share/browserShare';
 
 type ExportState =
   | { status: 'idle'; message: string }
@@ -71,13 +72,9 @@ export function StagingBrandedVideoExport({
   };
 
   const shareVideo = async () => {
-    if (state.status !== 'ready' || typeof navigator.share !== 'function') return;
+    if (state.status !== 'ready') return;
     try {
-      await navigator.share({
-        files: [state.file],
-        title: 'Owli-AI Audio-Postcard',
-        text: 'Mit Owli-AI Assist erstellt',
-      });
+      await shareFile(state.file, 'Owli-AI Audio-Postcard', 'Mit Owli-AI Assist erstellt');
       setState({ ...state, message: 'Teilen-Dialog wurde geöffnet.' });
     } catch (error) {
       if (!(error instanceof DOMException && error.name === 'AbortError')) {
@@ -88,10 +85,7 @@ export function StagingBrandedVideoExport({
     }
   };
 
-  const canShare =
-    state.status === 'ready' &&
-    typeof navigator.canShare === 'function' &&
-    navigator.canShare({ files: [state.file] });
+  const canShare = state.status === 'ready' && canShareFile(state.file);
 
   return (
     <section className="audio-postcard-video-export" aria-labelledby="video-export-title">
