@@ -123,11 +123,7 @@ export function StagingBrandedVideoExport({
             Dein Browser unterstützt die Video-Wiedergabe nicht.
           </video>
           <div className="scene-actions audio-postcard-actions">
-            <a
-              className="button button--secondary"
-              href={state.url}
-              download={state.file.name}
-            >
+            <a className="button button--secondary" href={state.url} download={state.file.name}>
               Video herunterladen
             </a>
             {canShare && (
