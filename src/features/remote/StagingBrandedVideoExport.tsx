@@ -22,6 +22,14 @@ type ExportState =
   | { status: 'ready'; message: string; file: File; url: string }
   | { status: 'error'; message: string };
 
+interface StagingBrandedVideoExportProps {
+  enabled: boolean;
+  image: NormalizedSceneImage;
+  result: AudioPostcardReadyResult;
+  options: AudioPostcardOptions;
+  apiBaseUrl: string;
+}
+
 export function isStagingBrandedVideoExportAvailable(input: {
   buildFlag: string | undefined;
   apiBaseUrl: string | undefined;
@@ -58,14 +66,11 @@ export function StagingBrandedVideoExport({
   result,
   options,
   apiBaseUrl,
-}: {
-  enabled: boolean;
-  image: NormalizedSceneImage;
-  result: AudioPostcardReadyResult;
-  options: AudioPostcardOptions;
-  apiBaseUrl: string;
-}) {
-  const [state, setState] = useState<ExportState>({ status: 'idle', message: '' });
+}: StagingBrandedVideoExportProps) {
+  const [state, setState] = useState<ExportState>({
+    status: 'idle',
+    message: '',
+  });
   const controllerRef = useRef<AbortController | undefined>(undefined);
   const outputUrlRef = useRef<string | undefined>(undefined);
   const attemptRef = useRef(0);
@@ -76,7 +81,9 @@ export function StagingBrandedVideoExport({
 
   const releaseResources = useCallback((publishIdle: boolean) => {
     attemptRef.current += 1;
-    controllerRef.current?.abort(new DOMException('Video export invalidated.', 'AbortError'));
+    controllerRef.current?.abort(
+      new DOMException('Video export invalidated.', 'AbortError'),
+    );
     controllerRef.current = undefined;
     if (outputUrlRef.current) {
       URL.revokeObjectURL(outputUrlRef.current);
@@ -118,7 +125,12 @@ export function StagingBrandedVideoExport({
     });
     try {
       const [audioBlob, logoBlob] = await Promise.all([
-        downloadAudioPostcard({ result, options, apiBaseUrl, signal: controller.signal }),
+        downloadAudioPostcard({
+          result,
+          options,
+          apiBaseUrl,
+          signal: controller.signal,
+        }),
         loadOwliBrandingLogo(controller.signal),
       ]);
       const file = await renderBrandedVideo({
@@ -147,7 +159,9 @@ export function StagingBrandedVideoExport({
             : 'Das Video konnte nicht sicher erstellt oder geprüft werden. Die Audio-Postcard bleibt verfügbar.',
       });
     } finally {
-      if (controllerRef.current === controller) controllerRef.current = undefined;
+      if (controllerRef.current === controller) {
+        controllerRef.current = undefined;
+      }
     }
   };
 
@@ -241,7 +255,12 @@ export function StagingBrandedVideoExport({
               className="button button--secondary"
               href={state.url}
               download={state.file.name}
-              onClick={() => setState({ ...state, message: 'Video-Download wurde gestartet.' })}
+              onClick={() =>
+                setState({
+                  ...state,
+                  message: 'Video-Download wurde gestartet.',
+                })
+              }
             >
               Video herunterladen
             </a>
