@@ -26,9 +26,7 @@ describe('branded video frame layout', () => {
     );
     expect(
       Math.abs(
-        layout.image.x +
-          layout.image.width / 2 -
-          (layout.imageArea.x + layout.imageArea.width / 2),
+        layout.image.x + layout.image.width / 2 - (layout.imageArea.x + layout.imageArea.width / 2),
       ),
     ).toBeLessThanOrEqual(0.5);
     expect(
