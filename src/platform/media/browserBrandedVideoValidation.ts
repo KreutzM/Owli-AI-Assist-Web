@@ -1,7 +1,4 @@
-import {
-  BRANDED_VIDEO_CANVAS,
-  type BrandedVideoLayout,
-} from '@/platform/media/brandedVideoFrame';
+import { BRANDED_VIDEO_CANVAS, type BrandedVideoLayout } from '@/platform/media/brandedVideoFrame';
 import { assertDecodedBrandedFrame } from '@/platform/media/brandedVideoFrameValidation';
 import {
   BRANDED_VIDEO_DURATION_DRIFT_MS,
@@ -25,16 +22,10 @@ export async function validateBrandedVideoOutput(
   input: BrandedVideoValidationInput,
 ): Promise<void> {
   input.signal.throwIfAborted();
-  if (
-    input.blob.size <= 0 ||
-    input.blob.size > MEDIA_RECORDER_LIMITS.targetOutputBytes
-  ) {
+  if (input.blob.size <= 0 || input.blob.size > MEDIA_RECORDER_LIMITS.targetOutputBytes) {
     throw new Error('Recorded output size is outside the Candidate A target envelope.');
   }
-  if (
-    !input.blob.type.startsWith('video/webm') ||
-    !input.fileName.endsWith('.webm')
-  ) {
+  if (!input.blob.type.startsWith('video/webm') || !input.fileName.endsWith('.webm')) {
     throw new Error('Recorded output MIME and extension must both be WebM.');
   }
   assertExpectedWebmTracks(await inspectWebmContainer(input.blob));
@@ -59,19 +50,11 @@ export async function validateBrandedVideoOutput(
       throw new Error('Recorded output is not the approved 9:16 frame size.');
     }
     const measuredDurationMs = await resolveDurationMs(video, input.signal);
-    if (
-      Math.abs(measuredDurationMs - input.expectedDurationMs) >
-      BRANDED_VIDEO_DURATION_DRIFT_MS
-    ) {
-      throw new Error(
-        'Recorded output duration differs from the Audio-Postcard contract.',
-      );
+    if (Math.abs(measuredDurationMs - input.expectedDurationMs) > BRANDED_VIDEO_DURATION_DRIFT_MS) {
+      throw new Error('Recorded output duration differs from the Audio-Postcard contract.');
     }
 
-    const seekTime = Math.max(
-      0.1,
-      Math.min(measuredDurationMs / 2_000, video.duration - 0.05),
-    );
+    const seekTime = Math.max(0.1, Math.min(measuredDurationMs / 2_000, video.duration - 0.05));
     await seekForFrame(video, seekTime, input.signal);
     assertDecodedBrandedFrame(video, input.referenceCanvas, input.layout);
     await assertPlayback(video, input.signal);
@@ -84,10 +67,7 @@ export async function validateBrandedVideoOutput(
   }
 }
 
-async function resolveDurationMs(
-  video: HTMLVideoElement,
-  signal: AbortSignal,
-): Promise<number> {
+async function resolveDurationMs(video: HTMLVideoElement, signal: AbortSignal): Promise<number> {
   if (Number.isFinite(video.duration) && video.duration > 0) {
     return Math.round(video.duration * 1_000);
   }
@@ -98,10 +78,7 @@ async function resolveDurationMs(
   return Math.round(video.currentTime * 1_000);
 }
 
-async function assertPlayback(
-  video: HTMLVideoElement,
-  signal: AbortSignal,
-): Promise<void> {
+async function assertPlayback(video: HTMLVideoElement, signal: AbortSignal): Promise<void> {
   signal.throwIfAborted();
   try {
     await video.play();
@@ -124,13 +101,8 @@ async function assertOutputAudio(
     const buffer = await context.decodeAudioData(await blob.arrayBuffer());
     signal.throwIfAborted();
     const durationMs = Math.round(buffer.duration * 1_000);
-    if (
-      Math.abs(durationMs - expectedDurationMs) >
-      BRANDED_VIDEO_DURATION_DRIFT_MS
-    ) {
-      throw new Error(
-        'Recorded audio track duration differs from the Audio-Postcard contract.',
-      );
+    if (Math.abs(durationMs - expectedDurationMs) > BRANDED_VIDEO_DURATION_DRIFT_MS) {
+      throw new Error('Recorded audio track duration differs from the Audio-Postcard contract.');
     }
     let sumSquares = 0;
     let sampleCount = 0;
@@ -225,7 +197,5 @@ function wait(timeoutMs: number, signal: AbortSignal): Promise<void> {
 }
 
 function abortReason(signal: AbortSignal): Error {
-  return signal.reason instanceof Error
-    ? signal.reason
-    : new DOMException('Aborted', 'AbortError');
+  return signal.reason instanceof Error ? signal.reason : new DOMException('Aborted', 'AbortError');
 }
