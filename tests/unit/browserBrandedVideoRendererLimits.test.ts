@@ -95,8 +95,12 @@ describe('renderBrandedVideo admission and lifecycle', () => {
       'createImageBitmap',
       vi
         .fn()
-        .mockImplementationOnce(() => new Promise<ImageBitmap>((resolve) => (resolveScene = resolve)))
-        .mockImplementationOnce(() => new Promise<ImageBitmap>((resolve) => (resolveLogo = resolve))),
+        .mockImplementationOnce(
+          () => new Promise<ImageBitmap>((resolve) => (resolveScene = resolve)),
+        )
+        .mockImplementationOnce(
+          () => new Promise<ImageBitmap>((resolve) => (resolveLogo = resolve)),
+        ),
     );
 
     const rendering = renderBrandedVideo(input({ signal: controller.signal }));
