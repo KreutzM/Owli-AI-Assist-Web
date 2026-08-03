@@ -17,7 +17,7 @@ import {
 interface BrandedVideoValidationInput {
   blob: Blob;
   fileName: string;
-  expectedDurationMs: number;
+  sourceAudioDurationMs: number;
   referenceCanvas: HTMLCanvasElement;
   layout: BrandedVideoLayout;
   signal: AbortSignal;
@@ -78,7 +78,10 @@ export async function validateBrandedVideoOutput(
       'duration_validation',
       () => resolveDurationMs(video, input.signal),
     );
-    if (Math.abs(measuredDurationMs - input.expectedDurationMs) > BRANDED_VIDEO_DURATION_DRIFT_MS) {
+    if (
+      Math.abs(measuredDurationMs - input.sourceAudioDurationMs) >
+      BRANDED_VIDEO_DURATION_DRIFT_MS
+    ) {
       throw new BrandedVideoExportError('VIDEO_DURATION_VALIDATION_FAILED', 'duration_validation');
     }
 
@@ -95,7 +98,7 @@ export async function validateBrandedVideoOutput(
     await withBrandedVideoExportError(
       'VIDEO_OUTPUT_AUDIO_VALIDATION_FAILED',
       'output_audio_validation',
-      () => assertOutputAudio(input.blob, input.expectedDurationMs, input.signal),
+      () => assertOutputAudio(input.blob, input.sourceAudioDurationMs, input.signal),
     );
   } finally {
     video.pause();
@@ -128,7 +131,7 @@ async function assertPlayback(video: HTMLVideoElement, signal: AbortSignal): Pro
 
 async function assertOutputAudio(
   blob: Blob,
-  expectedDurationMs: number,
+  sourceAudioDurationMs: number,
   signal: AbortSignal,
 ): Promise<void> {
   signal.throwIfAborted();
@@ -137,8 +140,8 @@ async function assertOutputAudio(
     const buffer = await context.decodeAudioData(await blob.arrayBuffer());
     signal.throwIfAborted();
     const durationMs = Math.round(buffer.duration * 1_000);
-    if (Math.abs(durationMs - expectedDurationMs) > BRANDED_VIDEO_DURATION_DRIFT_MS) {
-      throw new Error('Recorded audio track duration differs from the Audio-Postcard contract.');
+    if (Math.abs(durationMs - sourceAudioDurationMs) > BRANDED_VIDEO_DURATION_DRIFT_MS) {
+      throw new Error('Recorded audio track duration differs from the decoded source audio.');
     }
     let sumSquares = 0;
     let sampleCount = 0;
