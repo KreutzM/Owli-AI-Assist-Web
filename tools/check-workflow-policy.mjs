@@ -85,9 +85,15 @@ requireText(
 );
 for (const dependency of ['format', 'core', 'quick-build']) {
   requireText(quickAggregateJob, `- ${dependency}`, `Quick aggregate must require ${dependency}`);
+}
+for (const [dependency, expression] of [
+  ['format', 'needs.format.result'],
+  ['core', 'needs.core.result'],
+  ['quick-build', "needs['quick-build'].result"],
+]) {
   requireText(
     quickAggregateJob,
-    `needs.${dependency}.result`,
+    expression,
     `Quick aggregate must inspect the ${dependency} conclusion`,
   );
 }

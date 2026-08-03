@@ -161,7 +161,7 @@ jobs:
         env:
           FORMAT_RESULT: ${{ needs.format.result }}
           CORE_RESULT: ${{ needs.core.result }}
-          QUICK_BUILD_RESULT: ${{ needs.quick-build.result }}
+          QUICK_BUILD_RESULT: ${{ needs['quick-build'].result }}
         shell: bash
         run: |
           test "$FORMAT_RESULT" = success
