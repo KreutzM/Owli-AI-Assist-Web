@@ -2,10 +2,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { downloadAudioPostcard } from '@/core/api/downloadAudioPostcard';
 import { loadOwliBrandingLogo } from '@/core/api/loadOwliBrandingLogo';
-import {
-  isStagingBrandedVideoExportAvailable,
-  StagingBrandedVideoExport,
-} from '@/features/remote/StagingBrandedVideoExport';
+import { StagingBrandedVideoExport } from '@/features/remote/StagingBrandedVideoExport';
+import { isStagingBrandedVideoExportAvailable } from '@/features/remote/stagingBrandedVideoAvailability';
 import { renderBrandedVideo } from '@/platform/media/browserBrandedVideoRenderer';
 import { canShareFile, shareFile } from '@/platform/share/browserShare';
 import { audioPostcardOptions, readyAudioPostcard } from './audioPostcardFixtures';
