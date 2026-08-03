@@ -36,12 +36,13 @@ beforeEach(() => {
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:validation-output');
   vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
   const createElement = document.createElement.bind(document);
-  vi.spyOn(document, 'createElement').mockImplementation(
-    ((tagName: string, options?: ElementCreationOptions) =>
-      tagName === 'video'
-        ? (video as unknown as HTMLVideoElement)
-        : createElement(tagName, options)) as typeof document.createElement,
-  );
+  vi.spyOn(document, 'createElement').mockImplementation(((
+    tagName: string,
+    options?: ElementCreationOptions,
+  ) =>
+    tagName === 'video'
+      ? (video as unknown as HTMLVideoElement)
+      : createElement(tagName, options)) as typeof document.createElement);
   installAudioContext(validAudioBuffer);
 });
 
@@ -170,9 +171,7 @@ class FakeVideo extends EventTarget {
   set src(value: string) {
     this.#src = value;
     queueMicrotask(() =>
-      this.dispatchEvent(
-        new Event(this.metadataMode === 'success' ? 'loadedmetadata' : 'error'),
-      ),
+      this.dispatchEvent(new Event(this.metadataMode === 'success' ? 'loadedmetadata' : 'error')),
     );
   }
 

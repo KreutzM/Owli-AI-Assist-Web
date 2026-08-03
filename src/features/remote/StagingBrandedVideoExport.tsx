@@ -322,9 +322,7 @@ export function StagingBrandedVideoExport({
               className="button button--secondary"
               href={state.url}
               download={state.file.name}
-              onClick={() =>
-                setState({ ...state, message: 'Video-Download wurde gestartet.' })
-              }
+              onClick={() => setState({ ...state, message: 'Video-Download wurde gestartet.' })}
             >
               Video herunterladen
             </a>

@@ -80,11 +80,7 @@ describe('safe staging video export diagnostics', () => {
     expectNoPublishedOutput();
   });
 
-  it.each<[
-    string,
-    BrandedVideoExportErrorCode,
-    BrandedVideoExportPhase,
-  ]>([
+  it.each<[string, BrandedVideoExportErrorCode, BrandedVideoExportPhase]>([
     ['source audio decoding', 'VIDEO_SOURCE_AUDIO_DECODE_FAILED', 'source_audio_decode'],
     ['recording', 'VIDEO_RECORDING_FAILED', 'recording'],
     ['container validation', 'VIDEO_CONTAINER_VALIDATION_FAILED', 'container_validation'],

@@ -55,8 +55,5 @@ function byteLimitError(): BrandedVideoExportError {
 }
 
 function finalizationError(): BrandedVideoExportError {
-  return new BrandedVideoExportError(
-    'VIDEO_RECORDER_FINALIZATION_FAILED',
-    'recorder_finalization',
-  );
+  return new BrandedVideoExportError('VIDEO_RECORDER_FINALIZATION_FAILED', 'recorder_finalization');
 }

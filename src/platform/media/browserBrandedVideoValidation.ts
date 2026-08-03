@@ -31,20 +31,15 @@ export async function validateBrandedVideoOutput(
     throw new BrandedVideoExportError('VIDEO_BYTE_LIMIT_EXCEEDED', 'byte_limit');
   }
   if (!input.blob.type.startsWith('video/webm') || !input.fileName.endsWith('.webm')) {
-    throw new BrandedVideoExportError(
-      'VIDEO_CONTAINER_VALIDATION_FAILED',
-      'container_validation',
-    );
+    throw new BrandedVideoExportError('VIDEO_CONTAINER_VALIDATION_FAILED', 'container_validation');
   }
   const inspection = await withBrandedVideoExportError(
     'VIDEO_CONTAINER_VALIDATION_FAILED',
     'container_validation',
     () => inspectWebmContainer(input.blob),
   );
-  runWithBrandedVideoExportError(
-    'VIDEO_TRACK_VALIDATION_FAILED',
-    'track_validation',
-    () => assertExpectedWebmTracks(inspection),
+  runWithBrandedVideoExportError('VIDEO_TRACK_VALIDATION_FAILED', 'track_validation', () =>
+    assertExpectedWebmTracks(inspection),
   );
 
   const { url, video } = runWithBrandedVideoExportError(
@@ -76,10 +71,7 @@ export async function validateBrandedVideoOutput(
       video.videoWidth !== BRANDED_VIDEO_CANVAS.width ||
       video.videoHeight !== BRANDED_VIDEO_CANVAS.height
     ) {
-      throw new BrandedVideoExportError(
-        'VIDEO_METADATA_VALIDATION_FAILED',
-        'metadata_validation',
-      );
+      throw new BrandedVideoExportError('VIDEO_METADATA_VALIDATION_FAILED', 'metadata_validation');
     }
     const measuredDurationMs = await withBrandedVideoExportError(
       'VIDEO_DURATION_VALIDATION_FAILED',
@@ -87,10 +79,7 @@ export async function validateBrandedVideoOutput(
       () => resolveDurationMs(video, input.signal),
     );
     if (Math.abs(measuredDurationMs - input.expectedDurationMs) > BRANDED_VIDEO_DURATION_DRIFT_MS) {
-      throw new BrandedVideoExportError(
-        'VIDEO_DURATION_VALIDATION_FAILED',
-        'duration_validation',
-      );
+      throw new BrandedVideoExportError('VIDEO_DURATION_VALIDATION_FAILED', 'duration_validation');
     }
 
     const seekTime = Math.max(0.1, Math.min(measuredDurationMs / 2_000, video.duration - 0.05));

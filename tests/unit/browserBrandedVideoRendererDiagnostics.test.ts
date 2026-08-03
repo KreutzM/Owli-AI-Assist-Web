@@ -30,10 +30,7 @@ beforeEach(() => {
   vi.mocked(drawBrandedVideoFrame).mockReturnValue({} as never);
   vi.stubGlobal(
     'createImageBitmap',
-    vi
-      .fn()
-      .mockResolvedValueOnce(bitmap(1280, 720))
-      .mockResolvedValueOnce(bitmap(1024, 1024)),
+    vi.fn().mockResolvedValueOnce(bitmap(1280, 720)).mockResolvedValueOnce(bitmap(1024, 1024)),
   );
 });
 
@@ -123,12 +120,13 @@ function installMediaGlobals(): void {
   vi.stubGlobal('MediaRecorder', FakeMediaRecorder);
   vi.stubGlobal('MediaStream', FakeMediaStream);
   const createElement = document.createElement.bind(document);
-  vi.spyOn(document, 'createElement').mockImplementation(
-    ((tagName: string, options?: ElementCreationOptions) =>
-      tagName === 'canvas'
-        ? (fakeCanvas() as HTMLCanvasElement)
-        : createElement(tagName, options)) as typeof document.createElement,
-  );
+  vi.spyOn(document, 'createElement').mockImplementation(((
+    tagName: string,
+    options?: ElementCreationOptions,
+  ) =>
+    tagName === 'canvas'
+      ? (fakeCanvas() as HTMLCanvasElement)
+      : createElement(tagName, options)) as typeof document.createElement);
 }
 
 function bitmap(width: number, height: number): ImageBitmap {

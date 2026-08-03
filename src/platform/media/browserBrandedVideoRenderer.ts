@@ -41,10 +41,7 @@ export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promi
   const totalDeadline = window.setTimeout(
     () =>
       controller.abort(
-        new BrandedVideoExportError(
-          'VIDEO_RENDER_DEADLINE_EXCEEDED',
-          'render_deadline',
-        ),
+        new BrandedVideoExportError('VIDEO_RENDER_DEADLINE_EXCEEDED', 'render_deadline'),
       ),
     values.expectedDurationMs + BRANDED_VIDEO_TOTAL_SLACK_MS,
   );
@@ -86,17 +83,12 @@ export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promi
       () => values.audioBlob.arrayBuffer(),
     );
     const audioBuffer = await withDeadline(
-      withBrandedVideoExportError(
-        'VIDEO_SOURCE_AUDIO_DECODE_FAILED',
-        'source_audio_decode',
-        () => audioContext!.decodeAudioData(audioBytes),
+      withBrandedVideoExportError('VIDEO_SOURCE_AUDIO_DECODE_FAILED', 'source_audio_decode', () =>
+        audioContext!.decodeAudioData(audioBytes),
       ),
       MEDIA_RECORDER_LIMITS.initializationDeadlineMs,
       controller.signal,
-      new BrandedVideoExportError(
-        'VIDEO_SOURCE_AUDIO_DECODE_FAILED',
-        'source_audio_decode',
-      ),
+      new BrandedVideoExportError('VIDEO_SOURCE_AUDIO_DECODE_FAILED', 'source_audio_decode'),
     );
     assertDecodedAudio(audioBuffer, values.expectedDurationMs);
     await withBrandedVideoExportError(
@@ -172,18 +164,15 @@ export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promi
       'recorder_finalization',
       () => new File([outputBlob], OUTPUT_FILE_NAME, { type: outputBlob.type }),
     );
-    await withBrandedVideoExportError(
-      'VIDEO_UNKNOWN_EXPORT_FAILURE',
-      'unknown',
-      () =>
-        validateBrandedVideoOutput({
-          blob: outputFile,
-          fileName: outputFile.name,
-          expectedDurationMs: values.expectedDurationMs,
-          referenceCanvas: canvas,
-          layout,
-          signal: controller.signal,
-        }),
+    await withBrandedVideoExportError('VIDEO_UNKNOWN_EXPORT_FAILURE', 'unknown', () =>
+      validateBrandedVideoOutput({
+        blob: outputFile,
+        fileName: outputFile.name,
+        expectedDurationMs: values.expectedDurationMs,
+        referenceCanvas: canvas,
+        layout,
+        signal: controller.signal,
+      }),
     );
     controller.signal.throwIfAborted();
     return outputFile;
@@ -336,10 +325,7 @@ async function withDeadline<T>(
     operation.then(
       (value) => finish(value),
       (error) =>
-        finish(
-          undefined,
-          error instanceof Error ? error : asUnknownBrandedVideoExportError(error),
-        ),
+        finish(undefined, error instanceof Error ? error : asUnknownBrandedVideoExportError(error)),
     );
   });
 }

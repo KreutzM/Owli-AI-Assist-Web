@@ -49,11 +49,7 @@ export class BrandedVideoExportError extends Error {
   readonly code: BrandedVideoExportErrorCode;
   readonly phase: BrandedVideoExportPhase;
 
-  constructor(
-    code: BrandedVideoExportErrorCode,
-    phase: BrandedVideoExportPhase,
-    cause?: unknown,
-  ) {
+  constructor(code: BrandedVideoExportErrorCode, phase: BrandedVideoExportPhase, cause?: unknown) {
     super(code, cause === undefined ? undefined : { cause });
     this.name = 'BrandedVideoExportError';
     this.code = code;

@@ -38,11 +38,7 @@ export async function recordAudioCanvas(input: {
         resolve(input.collector.finalize(input.recorder.mimeType));
       } catch (finalizeError) {
         reject(
-          typedError(
-            finalizeError,
-            'VIDEO_RECORDER_FINALIZATION_FAILED',
-            'recorder_finalization',
-          ),
+          typedError(finalizeError, 'VIDEO_RECORDER_FINALIZATION_FAILED', 'recorder_finalization'),
         );
       }
     };
@@ -76,13 +72,7 @@ export async function recordAudioCanvas(input: {
         input.recorder.stop();
       } catch (error) {
         stopImmediately();
-        finish(
-          typedError(
-            error,
-            'VIDEO_RECORDER_FINALIZATION_FAILED',
-            'recorder_finalization',
-          ),
-        );
+        finish(typedError(error, 'VIDEO_RECORDER_FINALIZATION_FAILED', 'recorder_finalization'));
       }
     };
     const onAbort = () => {
@@ -109,13 +99,7 @@ export async function recordAudioCanvas(input: {
       input.recorder.start(MEDIA_RECORDER_LIMITS.requestedChunkCadenceMs);
     } catch (error) {
       stopImmediately();
-      finish(
-        typedError(
-          error,
-          'VIDEO_RECORDER_INITIALIZATION_FAILED',
-          'recorder_initialization',
-        ),
-      );
+      finish(typedError(error, 'VIDEO_RECORDER_INITIALIZATION_FAILED', 'recorder_initialization'));
       return;
     }
     try {

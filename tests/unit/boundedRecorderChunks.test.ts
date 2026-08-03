@@ -29,10 +29,7 @@ describe('BoundedRecorderChunks', () => {
     const chunk = new Blob([new Uint8Array(MEDIA_RECORDER_LIMITS.maxChunkBytes)]);
 
     for (let count = 0; count < 4; count += 1) collector.add(chunk);
-    expectCode(
-      () => collector.add(new Blob([new Uint8Array([1])])),
-      'VIDEO_BYTE_LIMIT_EXCEEDED',
-    );
+    expectCode(() => collector.add(new Blob([new Uint8Array([1])])), 'VIDEO_BYTE_LIMIT_EXCEEDED');
   });
 
   it('rejects a final output above the target envelope', () => {
@@ -52,10 +49,7 @@ describe('BoundedRecorderChunks', () => {
     );
 
     const collector = new BoundedRecorderChunks(MEDIA_RECORDER_LIMITS.maxAppOwnedMediaBytes - 10);
-    expectCode(
-      () => collector.add(new Blob([new Uint8Array(11)])),
-      'VIDEO_BYTE_LIMIT_EXCEEDED',
-    );
+    expectCode(() => collector.add(new Blob([new Uint8Array(11)])), 'VIDEO_BYTE_LIMIT_EXCEEDED');
   });
 
   it('clears all app-owned chunk references after cleanup', () => {
@@ -66,10 +60,7 @@ describe('BoundedRecorderChunks', () => {
 
     expect(collector.totalBytes).toBe(0);
     expect(collector.chunkSizes).toEqual([]);
-    expectCode(
-      () => collector.finalize('video/webm'),
-      'VIDEO_RECORDER_FINALIZATION_FAILED',
-    );
+    expectCode(() => collector.finalize('video/webm'), 'VIDEO_RECORDER_FINALIZATION_FAILED');
   });
 });
 
