@@ -30,7 +30,6 @@ interface BrandedVideoRenderInput {
   imageBlob: Blob;
   logoBlob: Blob;
   audioBlob: Blob;
-  expectedDurationMs: number;
   signal: AbortSignal;
 }
 
@@ -45,12 +44,10 @@ export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promi
   const forwardAbort = () => controller.abort(values.signal.reason);
   if (values.signal.aborted) forwardAbort();
   else values.signal.addEventListener('abort', forwardAbort, { once: true });
-  const totalDeadline = window.setTimeout(
-    () =>
-      controller.abort(
-        new BrandedVideoExportError('VIDEO_RENDER_DEADLINE_EXCEEDED', 'render_deadline'),
-      ),
-    values.expectedDurationMs + BRANDED_VIDEO_TOTAL_SLACK_MS,
+  const renderStartedAt = Date.now();
+  let totalDeadline = scheduleRenderDeadline(
+    controller,
+    MEDIA_RECORDER_LIMITS.maxDurationMs + BRANDED_VIDEO_TOTAL_SLACK_MS,
   );
   let scene: ImageBitmap | undefined;
   let logo: ImageBitmap | undefined;
@@ -95,9 +92,17 @@ export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promi
       controller.signal,
       new BrandedVideoExportError('VIDEO_SOURCE_AUDIO_DECODE_FAILED', 'source_audio_decode'),
     );
-    runSourceAdmission(() =>
-      assertBrandedVideoDecodedAudio(audioBuffer, values.expectedDurationMs),
-    );
+    runSourceAdmission(() => assertBrandedVideoDecodedAudio(audioBuffer));
+    const sourceAudioDurationMs = audioBuffer.duration * 1_000;
+    window.clearTimeout(totalDeadline);
+    const remainingRenderMs =
+      sourceAudioDurationMs + BRANDED_VIDEO_TOTAL_SLACK_MS - (Date.now() - renderStartedAt);
+    if (remainingRenderMs <= 0) {
+      controller.abort(renderDeadlineError());
+    } else {
+      totalDeadline = scheduleRenderDeadline(controller, remainingRenderMs);
+    }
+    controller.signal.throwIfAborted();
     await withBrandedVideoExportError(
       'VIDEO_SOURCE_AUDIO_DECODE_FAILED',
       'source_audio_decode',
@@ -183,7 +188,7 @@ export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promi
       validateBrandedVideoOutput({
         blob: outputFile,
         fileName: outputFile.name,
-        expectedDurationMs: values.expectedDurationMs,
+        sourceAudioDurationMs,
         referenceCanvas: canvas,
         layout,
         signal: controller.signal,
@@ -288,6 +293,14 @@ function runSourceAdmission<T>(operation: () => T): T {
     'source_admission',
     operation,
   );
+}
+
+function scheduleRenderDeadline(controller: AbortController, timeoutMs: number): number {
+  return window.setTimeout(() => controller.abort(renderDeadlineError()), timeoutMs);
+}
+
+function renderDeadlineError(): BrandedVideoExportError {
+  return new BrandedVideoExportError('VIDEO_RENDER_DEADLINE_EXCEEDED', 'render_deadline');
 }
 
 async function withDeadline<T>(
