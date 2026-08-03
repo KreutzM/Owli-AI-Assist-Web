@@ -21,9 +21,7 @@ function command(commandName, args, cwd, { allowFailure = false, input } = {}) {
     shell: false,
   });
   if (!allowFailure && result.status !== 0) {
-    throw new Error(
-      `${commandName} ${args.join(' ')} failed: ${result.stderr.toString('utf8')}`,
-    );
+    throw new Error(`${commandName} ${args.join(' ')} failed: ${result.stderr.toString('utf8')}`);
   }
   return result;
 }
