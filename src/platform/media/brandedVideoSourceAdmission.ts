@@ -1,7 +1,4 @@
-import {
-  BRANDED_VIDEO_DURATION_DRIFT_MS,
-  MEDIA_RECORDER_LIMITS,
-} from '@/platform/media/mediaRecorderLimits';
+import { MEDIA_RECORDER_LIMITS } from '@/platform/media/mediaRecorderLimits';
 import { BrandedVideoExportError } from '@/shared/media/brandedVideoExportError';
 
 const SILENCE_RMS_THRESHOLD = 0.0001;
@@ -10,16 +7,9 @@ interface BrandedVideoSourceInput {
   imageBlob: Blob;
   logoBlob: Blob;
   audioBlob: Blob;
-  expectedDurationMs: number;
 }
 
 export function assertBrandedVideoSourceInput(values: BrandedVideoSourceInput): void {
-  if (!Number.isFinite(values.expectedDurationMs) || values.expectedDurationMs <= 0) {
-    throw admissionError('VIDEO_SOURCE_INPUT_INVALID');
-  }
-  if (values.expectedDurationMs > MEDIA_RECORDER_LIMITS.maxDurationMs) {
-    throw admissionError('VIDEO_SOURCE_DURATION_LIMIT_EXCEEDED');
-  }
   if (
     values.audioBlob.size <= 0 ||
     values.audioBlob.size > MEDIA_RECORDER_LIMITS.hardCompressedInputBytes
@@ -40,10 +30,7 @@ export function assertBrandedVideoSourceImageDimensions(scene: ImageBitmap): voi
   }
 }
 
-export function assertBrandedVideoDecodedAudio(
-  buffer: AudioBuffer,
-  expectedDurationMs: number,
-): void {
+export function assertBrandedVideoDecodedAudio(buffer: AudioBuffer): void {
   if (
     !Number.isFinite(buffer.duration) ||
     buffer.duration <= 0 ||
@@ -54,6 +41,9 @@ export function assertBrandedVideoDecodedAudio(
   ) {
     throw admissionError('VIDEO_SOURCE_INPUT_INVALID');
   }
+  if (buffer.duration * 1_000 > MEDIA_RECORDER_LIMITS.maxDurationMs) {
+    throw admissionError('VIDEO_SOURCE_DURATION_LIMIT_EXCEEDED');
+  }
   if (buffer.numberOfChannels <= 0 || buffer.numberOfChannels > MEDIA_RECORDER_LIMITS.maxChannels) {
     throw admissionError('VIDEO_SOURCE_AUDIO_CHANNELS_UNSUPPORTED');
   }
@@ -63,9 +53,6 @@ export function assertBrandedVideoDecodedAudio(
   const decodedPcmBytes = buffer.length * buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
   if (decodedPcmBytes > MEDIA_RECORDER_LIMITS.maxDecodedPcmBytes) {
     throw admissionError('VIDEO_SOURCE_AUDIO_PCM_LIMIT_EXCEEDED');
-  }
-  if (Math.abs(buffer.duration * 1_000 - expectedDurationMs) > BRANDED_VIDEO_DURATION_DRIFT_MS) {
-    throw admissionError('VIDEO_SOURCE_AUDIO_DURATION_MISMATCH');
   }
 
   let energy = 0;
@@ -95,7 +82,6 @@ function admissionError(
     | 'VIDEO_SOURCE_AUDIO_CHANNELS_UNSUPPORTED'
     | 'VIDEO_SOURCE_AUDIO_SAMPLE_RATE_UNSUPPORTED'
     | 'VIDEO_SOURCE_AUDIO_PCM_LIMIT_EXCEEDED'
-    | 'VIDEO_SOURCE_AUDIO_DURATION_MISMATCH'
     | 'VIDEO_SOURCE_AUDIO_SILENT',
 ): BrandedVideoExportError {
   return new BrandedVideoExportError(code, 'source_admission');
