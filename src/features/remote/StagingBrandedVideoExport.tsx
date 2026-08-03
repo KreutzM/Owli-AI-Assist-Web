@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { downloadAudioPostcard } from '@/core/api/downloadAudioPostcard';
 import { loadOwliBrandingLogo } from '@/core/api/loadOwliBrandingLogo';
-import {
-  validateAudioCapability,
-  type AudioPostcardOptions,
-  type AudioPostcardReadyResult,
+import type {
+  AudioPostcardOptions,
+  AudioPostcardReadyResult,
 } from '@/core/api/remoteAudioPostcardContracts';
+import { canStartStagingBrandedVideoExport } from '@/features/remote/stagingBrandedVideoAvailability';
 import type { NormalizedSceneImage } from '@/platform/image/browserSceneImageNormalizer';
 import { renderBrandedVideo } from '@/platform/media/browserBrandedVideoRenderer';
 import { canShareFile, shareFile } from '@/platform/share/browserShare';
+
+export {
+  canStartStagingBrandedVideoExport,
+  isStagingBrandedVideoExportAvailable,
+} from '@/features/remote/stagingBrandedVideoAvailability';
 
 const CANCELLED_MESSAGE = 'Videoerstellung wurde abgebrochen. Die Audio-Postcard bleibt verfügbar.';
 const EXPIRED_MESSAGE =
@@ -31,36 +36,6 @@ interface StagingBrandedVideoExportProps {
   result: AudioPostcardReadyResult;
   options: AudioPostcardOptions;
   apiBaseUrl: string;
-}
-
-export function isStagingBrandedVideoExportAvailable(input: {
-  buildFlag: string | undefined;
-  apiBaseUrl: string | undefined;
-  image: NormalizedSceneImage | undefined;
-  result: AudioPostcardReadyResult | undefined;
-  options: AudioPostcardOptions | undefined;
-}): boolean {
-  return (
-    input.buildFlag === 'enabled' &&
-    input.apiBaseUrl === 'https://api-staging.owli-ai.com/' &&
-    input.image !== undefined &&
-    input.result !== undefined &&
-    input.options !== undefined
-  );
-}
-
-export function canStartStagingBrandedVideoExport(input: {
-  result: AudioPostcardReadyResult;
-  options: AudioPostcardOptions;
-  apiBaseUrl: string;
-  now?: number;
-}): boolean {
-  try {
-    validateAudioCapability(input.result, input.options, input.apiBaseUrl, input.now ?? Date.now());
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 export function StagingBrandedVideoExport({
