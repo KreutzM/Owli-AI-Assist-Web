@@ -38,13 +38,10 @@ env:
   CHECKOUT_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event_name == 'workflow_dispatch' && inputs.ref || github.sha }}
 
 jobs:
-  quick:
-    name: Quick format, type, unit, and build checks
-    if: >-
-      (github.event_name == 'pull_request' && github.event.pull_request.draft == true) ||
-      (github.event_name == 'workflow_dispatch' && inputs.tier == 'quick')
+  format:
+    name: Format check
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - name: Check out exact revision
         uses: actions/checkout@v4
@@ -66,27 +63,176 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run quick repository checks
-        shell: bash
-        run: |
-          set -o pipefail
-          mkdir -p artifacts/ci
-          pnpm check:fast 2>&1 | tee artifacts/ci/check-fast.log
+      - name: Check formatting
+        run: pnpm format:check
 
-      - name: Upload quick failure log
-        if: failure()
-        uses: actions/upload-artifact@v4
+  core:
+    name: Core lint, type, policy, and unit checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v4
         with:
-          name: quick-ci-log-${{ github.event.pull_request.head.sha || github.sha }}
-          path: artifacts/ci/check-fast.log
-          if-no-files-found: warn
-          retention-days: 1
+          ref: ${{ env.CHECKOUT_REF }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run ESLint
+        run: pnpm lint
+
+      - name: Run TypeScript checks
+        run: pnpm typecheck
+
+      - name: Run architecture guardrails
+        run: pnpm guardrails
+
+      - name: Check workflow policy
+        run: pnpm workflow:check
+
+      - name: Test atomic publication helper
+        run: pnpm atomic:publish:test
+
+      - name: Run unit tests
+        run: pnpm test
+
+      - name: Test exact-head Prettier patch helper
+        run: pnpm prettier:fix:test
+
+  quick-build:
+    name: Quick mock PWA build
+    if: >-
+      (github.event_name == 'pull_request' && github.event.pull_request.draft == true) ||
+      (github.event_name == 'workflow_dispatch' && inputs.tier == 'quick')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CHECKOUT_REF }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Build mock PWA
         run: pnpm build
 
+  quick:
+    name: Quick format, type, unit, and build checks
+    needs:
+      - format
+      - core
+      - quick-build
+    if: >-
+      always() && (
+        (github.event_name == 'pull_request' && github.event.pull_request.draft == true) ||
+        (github.event_name == 'workflow_dispatch' && inputs.tier == 'quick')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require all quick checks
+        env:
+          FORMAT_RESULT: ${{ needs.format.result }}
+          CORE_RESULT: ${{ needs.core.result }}
+          QUICK_BUILD_RESULT: ${{ needs.quick-build.result }}
+        shell: bash
+        run: |
+          test "$FORMAT_RESULT" = success
+          test "$CORE_RESULT" = success
+          test "$QUICK_BUILD_RESULT" = success
+
+  prettier-fix:
+    name: Generate exact-head Prettier fix artifact
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPECTED_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      OUTPUT_DIRECTORY: artifacts/prettier-fix
+    steps:
+      - name: Check out exact pull-request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact head and required Git objects
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          git cat-file -e "$EXPECTED_BASE_SHA^{commit}"
+          git cat-file -e "$EXPECTED_HEAD_SHA^{commit}"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate exact-head patch and manifest
+        run: >-
+          node tools/generate-prettier-fix.mjs
+          --repository "${{ github.repository }}"
+          --base "$EXPECTED_BASE_SHA"
+          --head "$EXPECTED_HEAD_SHA"
+          --output "$OUTPUT_DIRECTORY"
+          --max-files 200
+          --max-total-bytes 8388608
+          --max-file-bytes 2097152
+
+      - name: Upload exact-head Prettier patch artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: prettier-fix-${{ github.event.pull_request.head.sha }}
+          path: artifacts/prettier-fix/
+          if-no-files-found: error
+          retention-days: 1
+
   full-linux:
     name: Full Linux aggregate and browser validation
+    needs:
+      - format
+      - core
     if: >-
       github.event_name == 'push' ||
       github.event_name == 'merge_group' ||
@@ -122,21 +268,17 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium webkit
 
-      - name: Run final aggregate checks once
-        shell: bash
-        run: |
-          set -o pipefail
-          mkdir -p artifacts/ci
-          pnpm check:all 2>&1 | tee artifacts/ci/check-all.log
+      - name: Build mock PWA
+        run: pnpm build
 
-      - name: Upload full failure log
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: full-ci-log-${{ steps.revision.outputs.sha }}
-          path: artifacts/ci/check-all.log
-          if-no-files-found: warn
-          retention-days: 1
+      - name: Check Vite port policy
+        run: pnpm test:ports
+
+      - name: Run browser validation
+        run: pnpm test:e2e
+
+      - name: Run staging browser validation
+        run: pnpm test:e2e:staging
 
       - name: Check Safari diagnostics syntax
         run: |
@@ -166,6 +308,9 @@ jobs:
 
   full-windows:
     name: Full Windows mock, staging, and production builds
+    needs:
+      - format
+      - core
     if: >-
       github.event_name == 'push' ||
       github.event_name == 'merge_group' ||
