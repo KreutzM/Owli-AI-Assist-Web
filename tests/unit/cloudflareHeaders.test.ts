@@ -20,6 +20,7 @@ async function printBuildConfig(target: string): Promise<Record<string, string>>
         VITE_OWLI_API_MODE: 'remote',
         VITE_OWLI_API_BASE_URL: 'https://inherited.invalid/',
         VITE_OWLI_VERSION_CODE: '999',
+        VITE_OWLI_STAGING_BRANDED_VIDEO_EXPORT: 'enabled',
       },
     },
   );
@@ -28,18 +29,20 @@ async function printBuildConfig(target: string): Promise<Record<string, string>>
 
 describe('deployment build targets', () => {
   it('clears inherited runtime configuration and binds each build target', async () => {
-    await expect(printBuildConfig('mock')).resolves.toMatchObject({
+    const mock = await printBuildConfig('mock');
+    expect(mock).toMatchObject({
       OWLI_WEB_DEPLOY_TARGET: 'mock',
       VITE_OWLI_API_MODE: 'mock',
       VITE_OWLI_APP_VERSION: '0.1.0',
       VITE_OWLI_VERSION_CODE: '1',
       VITE_OWLI_DEFAULT_LOCALE: 'de-DE',
       VITE_OWLI_BUILD_TARGET: 'mock',
-    });
-    await expect(printBuildConfig('mock')).resolves.toMatchObject({
       VITE_OWLI_GIT_SHA: expect.stringMatching(/^[a-f0-9]{40}$/u),
     });
-    await expect(printBuildConfig('staging')).resolves.toMatchObject({
+    expect(mock).not.toHaveProperty('VITE_OWLI_STAGING_BRANDED_VIDEO_EXPORT');
+
+    const staging = await printBuildConfig('staging');
+    expect(staging).toMatchObject({
       OWLI_WEB_DEPLOY_TARGET: 'staging',
       VITE_OWLI_API_MODE: 'remote',
       VITE_OWLI_API_BASE_URL: 'https://api-staging.owli-ai.com/',
@@ -47,21 +50,29 @@ describe('deployment build targets', () => {
       VITE_OWLI_VERSION_CODE: '1',
       VITE_OWLI_DEFAULT_LOCALE: 'de-DE',
       VITE_OWLI_BUILD_TARGET: 'staging',
-    });
-    await expect(printBuildConfig('staging')).resolves.toMatchObject({
+      VITE_OWLI_STAGING_BRANDED_VIDEO_EXPORT: 'enabled',
       VITE_OWLI_GIT_SHA: expect.stringMatching(/^[a-f0-9]{40}$/u),
     });
-    await expect(printBuildConfig('production')).resolves.toMatchObject({
+
+    const production = await printBuildConfig('production');
+    expect(production).toMatchObject({
       OWLI_WEB_DEPLOY_TARGET: 'production',
       VITE_OWLI_API_MODE: 'mock',
       VITE_OWLI_APP_VERSION: '0.1.0',
       VITE_OWLI_VERSION_CODE: '1',
       VITE_OWLI_DEFAULT_LOCALE: 'de-DE',
       VITE_OWLI_BUILD_TARGET: 'production',
-    });
-    await expect(printBuildConfig('production')).resolves.toMatchObject({
       VITE_OWLI_GIT_SHA: expect.stringMatching(/^[a-f0-9]{40}$/u),
     });
+    expect(production).not.toHaveProperty('VITE_OWLI_STAGING_BRANDED_VIDEO_EXPORT');
+
+    const prototype = await printBuildConfig('staging-mediarecorder-prototype');
+    expect(prototype).toMatchObject({
+      OWLI_WEB_DEPLOY_TARGET: 'staging',
+      VITE_OWLI_BUILD_TARGET: 'staging-mediarecorder-prototype',
+      VITE_OWLI_STAGING_PROTOTYPE_MEDIARECORDER: 'enabled',
+    });
+    expect(prototype).not.toHaveProperty('VITE_OWLI_STAGING_BRANDED_VIDEO_EXPORT');
   });
 });
 

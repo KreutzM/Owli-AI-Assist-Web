@@ -4,13 +4,18 @@ import type { RemoteAssistClient } from '@/core/api/remoteAssistClient';
 import type { RemoteCamera } from '@/platform/camera/remoteCamera';
 import type { BrowserSceneImageNormalizer } from '@/platform/image/browserSceneImageNormalizer';
 import type { SpeechLifecycleGateway } from '@/platform/speech/browserSpeech';
+import {
+  isAudioPostcardActive,
+  readyAudioPostcardResult,
+} from '@/features/remote/audioPostcardState';
 import { isFollowupActive } from '@/features/remote/followupState';
-import { isAudioPostcardActive } from '@/features/remote/audioPostcardState';
 import { RemoteAudioPostcardPanel } from '@/features/remote/RemoteAudioPostcardPanel';
 import { RemoteFollowupPanel } from '@/features/remote/RemoteFollowupPanel';
 import { RemoteSceneContent } from '@/features/remote/RemoteSceneContent';
-import { useFollowupAnnouncements } from '@/features/remote/useFollowupAnnouncements';
+import { StagingBrandedVideoExport } from '@/features/remote/StagingBrandedVideoExport';
+import { isStagingBrandedVideoExportAvailable } from '@/features/remote/stagingBrandedVideoAvailability';
 import { useAudioPostcard } from '@/features/remote/useAudioPostcard';
+import { useFollowupAnnouncements } from '@/features/remote/useFollowupAnnouncements';
 import { useRemoteScene } from '@/features/remote/useRemoteScene';
 import { useSceneAnnouncements } from '@/features/remote/useSceneAnnouncements';
 import '@/features/remote/remote.css';
@@ -36,6 +41,7 @@ export function RemoteAssist({ client, camera, normalizer, speech, locale }: Rem
   const previousSceneStatus = useRef(state.status);
   const [videoReady, setVideoReady] = useState(false);
   const [retryClock, setRetryClock] = useState(() => Date.now());
+  const runtimeApiBaseUrl = import.meta.env.VITE_OWLI_API_BASE_URL;
 
   const readinessEnabled =
     state.readiness?.sceneDescribeEnabled === true && state.selectedProfileId !== undefined;
@@ -55,6 +61,14 @@ export function RemoteAssist({ client, camera, normalizer, speech, locale }: Rem
     conflictingRequest: sceneActive || followupActive,
   });
   const postcardActive = isAudioPostcardActive(postcard.state.status);
+  const readyPostcard = readyAudioPostcardResult(postcard.state);
+  const stagingVideoAvailable = isStagingBrandedVideoExportAvailable({
+    buildFlag: import.meta.env.VITE_OWLI_STAGING_BRANDED_VIDEO_EXPORT,
+    apiBaseUrl: runtimeApiBaseUrl,
+    image: state.image,
+    result: readyPostcard,
+    options: postcard.state.options,
+  });
   const active = sceneActive || followupActive || postcardActive;
   const cameraVisible = state.status === 'camera_starting' || state.status === 'camera_ready';
   const sceneRetrySeconds =
@@ -182,6 +196,21 @@ export function RemoteAssist({ client, camera, normalizer, speech, locale }: Rem
           onNewImage={resetScene}
         />
       )}
+
+      {stagingVideoAvailable &&
+        runtimeApiBaseUrl &&
+        state.image &&
+        readyPostcard &&
+        postcard.state.options && (
+          <StagingBrandedVideoExport
+            key={`${state.image.previewUrl}:${readyPostcard.requestId}`}
+            enabled
+            image={state.image}
+            result={readyPostcard}
+            options={postcard.state.options}
+            apiBaseUrl={runtimeApiBaseUrl}
+          />
+        )}
 
       {state.status === 'complete' && (
         <section className="speech-disclosure" aria-labelledby="speech-title">
