@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { assertDecodedBrandedFrame } from '@/platform/media/brandedVideoFrameValidation';
 import { validateBrandedVideoOutput } from '@/platform/media/browserBrandedVideoValidation';
+import { BRANDED_VIDEO_DURATION_DRIFT_MS } from '@/platform/media/mediaRecorderLimits';
 import {
   assertExpectedWebmTracks,
   inspectWebmContainer,
@@ -89,7 +90,16 @@ describe('branded video output diagnostic categories', () => {
     await expectCode(validate(), 'VIDEO_METADATA_VALIDATION_FAILED');
   });
 
-  it('categorizes output duration resolution and drift', async () => {
+  it('keeps the 250-ms tolerance between decoded source audio and measured output', async () => {
+    video.duration = (1_000 + BRANDED_VIDEO_DURATION_DRIFT_MS) / 1_000;
+    await expect(validate()).resolves.toBeUndefined();
+
+    video = new FakeVideo();
+    video.duration = (1_000 + BRANDED_VIDEO_DURATION_DRIFT_MS + 1) / 1_000;
+    await expectCode(validate(), 'VIDEO_DURATION_VALIDATION_FAILED');
+  });
+
+  it('categorizes output duration resolution and larger drift', async () => {
     video.duration = 2;
 
     await expectCode(validate(), 'VIDEO_DURATION_VALIDATION_FAILED');
@@ -125,14 +135,16 @@ describe('branded video output diagnostic categories', () => {
 function validate({
   blob = new Blob(['webm'], { type: 'video/webm' }),
   fileName = 'output.webm',
+  sourceAudioDurationMs = 1_000,
 }: {
   blob?: Blob;
   fileName?: string;
+  sourceAudioDurationMs?: number;
 } = {}) {
   return validateBrandedVideoOutput({
     blob,
     fileName,
-    expectedDurationMs: 1_000,
+    sourceAudioDurationMs,
     referenceCanvas: {} as HTMLCanvasElement,
     layout: {} as never,
     signal: new AbortController().signal,
