@@ -21,11 +21,15 @@ const validInspection = {
   videoCodecs: ['V_VP8'],
   audioCodecs: ['A_OPUS'],
 };
-const validAudioBuffer = {
+const validAudioBuffer: AudioBuffer = {
   duration: 1,
+  length: 1_000,
   numberOfChannels: 1,
+  sampleRate: 48_000,
   getChannelData: () => new Float32Array([0.1, -0.1, 0.2]),
-} as AudioBuffer;
+  copyFromChannel: vi.fn(),
+  copyToChannel: vi.fn(),
+};
 let video: FakeVideo;
 
 beforeEach(() => {
@@ -36,13 +40,12 @@ beforeEach(() => {
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:validation-output');
   vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
   const createElement = document.createElement.bind(document);
-  vi.spyOn(document, 'createElement').mockImplementation(((
-    tagName: string,
-    options?: ElementCreationOptions,
-  ) =>
-    tagName === 'video'
-      ? (video as unknown as HTMLVideoElement)
-      : createElement(tagName, options)) as typeof document.createElement);
+  vi.spyOn(document, 'createElement').mockImplementation(
+    (tagName: string, options?: ElementCreationOptions) =>
+      tagName === 'video'
+        ? (video as unknown as HTMLVideoElement)
+        : createElement(tagName, options),
+  );
   installAudioContext(validAudioBuffer);
 });
 

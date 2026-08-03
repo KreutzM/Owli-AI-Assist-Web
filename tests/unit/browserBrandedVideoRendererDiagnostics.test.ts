@@ -88,7 +88,16 @@ describe('branded video renderer diagnostic categories', () => {
     vi.mocked(recordAudioCanvas).mockImplementation(
       ({ signal }) =>
         new Promise((_, reject) => {
-          signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+          signal.addEventListener(
+            'abort',
+            () =>
+              reject(
+                signal.reason instanceof Error
+                  ? signal.reason
+                  : new DOMException('Aborted', 'AbortError'),
+              ),
+            { once: true },
+          );
         }),
     );
     const rendering = renderBrandedVideo(input());
@@ -120,13 +129,10 @@ function installMediaGlobals(): void {
   vi.stubGlobal('MediaRecorder', FakeMediaRecorder);
   vi.stubGlobal('MediaStream', FakeMediaStream);
   const createElement = document.createElement.bind(document);
-  vi.spyOn(document, 'createElement').mockImplementation(((
-    tagName: string,
-    options?: ElementCreationOptions,
-  ) =>
-    tagName === 'canvas'
-      ? (fakeCanvas() as HTMLCanvasElement)
-      : createElement(tagName, options)) as typeof document.createElement);
+  vi.spyOn(document, 'createElement').mockImplementation(
+    (tagName: string, options?: ElementCreationOptions) =>
+      tagName === 'canvas' ? fakeCanvas() : createElement(tagName, options),
+  );
 }
 
 function bitmap(width: number, height: number): ImageBitmap {
@@ -193,7 +199,9 @@ class FakeAudioContext {
       numberOfChannels: 1,
       sampleRate: 48_000,
       getChannelData: () => new Float32Array([0.1, -0.1, 0.2]),
-    } as AudioBuffer;
+      copyFromChannel: vi.fn(),
+      copyToChannel: vi.fn(),
+    };
   }
 
   async resume(): Promise<void> {}

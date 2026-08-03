@@ -43,7 +43,9 @@ describe('browser recorder session diagnostic categories', () => {
   it('categorizes recorder finalization timeout', async () => {
     vi.useFakeTimers();
     const fixture = recorderFixture();
-    fixture.source.start = vi.fn(() => queueMicrotask(() => fixture.source.onended?.(new Event())));
+    fixture.source.start = vi.fn(() =>
+      queueMicrotask(() => fixture.source.onended?.(new Event('ended'))),
+    );
     fixture.recorder.start = vi.fn(() => {
       fixture.recorder.state = 'recording';
     });
