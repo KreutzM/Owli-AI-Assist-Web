@@ -50,12 +50,12 @@ describe('browser recorder session diagnostic categories', () => {
       fixture.recorder.state = 'recording';
     });
     fixture.recorder.stop = vi.fn();
-    const recording = fixture.record();
+    const recording = expectCode(fixture.record(), 'VIDEO_RECORDER_FINALIZATION_FAILED');
     await flushWork();
 
     await vi.advanceTimersByTimeAsync(MEDIA_RECORDER_LIMITS.finalizationDeadlineMs);
 
-    await expectCode(recording, 'VIDEO_RECORDER_FINALIZATION_FAILED');
+    await recording;
   });
 });
 
