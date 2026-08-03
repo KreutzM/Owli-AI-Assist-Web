@@ -64,7 +64,7 @@ export function RemoteAssist({ client, camera, normalizer, speech, locale }: Rem
   });
   const postcardActive = isAudioPostcardActive(postcard.state.status);
   const readyPostcard = readyAudioPostcardResult(postcard.state);
-  const stagingVideoEnabled = isStagingBrandedVideoExportAvailable({
+  const stagingVideoAvailable = isStagingBrandedVideoExportAvailable({
     buildFlag: import.meta.env.VITE_OWLI_STAGING_BRANDED_VIDEO_EXPORT,
     apiBaseUrl: runtimeApiBaseUrl,
     image: state.image,
@@ -199,7 +199,7 @@ export function RemoteAssist({ client, camera, normalizer, speech, locale }: Rem
         />
       )}
 
-      {stagingVideoEnabled &&
+      {stagingVideoAvailable &&
         runtimeApiBaseUrl &&
         state.image &&
         readyPostcard &&
