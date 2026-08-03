@@ -135,8 +135,8 @@ function installMediaGlobals(): void {
   );
 }
 
-function bitmap(width: number, height: number): ImageBitmap {
-  return { width, height, close: vi.fn() } as unknown as ImageBitmap;
+function bitmap(width: number, height: number) {
+  return { width, height, close: vi.fn() };
 }
 
 function fakeCanvas(): HTMLCanvasElement {
