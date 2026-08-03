@@ -12,10 +12,8 @@ import { isFollowupActive } from '@/features/remote/followupState';
 import { RemoteAudioPostcardPanel } from '@/features/remote/RemoteAudioPostcardPanel';
 import { RemoteFollowupPanel } from '@/features/remote/RemoteFollowupPanel';
 import { RemoteSceneContent } from '@/features/remote/RemoteSceneContent';
-import {
-  isStagingBrandedVideoExportAvailable,
-  StagingBrandedVideoExport,
-} from '@/features/remote/StagingBrandedVideoExport';
+import { StagingBrandedVideoExport } from '@/features/remote/StagingBrandedVideoExport';
+import { isStagingBrandedVideoExportAvailable } from '@/features/remote/stagingBrandedVideoAvailability';
 import { useAudioPostcard } from '@/features/remote/useAudioPostcard';
 import { useFollowupAnnouncements } from '@/features/remote/useFollowupAnnouncements';
 import { useRemoteScene } from '@/features/remote/useRemoteScene';
