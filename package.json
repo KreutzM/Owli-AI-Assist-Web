@@ -35,7 +35,9 @@
     "workflow:check": "node tools/check-workflow-policy.mjs",
     "atomic:publish": "node tools/publish-atomic-git-data.mjs",
     "atomic:publish:test": "node tools/publish-atomic-git-data.test.mjs",
-    "check:fast": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm guardrails && pnpm workflow:check && pnpm atomic:publish:test && pnpm test",
+    "prettier:fix:test": "node --test tools/generate-prettier-fix.test.mjs",
+    "check:core": "pnpm lint && pnpm typecheck && pnpm guardrails && pnpm workflow:check && pnpm atomic:publish:test && pnpm test && pnpm prettier:fix:test",
+    "check:fast": "pnpm format:check && pnpm check:core",
     "check:all": "pnpm check:fast && pnpm build && pnpm test:ports && pnpm test:e2e && pnpm test:e2e:staging"
   },
   "dependencies": {
