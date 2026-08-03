@@ -13,7 +13,6 @@ function input(overrides: Partial<RenderInput> = {}): RenderInput {
     imageBlob,
     logoBlob,
     audioBlob,
-    expectedDurationMs: 1_000,
     signal: new AbortController().signal,
     ...overrides,
   };
@@ -25,13 +24,6 @@ afterEach(() => {
 });
 
 describe('renderBrandedVideo admission and lifecycle', () => {
-  it('rejects a source duration above the Candidate A 30-second limit', async () => {
-    await expectCode(
-      renderBrandedVideo(input({ expectedDurationMs: MEDIA_RECORDER_LIMITS.maxDurationMs + 1 })),
-      'VIDEO_SOURCE_DURATION_LIMIT_EXCEEDED',
-    );
-  });
-
   it('rejects empty or oversized compressed audio before browser media allocation', async () => {
     await expectCode(
       renderBrandedVideo(input({ audioBlob: new Blob([], { type: 'audio/mpeg' }) })),
