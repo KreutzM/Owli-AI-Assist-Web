@@ -39,8 +39,8 @@
     "check:all": "pnpm check:fast && pnpm build && pnpm test:ports && pnpm test:e2e && pnpm test:e2e:staging"
   },
   "dependencies": {
-    "react": "19.2.7",
-    "react-dom": "19.2.7",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "workbox-window": "7.4.1",
     "zod": "4.4.3"
   },
@@ -52,8 +52,8 @@
     "@testing-library/react": "16.3.2",
     "@testing-library/user-event": "14.6.1",
     "@types/node": "26.1.1",
-    "@types/react": "19.2.17",
-    "@types/react-dom": "19.2.3",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
     "@vitejs/plugin-react": "6.0.3",
     "@vitest/coverage-v8": "4.1.10",
     "eslint": "9.35.0",
