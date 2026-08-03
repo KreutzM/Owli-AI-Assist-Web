@@ -132,11 +132,8 @@ export function StagingBrandedVideoExport({
   useEffect(() => {
     if (!capabilityUsableRef.current) return;
     const remainingMs = Date.parse(result.expiresAt) - Date.now();
-    if (!Number.isFinite(remainingMs) || remainingMs <= 0) {
-      expireCapability();
-      return;
-    }
-    const timer = window.setTimeout(expireCapability, remainingMs);
+    const timeoutMs = Number.isFinite(remainingMs) ? Math.max(0, remainingMs) : 0;
+    const timer = window.setTimeout(expireCapability, timeoutMs);
     return () => window.clearTimeout(timer);
   }, [expireCapability, result.expiresAt]);
 
@@ -185,9 +182,9 @@ export function StagingBrandedVideoExport({
     const attempt = attemptRef.current;
     const localWorkController = new AbortController();
     const downloadController = new AbortController();
+    const attemptProgress: { audioDownloaded: boolean } = { audioDownloaded: false };
     localWorkControllerRef.current = localWorkController;
     downloadControllerRef.current = downloadController;
-    let audioDownloaded = false;
     setState({
       status: 'downloading',
       message: 'Audio-Postcard wird sicher geladen …',
@@ -200,7 +197,7 @@ export function StagingBrandedVideoExport({
         apiBaseUrl,
         signal: downloadController.signal,
       }).then((audioBlob) => {
-        audioDownloaded = true;
+        attemptProgress.audioDownloaded = true;
         if (downloadControllerRef.current === downloadController) {
           downloadControllerRef.current = undefined;
         }
@@ -227,7 +224,7 @@ export function StagingBrandedVideoExport({
         expectedDurationMs: result.audio.durationMs,
         signal: localWorkController.signal,
       });
-      if (attempt !== attemptRef.current || localWorkController.signal.aborted) return;
+      if (attempt !== attemptRef.current) return;
 
       const url = URL.createObjectURL(file);
       outputUrlRef.current = url;
@@ -243,11 +240,9 @@ export function StagingBrandedVideoExport({
         downloadController.abort(new DOMException('Video export failed.', 'AbortError'));
         downloadControllerRef.current = undefined;
       }
-      if (!localWorkController.signal.aborted) {
-        localWorkController.abort(new DOMException('Video export failed.', 'AbortError'));
-      }
+      localWorkController.abort(new DOMException('Video export failed.', 'AbortError'));
       if (
-        !audioDownloaded &&
+        !attemptProgress.audioDownloaded &&
         (!capabilityUsableRef.current || Date.now() >= Date.parse(result.expiresAt))
       ) {
         expireCapability();
