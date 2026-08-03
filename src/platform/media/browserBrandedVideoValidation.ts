@@ -79,8 +79,7 @@ export async function validateBrandedVideoOutput(
       () => resolveDurationMs(video, input.signal),
     );
     if (
-      Math.abs(measuredDurationMs - input.sourceAudioDurationMs) >
-      BRANDED_VIDEO_DURATION_DRIFT_MS
+      Math.abs(measuredDurationMs - input.sourceAudioDurationMs) > BRANDED_VIDEO_DURATION_DRIFT_MS
     ) {
       throw new BrandedVideoExportError('VIDEO_DURATION_VALIDATION_FAILED', 'duration_validation');
     }
