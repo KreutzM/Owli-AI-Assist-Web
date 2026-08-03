@@ -206,14 +206,14 @@ function decodedAudio({
     length,
     numberOfChannels,
     sampleRate,
-    getChannelData: vi.fn(() => channelData),
+    getChannelData: () => channelData,
     copyFromChannel: vi.fn(),
     copyToChannel: vi.fn(),
   };
 }
 
 function bitmap(width: number, height: number): ImageBitmap {
-  return { width, height, close: vi.fn() } as unknown as ImageBitmap;
+  return { width, height, close: vi.fn() };
 }
 
 function expectCode(operation: () => void, code: BrandedVideoExportErrorCode): void {

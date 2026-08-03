@@ -114,7 +114,7 @@ describe('real Chrome decoded-audio admission harness', () => {
         expect(outcome?.code).toBe(fixture.expectedCode);
       }
 
-      console.info(
+      console.warn(
         `BRANDED_VIDEO_ADMISSION_CHROME_REPORT ${JSON.stringify({
           browserVersion: browser.version(),
           fixtureSource:
@@ -136,7 +136,7 @@ function toAudioBuffer(value: {
   channels: { length: number; stride: number; values: number[] }[];
 }): AudioBuffer {
   const channelData = value.channels.map(({ length, stride, values }) => {
-    const sparse = { length } as unknown as Float32Array & Record<number, number>;
+    const sparse = new Float32Array(length);
     for (let sample = 0, index = 0; index < length; sample += 1, index += stride) {
       sparse[index] = values[sample] ?? 0;
     }

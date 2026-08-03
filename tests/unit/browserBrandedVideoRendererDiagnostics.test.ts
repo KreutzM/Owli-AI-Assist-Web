@@ -250,12 +250,17 @@ function installMediaGlobals(): void {
 function installBitmapDecoder(): void {
   vi.stubGlobal(
     'createImageBitmap',
-    vi.fn().mockResolvedValueOnce(nextScene).mockResolvedValueOnce(nextLogo),
+    vi
+      .fn()
+      .mockResolvedValueOnce(nextScene)
+      .mockResolvedValueOnce(nextLogo)
+      .mockResolvedValueOnce(nextScene)
+      .mockResolvedValueOnce(nextLogo),
   );
 }
 
 function bitmap(width: number, height: number): ImageBitmap {
-  return { width, height, close: vi.fn() } as unknown as ImageBitmap;
+  return { width, height, close: vi.fn() };
 }
 
 function decodedAudio({
@@ -278,10 +283,10 @@ function decodedAudio({
     length,
     numberOfChannels,
     sampleRate,
-    getChannelData: vi.fn(() => {
+    getChannelData: () => {
       if (channelDataFailure) throw channelDataFailure;
       return channelData;
-    }),
+    },
     copyFromChannel: vi.fn(),
     copyToChannel: vi.fn(),
   };
