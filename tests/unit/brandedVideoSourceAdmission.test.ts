@@ -4,10 +4,7 @@ import {
   assertBrandedVideoSourceImageDimensions,
   assertBrandedVideoSourceInput,
 } from '@/platform/media/brandedVideoSourceAdmission';
-import {
-  BRANDED_VIDEO_DURATION_DRIFT_MS,
-  MEDIA_RECORDER_LIMITS,
-} from '@/platform/media/mediaRecorderLimits';
+import { MEDIA_RECORDER_LIMITS } from '@/platform/media/mediaRecorderLimits';
 import type { BrandedVideoExportErrorCode } from '@/shared/media/brandedVideoExportError';
 
 const imageBlob = new Blob(['image'], { type: 'image/jpeg' });
@@ -19,32 +16,11 @@ function sourceInput(overrides: Partial<Parameters<typeof assertBrandedVideoSour
     imageBlob,
     logoBlob,
     audioBlob,
-    expectedDurationMs: 30_000,
     ...overrides,
   };
 }
 
 describe('branded video source input admission', () => {
-  it.each([Number.NaN, Number.POSITIVE_INFINITY, 0, -1])(
-    'rejects invalid expected duration %s',
-    (expectedDurationMs) => {
-      expectCode(
-        () => assertBrandedVideoSourceInput(sourceInput({ expectedDurationMs })),
-        'VIDEO_SOURCE_INPUT_INVALID',
-      );
-    },
-  );
-
-  it('rejects expected duration above the existing 30-second limit', () => {
-    expectCode(
-      () =>
-        assertBrandedVideoSourceInput(
-          sourceInput({ expectedDurationMs: MEDIA_RECORDER_LIMITS.maxDurationMs + 1 }),
-        ),
-      'VIDEO_SOURCE_DURATION_LIMIT_EXCEEDED',
-    );
-  });
-
   it('rejects empty and oversized compressed audio independently', () => {
     expectCode(
       () => assertBrandedVideoSourceInput(sourceInput({ audioBlob: new Blob([]) })),
@@ -91,8 +67,29 @@ describe('branded video source input admission', () => {
 describe('decoded audio admission', () => {
   it('rejects non-positive decoded duration as invalid source input', () => {
     expectCode(
-      () => assertBrandedVideoDecodedAudio(decodedAudio({ duration: 0 }), 30_000),
+      () => assertBrandedVideoDecodedAudio(decodedAudio({ duration: 0 })),
       'VIDEO_SOURCE_INPUT_INVALID',
+    );
+  });
+
+  it('uses decoded duration for the existing 30-second limit', () => {
+    expect(() =>
+      assertBrandedVideoDecodedAudio(
+        decodedAudio({
+          duration: MEDIA_RECORDER_LIMITS.maxDurationMs / 1_000,
+          length: 30 * 48_000,
+        }),
+      ),
+    ).not.toThrow();
+    expectCode(
+      () =>
+        assertBrandedVideoDecodedAudio(
+          decodedAudio({
+            duration: (MEDIA_RECORDER_LIMITS.maxDurationMs + 1) / 1_000,
+            length: 30 * 48_000 + 48,
+          }),
+        ),
+      'VIDEO_SOURCE_DURATION_LIMIT_EXCEEDED',
     );
   });
 
@@ -100,7 +97,7 @@ describe('decoded audio admission', () => {
     'rejects unsupported channel count %s',
     (numberOfChannels) => {
       expectCode(
-        () => assertBrandedVideoDecodedAudio(decodedAudio({ numberOfChannels }), 30_000),
+        () => assertBrandedVideoDecodedAudio(decodedAudio({ numberOfChannels })),
         'VIDEO_SOURCE_AUDIO_CHANNELS_UNSUPPORTED',
       );
     },
@@ -111,14 +108,12 @@ describe('decoded audio admission', () => {
       () =>
         assertBrandedVideoDecodedAudio(
           decodedAudio({ sampleRate: MEDIA_RECORDER_LIMITS.maxSampleRateHz + 1 }),
-          30_000,
         ),
       'VIDEO_SOURCE_AUDIO_SAMPLE_RATE_UNSUPPORTED',
     );
     expect(() =>
       assertBrandedVideoDecodedAudio(
         decodedAudio({ sampleRate: MEDIA_RECORDER_LIMITS.maxSampleRateHz }),
-        30_000,
       ),
     ).not.toThrow();
   });
@@ -130,44 +125,33 @@ describe('decoded audio admission', () => {
     expect(() =>
       assertBrandedVideoDecodedAudio(
         decodedAudio({ length: exactLength, numberOfChannels: channels }),
-        30_000,
       ),
     ).not.toThrow();
     expectCode(
       () =>
         assertBrandedVideoDecodedAudio(
           decodedAudio({ length: exactLength + 1, numberOfChannels: channels }),
-          30_000,
         ),
       'VIDEO_SOURCE_AUDIO_PCM_LIMIT_EXCEEDED',
     );
   });
 
-  it('accepts exactly the 250-ms drift boundary and rejects one millisecond more', () => {
-    expect(() =>
-      assertBrandedVideoDecodedAudio(
-        decodedAudio({ duration: (30_000 - BRANDED_VIDEO_DURATION_DRIFT_MS) / 1_000 }),
-        30_000,
-      ),
-    ).not.toThrow();
-    expectCode(
-      () =>
+  it.each([29.749, 29.751, 30])(
+    'admits valid decoded duration %s without comparing backend metadata',
+    (duration) => {
+      expect(() =>
         assertBrandedVideoDecodedAudio(
-          decodedAudio({
-            duration: (30_000 - BRANDED_VIDEO_DURATION_DRIFT_MS - 1) / 1_000,
-          }),
-          30_000,
+          decodedAudio({ duration, length: Math.round(duration * 48_000) }),
         ),
-      'VIDEO_SOURCE_AUDIO_DURATION_MISMATCH',
-    );
-  });
+      ).not.toThrow();
+    },
+  );
 
   it('rejects decoded audio below the existing RMS threshold', () => {
     expectCode(
       () =>
         assertBrandedVideoDecodedAudio(
           decodedAudio({ channelData: new Float32Array([0, 0, 0, 0]) }),
-          30_000,
         ),
       'VIDEO_SOURCE_AUDIO_SILENT',
     );
@@ -182,7 +166,6 @@ describe('decoded audio admission', () => {
           numberOfChannels: 2,
           sampleRate: 48_000,
         }),
-        30_000,
       ),
     ).not.toThrow();
   });
