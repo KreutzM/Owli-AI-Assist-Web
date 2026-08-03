@@ -60,7 +60,8 @@ const fullWindowsJob = extractJob(ci, 'full-windows');
 
 requireText(formatJob, 'name: Format check', 'Web CI must define the independent format job');
 requireText(formatJob, 'run: pnpm format:check', 'The format job must run only format:check');
-for (const command of coreCommands) forbidText(formatJob, command, `The format job must not run ${command}`);
+for (const command of coreCommands)
+  forbidText(formatJob, command, `The format job must not run ${command}`);
 forbidText(formatJob, 'needs:', 'The format job must not depend on another validation job');
 
 requireText(
@@ -68,7 +69,8 @@ requireText(
   'name: Core lint, type, policy, and unit checks',
   'Web CI must define the independent core job',
 );
-for (const command of coreCommands) requireText(coreJob, `run: ${command}`, `The core job must run ${command}`);
+for (const command of coreCommands)
+  requireText(coreJob, `run: ${command}`, `The core job must run ${command}`);
 forbidText(coreJob, 'needs:', 'Core checks must run even when formatting fails');
 forbidText(coreJob, 'pnpm format:check', 'Core checks must not repeat the format check');
 
@@ -89,8 +91,16 @@ for (const dependency of ['format', 'core', 'quick-build']) {
     `Quick aggregate must inspect the ${dependency} conclusion`,
   );
 }
-requireText(quickAggregateJob, 'always() &&', 'Quick aggregate must evaluate all dependency outcomes');
-forbidText(quickAggregateJob, 'actions/checkout', 'Quick aggregate must not check out the repository');
+requireText(
+  quickAggregateJob,
+  'always() &&',
+  'Quick aggregate must evaluate all dependency outcomes',
+);
+forbidText(
+  quickAggregateJob,
+  'actions/checkout',
+  'Quick aggregate must not check out the repository',
+);
 forbidText(quickAggregateJob, 'pnpm install', 'Quick aggregate must not reinstall dependencies');
 forbidText(quickAggregateJob, 'pnpm test', 'Quick aggregate must not rerun tests');
 
@@ -109,7 +119,11 @@ forbidText(
   "github.event.action != 'synchronize'",
   'Full CI must not run merely because a draft PR was opened or reopened',
 );
-forbidText(ci, 'pull_request_target', 'Web CI must never execute PR code through pull_request_target');
+forbidText(
+  ci,
+  'pull_request_target',
+  'Web CI must never execute PR code through pull_request_target',
+);
 forbidText(ci, 'contents: write', 'Web CI must remain read-only');
 requireText(ci, 'contents: read', 'Web CI must retain contents: read permissions');
 
@@ -275,14 +289,20 @@ for (const required of [
   'divergent head',
   'Exact-head mismatch',
 ]) {
-  requireText(prettierFixTest, required, `Prettier patch helper test coverage is missing ${required}`);
+  requireText(
+    prettierFixTest,
+    required,
+    `Prettier patch helper test coverage is missing ${required}`,
+  );
 }
 
 if (failures.length > 0) {
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
-console.log('Workflow, exact-head patch, bundle, atomic-publication, and agent-index policies are consistent.');
+console.log(
+  'Workflow, exact-head patch, bundle, atomic-publication, and agent-index policies are consistent.',
+);
 
 async function read(filePath) {
   return await readFile(filePath, 'utf8');

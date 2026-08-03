@@ -137,11 +137,9 @@ export async function generatePrettierFix(options, dependencies = {}) {
   const patchPath = path.join(output.absolutePath, 'prettier-fix.patch');
   await writeFile(patchPath, patch);
   if (patch.byteLength > 0) {
-    commandRunner(
-      'git',
-      ['restore', '--worktree', '--source=HEAD', '--', ...formattedFiles],
-      { cwd: repositoryRoot },
-    );
+    commandRunner('git', ['restore', '--worktree', '--source=HEAD', '--', ...formattedFiles], {
+      cwd: repositoryRoot,
+    });
     verifyCleanWorkingTree(commandRunner, repositoryRoot);
     commandRunner('git', ['apply', '--check', patchPath], { cwd: repositoryRoot });
   }
@@ -166,11 +164,7 @@ export async function generatePrettierFix(options, dependencies = {}) {
   };
   const manifestText = `${JSON.stringify(manifest, null, 2)}\n`;
   await writeFile(path.join(output.absolutePath, 'manifest.json'), manifestText, 'utf8');
-  await writeFile(
-    path.join(output.absolutePath, 'README.txt'),
-    createReadme(manifest),
-    'utf8',
-  );
+  await writeFile(path.join(output.absolutePath, 'README.txt'), createReadme(manifest), 'utf8');
   return { manifest, manifestText, patch };
 }
 
@@ -187,7 +181,7 @@ export function parseNameStatus(rawOutput) {
     }
   }
   const files = [];
-  for (let index = 0; index < fields.length; ) {
+  for (let index = 0; index < fields.length;) {
     const status = fields[index++];
     if (!/^[ACMR](?:\d{1,3})?$/u.test(status)) {
       throw new Error(`Unexpected git diff status: ${JSON.stringify(status)}.`);
@@ -206,7 +200,8 @@ export function parseNameStatus(rawOutput) {
 
 export function validateRepositoryPath(value) {
   if (typeof value !== 'string' || value.length === 0) throw new Error('Empty path rejected.');
-  if (CONTROL_PATTERN.test(value)) throw new Error(`Control character rejected in path ${JSON.stringify(value)}.`);
+  if (CONTROL_PATTERN.test(value))
+    throw new Error(`Control character rejected in path ${JSON.stringify(value)}.`);
   if (path.posix.isAbsolute(value) || path.win32.isAbsolute(value)) {
     throw new Error(`Absolute path rejected: ${value}.`);
   }
@@ -214,7 +209,8 @@ export function validateRepositoryPath(value) {
   if (segments.some((segment) => segment === '' || segment === '.' || segment === '..')) {
     throw new Error(`Unsafe path segment rejected: ${value}.`);
   }
-  if (path.posix.normalize(value) !== value) throw new Error(`Non-normalized path rejected: ${value}.`);
+  if (path.posix.normalize(value) !== value)
+    throw new Error(`Non-normalized path rejected: ${value}.`);
   return value;
 }
 
@@ -246,7 +242,8 @@ function validateLimits(options) {
     maxFileBytes: options.maxFileBytes ?? CONTRACT.maxFileBytes,
   };
   for (const [name, value] of Object.entries(limits)) {
-    if (!Number.isSafeInteger(value) || value <= 0) throw new Error(`${name} must be a positive integer.`);
+    if (!Number.isSafeInteger(value) || value <= 0)
+      throw new Error(`${name} must be a positive integer.`);
   }
   if (limits.maxFileBytes > limits.maxTotalBytes) {
     throw new Error('maxFileBytes must not exceed maxTotalBytes.');
@@ -272,7 +269,9 @@ function verifyPnpmVersion(rawVersion) {
 
 function verifyPrettierVersion(version) {
   if (version !== CONTRACT.prettierVersion) {
-    throw new Error(`Expected Prettier ${CONTRACT.prettierVersion}, received ${version || 'unknown'}.`);
+    throw new Error(
+      `Expected Prettier ${CONTRACT.prettierVersion}, received ${version || 'unknown'}.`,
+    );
   }
 }
 
@@ -286,7 +285,9 @@ function compareVersions(left, right) {
 }
 
 async function resolveRepositoryRoot(commandRunner) {
-  const root = commandRunner('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).stdout.trim();
+  const root = commandRunner('git', ['rev-parse', '--show-toplevel'], {
+    encoding: 'utf8',
+  }).stdout.trim();
   return await realpath(root);
 }
 
@@ -318,11 +319,9 @@ function verifyCommitObject(commandRunner, repositoryRoot, sha, label) {
 }
 
 function verifyCleanWorkingTree(commandRunner, repositoryRoot) {
-  const status = commandRunner(
-    'git',
-    ['status', '--porcelain=v1', '-z', '--untracked-files=all'],
-    { cwd: repositoryRoot },
-  ).stdout;
+  const status = commandRunner('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], {
+    cwd: repositoryRoot,
+  }).stdout;
   if (status.byteLength > 0) throw new Error('Working tree must be clean before formatting.');
 }
 
@@ -339,7 +338,12 @@ async function resolveSafeFile(repositoryRoot, relativePath) {
 
 function assertInsideRoot(repositoryRoot, absolutePath, relativePath) {
   const relative = path.relative(repositoryRoot, absolutePath);
-  if (relative === '' || relative.startsWith(`..${path.sep}`) || relative === '..' || path.isAbsolute(relative)) {
+  if (
+    relative === '' ||
+    relative.startsWith(`..${path.sep}`) ||
+    relative === '..' ||
+    path.isAbsolute(relative)
+  ) {
     throw new Error(`Path escapes repository root: ${relativePath}.`);
   }
 }
@@ -365,7 +369,8 @@ function verifyHeadBlob(commandRunner, repositoryRoot, headSha, relativePath) {
   }).stdout;
   const record = output.subarray(0, output.at(-1) === 0 ? -1 : undefined).toString('utf8');
   const match = /^(\d{6}) blob [0-9a-f]{40}\t/u.exec(record);
-  if (!match || match[1] === '120000') throw new Error(`Head path is not a regular blob: ${relativePath}.`);
+  if (!match || match[1] === '120000')
+    throw new Error(`Head path is not a regular blob: ${relativePath}.`);
 }
 
 function decodeUtf8(input, relativePath) {
@@ -395,7 +400,9 @@ function runCommand(command, args, options = {}) {
   });
   if (result.error) throw result.error;
   if (result.status !== 0) {
-    const stderr = Buffer.isBuffer(result.stderr) ? result.stderr.toString('utf8') : String(result.stderr ?? '');
+    const stderr = Buffer.isBuffer(result.stderr)
+      ? result.stderr.toString('utf8')
+      : String(result.stderr ?? '');
     throw new Error(`${command} ${args.join(' ')} failed: ${stderr.trim()}`);
   }
   return {
@@ -409,12 +416,14 @@ function parseArguments(argv) {
   for (let index = 0; index < argv.length; index += 2) {
     const key = argv[index];
     const value = argv[index + 1];
-    if (!key?.startsWith('--') || value === undefined) throw new Error(`Invalid argument near ${key ?? '<end>'}.`);
+    if (!key?.startsWith('--') || value === undefined)
+      throw new Error(`Invalid argument near ${key ?? '<end>'}.`);
     if (values.has(key)) throw new Error(`Duplicate argument: ${key}.`);
     values.set(key, value);
   }
   const required = ['--repository', '--base', '--head', '--output'];
-  for (const key of required) if (!values.has(key)) throw new Error(`Missing required argument: ${key}.`);
+  for (const key of required)
+    if (!values.has(key)) throw new Error(`Missing required argument: ${key}.`);
   return {
     repository: values.get('--repository'),
     baseSha: values.get('--base'),

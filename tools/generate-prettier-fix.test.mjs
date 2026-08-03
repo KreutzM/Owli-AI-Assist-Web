@@ -21,7 +21,9 @@ function command(commandName, args, cwd, { allowFailure = false, input } = {}) {
     shell: false,
   });
   if (!allowFailure && result.status !== 0) {
-    throw new Error(`${commandName} ${args.join(' ')} failed: ${result.stderr.toString('utf8')}`);
+    throw new Error(
+      `${commandName} ${args.join(' ')} failed: ${result.stderr.toString('utf8')}`,
+    );
   }
   return result;
 }
@@ -109,7 +111,15 @@ test('parses NUL-separated added, copied, modified, and renamed records safely',
 });
 
 test('rejects traversal, absolute, empty, and control-character paths', () => {
-  for (const unsafe of ['', '../escape.js', 'a/../escape.js', './a.js', '/tmp/a.js', 'C:\\a.js', 'a\u0007.js']) {
+  for (const unsafe of [
+    '',
+    '../escape.js',
+    'a/../escape.js',
+    './a.js',
+    '/tmp/a.js',
+    'C:\\a.js',
+    'a\u0007.js',
+  ]) {
     assert.throws(() => validateRepositoryPath(unsafe));
   }
   assert.equal(validateRepositoryPath('space and ünicode/file.js'), 'space and ünicode/file.js');
@@ -162,7 +172,9 @@ test('formats only changed supported non-ignored files and produces an exact-hea
     git(root, 'reset', '--hard', headSha);
     await write(root, 'modified.js', "const modified = 'DIVERGED';\n");
     commitAll(root, 'divergent head');
-    const divergent = command('git', ['apply', '--check', patchPath], root, { allowFailure: true });
+    const divergent = command('git', ['apply', '--check', patchPath], root, {
+      allowFailure: true,
+    });
     assert.notEqual(divergent.status, 0);
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -249,7 +261,11 @@ test('keeps no-op patches empty and makes CRLF patch content and manifests deter
     assert.deepEqual(first.patch, second.patch);
     assert.equal(first.manifestText, second.manifestText);
     git(deterministicRoot, 'reset', '--hard', headSha);
-    git(deterministicRoot, 'apply', path.join(deterministicRoot, 'artifacts/prettier-fix/prettier-fix.patch'));
+    git(
+      deterministicRoot,
+      'apply',
+      path.join(deterministicRoot, 'artifacts/prettier-fix/prettier-fix.patch'),
+    );
     const formatted = await readFile(path.join(deterministicRoot, 'crlf.js'));
     assert.ok(!formatted.includes(13));
   } finally {
