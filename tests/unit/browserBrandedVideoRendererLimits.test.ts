@@ -28,32 +28,32 @@ describe('renderBrandedVideo admission and lifecycle', () => {
   it('rejects a source duration above the Candidate A 30-second limit', async () => {
     await expectCode(
       renderBrandedVideo(input({ expectedDurationMs: MEDIA_RECORDER_LIMITS.maxDurationMs + 1 })),
-      'VIDEO_SOURCE_ADMISSION_FAILED',
+      'VIDEO_SOURCE_DURATION_LIMIT_EXCEEDED',
     );
   });
 
   it('rejects empty or oversized compressed audio before browser media allocation', async () => {
     await expectCode(
       renderBrandedVideo(input({ audioBlob: new Blob([], { type: 'audio/mpeg' }) })),
-      'VIDEO_SOURCE_ADMISSION_FAILED',
+      'VIDEO_SOURCE_AUDIO_INPUT_INVALID',
     );
     const oversized = new Blob([
       new Uint8Array(MEDIA_RECORDER_LIMITS.hardCompressedInputBytes + 1),
     ]);
     await expectCode(
       renderBrandedVideo(input({ audioBlob: oversized })),
-      'VIDEO_SOURCE_ADMISSION_FAILED',
+      'VIDEO_SOURCE_AUDIO_INPUT_INVALID',
     );
   });
 
   it('requires both the scene image and canonical logo', async () => {
     await expectCode(
       renderBrandedVideo(input({ imageBlob: new Blob([]) })),
-      'VIDEO_SOURCE_ADMISSION_FAILED',
+      'VIDEO_SOURCE_IMAGE_INPUT_INVALID',
     );
     await expectCode(
       renderBrandedVideo(input({ logoBlob: new Blob([]) })),
-      'VIDEO_SOURCE_ADMISSION_FAILED',
+      'VIDEO_BRANDING_INPUT_INVALID',
     );
   });
 
@@ -72,7 +72,7 @@ describe('renderBrandedVideo admission and lifecycle', () => {
     );
 
     const first = renderBrandedVideo(input({ signal: controller.signal }));
-    await expectCode(renderBrandedVideo(input()), 'VIDEO_SOURCE_ADMISSION_FAILED');
+    await expectCode(renderBrandedVideo(input()), 'VIDEO_CONCURRENT_RENDER_REJECTED');
 
     controller.abort(new DOMException('cancelled', 'AbortError'));
     await expect(first).rejects.toMatchObject({ name: 'AbortError' });

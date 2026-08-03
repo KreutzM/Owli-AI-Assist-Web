@@ -1,0 +1,177 @@
+import { access } from 'node:fs/promises';
+import { chromium } from '@playwright/test';
+import { describe, expect, it } from 'vitest';
+import { assertBrandedVideoDecodedAudio } from '@/platform/media/brandedVideoSourceAdmission';
+import type { BrandedVideoExportError } from '@/shared/media/brandedVideoExportError';
+
+const FIXTURES = [
+  { name: 'exact-30-seconds', durationMs: 30_000, expectedCode: undefined },
+  { name: 'inside-250-ms-drift', durationMs: 29_751, expectedCode: undefined },
+  {
+    name: 'outside-250-ms-drift',
+    durationMs: 29_749,
+    expectedCode: 'VIDEO_SOURCE_AUDIO_DURATION_MISMATCH',
+  },
+] as const;
+
+describe('real Chrome decoded-audio admission harness', () => {
+  it(
+    'decodes generated 48-kHz stereo WAV fixtures and runs their real properties through admission',
+    async () => {
+      const executablePath = await resolveChromeExecutable();
+      const browser = await chromium.launch(
+        executablePath ? { executablePath, headless: true } : { channel: 'chrome', headless: true },
+      );
+      try {
+        const page = await browser.newPage();
+        const decoded = await page.evaluate(async (fixtures) => {
+          const context = new AudioContext({ sampleRate: 48_000 });
+          try {
+            return await Promise.all(
+              fixtures.map(async (fixture) => {
+                const buffer = await context.decodeAudioData(
+                  createWav(fixture.durationMs, 48_000, 2),
+                );
+                const channels = Array.from({ length: buffer.numberOfChannels }, (_, channel) => {
+                  const data = buffer.getChannelData(channel);
+                  const stride = Math.max(1, Math.floor(data.length / 20_000));
+                  const values: number[] = [];
+                  for (let index = 0; index < data.length; index += stride) {
+                    values.push(data[index] ?? 0);
+                  }
+                  return { length: data.length, stride, values };
+                });
+                return {
+                  name: fixture.name,
+                  duration: buffer.duration,
+                  length: buffer.length,
+                  numberOfChannels: buffer.numberOfChannels,
+                  sampleRate: buffer.sampleRate,
+                  channels,
+                };
+              }),
+            );
+          } finally {
+            await context.close();
+          }
+
+          function createWav(durationMs: number, sampleRate: number, channels: number): ArrayBuffer {
+            const frames = Math.round((durationMs / 1_000) * sampleRate);
+            const bytesPerSample = 2;
+            const dataBytes = frames * channels * bytesPerSample;
+            const output = new ArrayBuffer(44 + dataBytes);
+            const view = new DataView(output);
+            writeAscii(view, 0, 'RIFF');
+            view.setUint32(4, 36 + dataBytes, true);
+            writeAscii(view, 8, 'WAVE');
+            writeAscii(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, channels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * channels * bytesPerSample, true);
+            view.setUint16(32, channels * bytesPerSample, true);
+            view.setUint16(34, bytesPerSample * 8, true);
+            writeAscii(view, 36, 'data');
+            view.setUint32(40, dataBytes, true);
+            for (let frame = 0; frame < frames; frame += 1) {
+              const sample = Math.round(Math.sin((frame / sampleRate) * Math.PI * 2 * 440) * 8_192);
+              for (let channel = 0; channel < channels; channel += 1) {
+                const offset = 44 + (frame * channels + channel) * bytesPerSample;
+                view.setInt16(offset, sample, true);
+              }
+            }
+            return output;
+          }
+
+          function writeAscii(view: DataView, offset: number, value: string): void {
+            for (let index = 0; index < value.length; index += 1) {
+              view.setUint8(offset + index, value.charCodeAt(index));
+            }
+          }
+        }, FIXTURES);
+
+        const outcomes = decoded.map((item) => {
+          let code: string | undefined;
+          try {
+            assertBrandedVideoDecodedAudio(toAudioBuffer(item), 30_000);
+          } catch (error) {
+            code = (error as BrandedVideoExportError).code;
+          }
+          return {
+            name: item.name,
+            duration: item.duration,
+            length: item.length,
+            numberOfChannels: item.numberOfChannels,
+            sampleRate: item.sampleRate,
+            code,
+          };
+        });
+
+        for (const fixture of FIXTURES) {
+          const outcome = outcomes.find((candidate) => candidate.name === fixture.name);
+          expect(outcome).toBeDefined();
+          expect(outcome?.numberOfChannels).toBe(2);
+          expect(outcome?.sampleRate).toBe(48_000);
+          expect(outcome?.code).toBe(fixture.expectedCode);
+        }
+
+        console.info(
+          `BRANDED_VIDEO_ADMISSION_CHROME_REPORT ${JSON.stringify({
+            browserVersion: browser.version(),
+            fixtureSource: 'locally generated PCM16 WAV; no user, capability, backend, or network data',
+            outcomes,
+          })}`,
+        );
+      } finally {
+        await browser.close();
+      }
+    },
+    120_000,
+  );
+});
+
+function toAudioBuffer(value: {
+  duration: number;
+  length: number;
+  numberOfChannels: number;
+  sampleRate: number;
+  channels: { length: number; stride: number; values: number[] }[];
+}): AudioBuffer {
+  const channelData = value.channels.map(({ length, stride, values }) => {
+    const sparse = { length } as unknown as Float32Array & Record<number, number>;
+    for (let sample = 0, index = 0; index < length; sample += 1, index += stride) {
+      sparse[index] = values[sample] ?? 0;
+    }
+    return sparse;
+  });
+  return {
+    duration: value.duration,
+    length: value.length,
+    numberOfChannels: value.numberOfChannels,
+    sampleRate: value.sampleRate,
+    getChannelData: (channel) => channelData[channel] ?? new Float32Array(),
+    copyFromChannel: () => undefined,
+    copyToChannel: () => undefined,
+  };
+}
+
+async function resolveChromeExecutable(): Promise<string | undefined> {
+  const configured = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+  const candidates = [
+    configured,
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+  ].filter((candidate): candidate is string => Boolean(candidate));
+  for (const candidate of candidates) {
+    try {
+      await access(candidate);
+      return candidate;
+    } catch {
+      // Continue to the next local Chrome or Chromium candidate.
+    }
+  }
+  return undefined;
+}

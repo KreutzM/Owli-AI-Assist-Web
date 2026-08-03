@@ -1,9 +1,13 @@
 import { BoundedRecorderChunks } from '@/platform/media/boundedRecorderChunks';
 import { BRANDED_VIDEO_CANVAS, drawBrandedVideoFrame } from '@/platform/media/brandedVideoFrame';
+import {
+  assertBrandedVideoDecodedAudio,
+  assertBrandedVideoSourceImageDimensions,
+  assertBrandedVideoSourceInput,
+} from '@/platform/media/brandedVideoSourceAdmission';
 import { recordAudioCanvas } from '@/platform/media/browserRecorderSession';
 import { validateBrandedVideoOutput } from '@/platform/media/browserBrandedVideoValidation';
 import {
-  BRANDED_VIDEO_DURATION_DRIFT_MS,
   BRANDED_VIDEO_TOTAL_SLACK_MS,
   MEDIA_RECORDER_LIMITS,
 } from '@/platform/media/mediaRecorderLimits';
@@ -13,6 +17,7 @@ import {
   runWithBrandedVideoExportError,
   withBrandedVideoExportError,
 } from '@/shared/media/brandedVideoExportError';
+
 const MIME_CANDIDATES = [
   'video/webm;codecs=vp8,opus',
   'video/webm',
@@ -20,6 +25,7 @@ const MIME_CANDIDATES = [
 ] as const;
 const OUTPUT_FILE_NAME = 'owli-audio-postcard.webm';
 let activeRenderToken: symbol | undefined;
+
 interface BrandedVideoRenderInput {
   imageBlob: Blob;
   logoBlob: Blob;
@@ -27,10 +33,14 @@ interface BrandedVideoRenderInput {
   expectedDurationMs: number;
   signal: AbortSignal;
 }
+
 export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promise<File> {
-  assertInput(values);
+  assertBrandedVideoSourceInput(values);
   if (activeRenderToken) {
-    throw new BrandedVideoExportError('VIDEO_SOURCE_ADMISSION_FAILED', 'source_admission');
+    throw new BrandedVideoExportError(
+      'VIDEO_CONCURRENT_RENDER_REJECTED',
+      'source_admission',
+    );
   }
   const token = Symbol('branded-video-render');
   activeRenderToken = token;
@@ -69,9 +79,7 @@ export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promi
       values.logoBlob,
       controller.signal,
     );
-    if (Math.max(scene.width, scene.height) > MEDIA_RECORDER_LIMITS.maxSourceLongEdgePx) {
-      throw new BrandedVideoExportError('VIDEO_SOURCE_ADMISSION_FAILED', 'source_admission');
-    }
+    runSourceAdmission(() => assertBrandedVideoSourceImageDimensions(scene!));
     audioContext = runWithBrandedVideoExportError(
       'VIDEO_SOURCE_AUDIO_DECODE_FAILED',
       'source_audio_decode',
@@ -90,21 +98,32 @@ export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promi
       controller.signal,
       new BrandedVideoExportError('VIDEO_SOURCE_AUDIO_DECODE_FAILED', 'source_audio_decode'),
     );
-    assertDecodedAudio(audioBuffer, values.expectedDurationMs);
+    runSourceAdmission(() => assertBrandedVideoDecodedAudio(audioBuffer, values.expectedDurationMs));
     await withBrandedVideoExportError(
       'VIDEO_SOURCE_AUDIO_DECODE_FAILED',
       'source_audio_decode',
       () => audioContext!.resume(),
     );
-    const canvas = document.createElement('canvas');
+    const canvas = runWithBrandedVideoExportError(
+      'VIDEO_SOURCE_CANVAS_UNAVAILABLE',
+      'source_admission',
+      () => document.createElement('canvas'),
+    );
     canvas.width = BRANDED_VIDEO_CANVAS.width;
     canvas.height = BRANDED_VIDEO_CANVAS.height;
-    const context = canvas.getContext('2d', { alpha: false });
+    const context = runWithBrandedVideoExportError(
+      'VIDEO_SOURCE_CANVAS_UNAVAILABLE',
+      'source_admission',
+      () => canvas.getContext('2d', { alpha: false }),
+    );
     if (!context) {
-      throw new BrandedVideoExportError('VIDEO_SOURCE_ADMISSION_FAILED', 'source_admission');
+      throw new BrandedVideoExportError(
+        'VIDEO_SOURCE_CANVAS_UNAVAILABLE',
+        'source_admission',
+      );
     }
     const layout = runWithBrandedVideoExportError(
-      'VIDEO_SOURCE_ADMISSION_FAILED',
+      'VIDEO_SOURCE_LAYOUT_FAILED',
       'source_admission',
       () => drawBrandedVideoFrame(context, scene!, logo!),
     );
@@ -210,6 +229,7 @@ export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promi
     if (activeRenderToken === token) activeRenderToken = undefined;
   }
 }
+
 async function decodeBrandedBitmaps(
   imageBlob: Blob,
   logoBlob: Blob,
@@ -265,46 +285,15 @@ async function decodeBrandedBitmaps(
     throw error;
   }
 }
-function assertInput(values: BrandedVideoRenderInput): void {
-  if (
-    !Number.isFinite(values.expectedDurationMs) ||
-    values.expectedDurationMs <= 0 ||
-    values.expectedDurationMs > MEDIA_RECORDER_LIMITS.maxDurationMs ||
-    values.audioBlob.size <= 0 ||
-    values.audioBlob.size > MEDIA_RECORDER_LIMITS.hardCompressedInputBytes ||
-    values.imageBlob.size <= 0 ||
-    values.logoBlob.size <= 0
-  ) {
-    throw new BrandedVideoExportError('VIDEO_SOURCE_ADMISSION_FAILED', 'source_admission');
-  }
+
+function runSourceAdmission<T>(operation: () => T): T {
+  return runWithBrandedVideoExportError(
+    'VIDEO_SOURCE_ADMISSION_FAILED',
+    'source_admission',
+    operation,
+  );
 }
-function assertDecodedAudio(buffer: AudioBuffer, expectedDurationMs: number): void {
-  const decodedPcmBytes = buffer.length * buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
-  if (
-    buffer.duration <= 0 ||
-    buffer.numberOfChannels <= 0 ||
-    buffer.numberOfChannels > MEDIA_RECORDER_LIMITS.maxChannels ||
-    buffer.sampleRate > MEDIA_RECORDER_LIMITS.maxSampleRateHz ||
-    decodedPcmBytes > MEDIA_RECORDER_LIMITS.maxDecodedPcmBytes ||
-    Math.abs(buffer.duration * 1_000 - expectedDurationMs) > BRANDED_VIDEO_DURATION_DRIFT_MS
-  ) {
-    throw new BrandedVideoExportError('VIDEO_SOURCE_ADMISSION_FAILED', 'source_admission');
-  }
-  let energy = 0;
-  let count = 0;
-  for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
-    const data = buffer.getChannelData(channel);
-    const stride = Math.max(1, Math.floor(data.length / 20_000));
-    for (let index = 0; index < data.length; index += stride) {
-      const value = data[index] ?? 0;
-      energy += value * value;
-      count += 1;
-    }
-  }
-  if (count === 0 || Math.sqrt(energy / count) < 0.0001) {
-    throw new BrandedVideoExportError('VIDEO_SOURCE_ADMISSION_FAILED', 'source_admission');
-  }
-}
+
 async function withDeadline<T>(
   operation: Promise<T>,
   timeoutMs: number,
@@ -329,6 +318,7 @@ async function withDeadline<T>(
     );
   });
 }
+
 function abortReason(signal: AbortSignal): Error {
   return signal.reason instanceof Error ? signal.reason : new DOMException('Aborted', 'AbortError');
 }

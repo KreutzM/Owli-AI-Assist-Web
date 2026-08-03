@@ -23,7 +23,8 @@ vi.mock('@/platform/share/browserShare', () => ({
   shareFile: vi.fn(),
 }));
 
-const SENSITIVE_ERROR = 'https://api-staging.example/audio/secret?token=abc';
+const SENSITIVE_ERROR =
+  'https://api-staging.example/audio/secret?token=abc actualDurationMs=30251 expectedDurationMs=30000 sampleRate=48000 channels=2 pcmBytes=11520000 image=1280x720';
 const API_BASE_URL = 'https://api-staging.owli-ai.com/';
 const audioBlob = new Blob(['audio'], { type: 'audio/mpeg' });
 const logoBlob = new Blob(['logo'], { type: 'image/png' });
@@ -82,6 +83,21 @@ describe('safe staging video export diagnostics', () => {
 
   it.each<[string, BrandedVideoExportErrorCode, BrandedVideoExportPhase]>([
     ['source audio decoding', 'VIDEO_SOURCE_AUDIO_DECODE_FAILED', 'source_audio_decode'],
+    ['invalid source input', 'VIDEO_SOURCE_INPUT_INVALID', 'source_admission'],
+    ['source duration limit', 'VIDEO_SOURCE_DURATION_LIMIT_EXCEEDED', 'source_admission'],
+    ['compressed audio input', 'VIDEO_SOURCE_AUDIO_INPUT_INVALID', 'source_admission'],
+    ['scene image input', 'VIDEO_SOURCE_IMAGE_INPUT_INVALID', 'source_admission'],
+    ['branding input', 'VIDEO_BRANDING_INPUT_INVALID', 'source_admission'],
+    ['concurrent render', 'VIDEO_CONCURRENT_RENDER_REJECTED', 'source_admission'],
+    ['source image dimensions', 'VIDEO_SOURCE_IMAGE_DIMENSIONS_EXCEEDED', 'source_admission'],
+    ['canvas availability', 'VIDEO_SOURCE_CANVAS_UNAVAILABLE', 'source_admission'],
+    ['frame layout', 'VIDEO_SOURCE_LAYOUT_FAILED', 'source_admission'],
+    ['audio channels', 'VIDEO_SOURCE_AUDIO_CHANNELS_UNSUPPORTED', 'source_admission'],
+    ['audio sample rate', 'VIDEO_SOURCE_AUDIO_SAMPLE_RATE_UNSUPPORTED', 'source_admission'],
+    ['decoded PCM limit', 'VIDEO_SOURCE_AUDIO_PCM_LIMIT_EXCEEDED', 'source_admission'],
+    ['audio duration mismatch', 'VIDEO_SOURCE_AUDIO_DURATION_MISMATCH', 'source_admission'],
+    ['silent audio', 'VIDEO_SOURCE_AUDIO_SILENT', 'source_admission'],
+    ['unknown admission failure', 'VIDEO_SOURCE_ADMISSION_FAILED', 'source_admission'],
     ['recording', 'VIDEO_RECORDING_FAILED', 'recording'],
     ['container validation', 'VIDEO_CONTAINER_VALIDATION_FAILED', 'container_validation'],
     ['duration validation', 'VIDEO_DURATION_VALIDATION_FAILED', 'duration_validation'],
@@ -89,7 +105,7 @@ describe('safe staging video export diagnostics', () => {
     ['frame validation', 'VIDEO_FRAME_VALIDATION_FAILED', 'frame_validation'],
     ['playback probing', 'VIDEO_PLAYBACK_PROBE_FAILED', 'playback_probe'],
     ['output audio validation', 'VIDEO_OUTPUT_AUDIO_VALIDATION_FAILED', 'output_audio_validation'],
-  ])('shows the precise allowlist code for %s', async (_label, code, phase) => {
+  ])('shows the precise allowlist code for %s without publishing output', async (_label, code, phase) => {
     vi.mocked(renderBrandedVideo).mockRejectedValue(
       new BrandedVideoExportError(code, phase, new Error(SENSITIVE_ERROR)),
     );
@@ -111,23 +127,36 @@ describe('safe staging video export diagnostics', () => {
     expectNoPublishedOutput();
   });
 
-  it('copies only the fixed allowlist code and never a raw error or cause', async () => {
+  it('copies only the fixed admission code and never raw values, URLs, identifiers, or causes', async () => {
     vi.mocked(renderBrandedVideo).mockRejectedValue(
       new BrandedVideoExportError(
-        'VIDEO_PLAYBACK_PROBE_FAILED',
-        'playback_probe',
+        'VIDEO_SOURCE_AUDIO_DURATION_MISMATCH',
+        'source_admission',
         new Error(SENSITIVE_ERROR),
       ),
     );
     renderExport();
     startExport();
-    await expectDiagnostic('VIDEO_PLAYBACK_PROBE_FAILED');
+    await expectDiagnostic('VIDEO_SOURCE_AUDIO_DURATION_MISMATCH');
 
     fireEvent.click(screen.getByRole('button', { name: 'Fehlercode kopieren' }));
 
-    expect(copyTextToClipboard).toHaveBeenCalledWith('VIDEO_PLAYBACK_PROBE_FAILED');
+    expect(copyTextToClipboard).toHaveBeenCalledWith('VIDEO_SOURCE_AUDIO_DURATION_MISMATCH');
     expect(copyTextToClipboard).not.toHaveBeenCalledWith(expect.stringContaining(SENSITIVE_ERROR));
     expect(document.body).not.toHaveTextContent(SENSITIVE_ERROR);
+    for (const sensitiveFragment of [
+      '30251',
+      '30000',
+      '48000',
+      '11520000',
+      '1280x720',
+      'token=abc',
+    ]) {
+      expect(document.body).not.toHaveTextContent(sensitiveFragment);
+      expect(copyTextToClipboard).not.toHaveBeenCalledWith(
+        expect.stringContaining(sensitiveFragment),
+      );
+    }
     expect(await screen.findByText('Fehlercode wurde kopiert.')).toBeVisible();
   });
 
@@ -173,15 +202,18 @@ describe('safe staging video export diagnostics', () => {
     expect(screen.queryByText(/VIDEO_/u)).toBeNull();
   });
 
-  it('starts a clean retry and removes the old diagnostic state', async () => {
+  it('starts a clean retry and removes the old admission diagnostic state', async () => {
     vi.mocked(renderBrandedVideo)
       .mockRejectedValueOnce(
-        new BrandedVideoExportError('VIDEO_CONTAINER_VALIDATION_FAILED', 'container_validation'),
+        new BrandedVideoExportError(
+          'VIDEO_SOURCE_AUDIO_DURATION_MISMATCH',
+          'source_admission',
+        ),
       )
       .mockResolvedValueOnce(outputFile);
     renderExport();
     startExport();
-    await expectDiagnostic('VIDEO_CONTAINER_VALIDATION_FAILED');
+    await expectDiagnostic('VIDEO_SOURCE_AUDIO_DURATION_MISMATCH');
 
     fireEvent.click(screen.getByRole('button', { name: 'Video erneut erstellen' }));
 
