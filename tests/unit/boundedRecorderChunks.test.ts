@@ -20,7 +20,7 @@ describe('BoundedRecorderChunks', () => {
     const collector = new BoundedRecorderChunks(0);
     const oversized = new Blob([new Uint8Array(MEDIA_RECORDER_LIMITS.maxChunkBytes + 1)]);
 
-    expect(() => collector.add(oversized)).toThrow(/per-chunk limit/u);
+    expectCode(() => collector.add(oversized), 'VIDEO_BYTE_LIMIT_EXCEEDED');
     expect(collector.totalBytes).toBe(0);
   });
 
@@ -28,10 +28,11 @@ describe('BoundedRecorderChunks', () => {
     const collector = new BoundedRecorderChunks(0);
     const chunk = new Blob([new Uint8Array(MEDIA_RECORDER_LIMITS.maxChunkBytes)]);
 
-    for (let count = 0; count < 4; count += 1) {
-      collector.add(chunk);
-    }
-    expect(() => collector.add(new Blob([new Uint8Array([1])]))).toThrow(/hard output/u);
+    for (let count = 0; count < 4; count += 1) collector.add(chunk);
+    expectCode(
+      () => collector.add(new Blob([new Uint8Array([1])])),
+      'VIDEO_BYTE_LIMIT_EXCEEDED',
+    );
   });
 
   it('rejects a final output above the target envelope', () => {
@@ -41,16 +42,20 @@ describe('BoundedRecorderChunks', () => {
     collector.add(chunk);
     collector.add(new Blob([new Uint8Array([1])]));
 
-    expect(() => collector.finalize('video/webm')).toThrow(/target output/u);
+    expectCode(() => collector.finalize('video/webm'), 'VIDEO_BYTE_LIMIT_EXCEEDED');
   });
 
   it('enforces the conservative aggregate app-owned byte budget', () => {
-    expect(
+    expectCode(
       () => new BoundedRecorderChunks(MEDIA_RECORDER_LIMITS.maxAppOwnedMediaBytes + 1),
-    ).toThrow(/App-owned media bytes/u);
+      'VIDEO_BYTE_LIMIT_EXCEEDED',
+    );
 
     const collector = new BoundedRecorderChunks(MEDIA_RECORDER_LIMITS.maxAppOwnedMediaBytes - 10);
-    expect(() => collector.add(new Blob([new Uint8Array(11)]))).toThrow(/aggregate limit/u);
+    expectCode(
+      () => collector.add(new Blob([new Uint8Array(11)])),
+      'VIDEO_BYTE_LIMIT_EXCEEDED',
+    );
   });
 
   it('clears all app-owned chunk references after cleanup', () => {
@@ -61,6 +66,18 @@ describe('BoundedRecorderChunks', () => {
 
     expect(collector.totalBytes).toBe(0);
     expect(collector.chunkSizes).toEqual([]);
-    expect(() => collector.finalize('video/webm')).toThrow(/no output bytes/u);
+    expectCode(
+      () => collector.finalize('video/webm'),
+      'VIDEO_RECORDER_FINALIZATION_FAILED',
+    );
   });
 });
+
+function expectCode(operation: () => unknown, code: string): void {
+  try {
+    operation();
+    throw new Error(`Expected ${code}.`);
+  } catch (error) {
+    expect(error).toMatchObject({ name: 'BrandedVideoExportError', code });
+  }
+}

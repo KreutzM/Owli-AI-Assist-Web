@@ -1,5 +1,10 @@
 import type { BoundedRecorderChunks } from '@/platform/media/boundedRecorderChunks';
 import { MEDIA_RECORDER_LIMITS } from '@/platform/media/mediaRecorderLimits';
+import {
+  BrandedVideoExportError,
+  type BrandedVideoExportErrorCode,
+  type BrandedVideoExportPhase,
+} from '@/shared/media/brandedVideoExportError';
 
 export async function recordAudioCanvas(input: {
   recorder: MediaRecorder;
@@ -14,16 +19,13 @@ export async function recordAudioCanvas(input: {
     let finalizationTimer: number | undefined;
 
     const cleanup = () => {
-      if (finalizationTimer !== undefined) {
-        window.clearTimeout(finalizationTimer);
-      }
+      if (finalizationTimer !== undefined) window.clearTimeout(finalizationTimer);
       input.signal.removeEventListener('abort', onAbort);
       input.recorder.ondataavailable = null;
       input.recorder.onerror = null;
       input.recorder.onstop = null;
       input.source.onended = null;
     };
-
     const finish = (error?: Error) => {
       if (settled) return;
       settled = true;
@@ -35,10 +37,15 @@ export async function recordAudioCanvas(input: {
       try {
         resolve(input.collector.finalize(input.recorder.mimeType));
       } catch (finalizeError) {
-        reject(asError(finalizeError, 'Recorder finalization failed.'));
+        reject(
+          typedError(
+            finalizeError,
+            'VIDEO_RECORDER_FINALIZATION_FAILED',
+            'recorder_finalization',
+          ),
+        );
       }
     };
-
     const stopImmediately = () => {
       input.stream.getTracks().forEach((track) => track.stop());
       try {
@@ -54,16 +61,30 @@ export async function recordAudioCanvas(input: {
         }
       }
     };
-
     const beginFinalization = () => {
       if (input.recorder.state === 'inactive') return;
       finalizationTimer = window.setTimeout(() => {
         stopImmediately();
-        finish(new Error('Recorder finalization deadline exceeded.'));
+        finish(
+          new BrandedVideoExportError(
+            'VIDEO_RECORDER_FINALIZATION_FAILED',
+            'recorder_finalization',
+          ),
+        );
       }, MEDIA_RECORDER_LIMITS.finalizationDeadlineMs);
-      input.recorder.stop();
+      try {
+        input.recorder.stop();
+      } catch (error) {
+        stopImmediately();
+        finish(
+          typedError(
+            error,
+            'VIDEO_RECORDER_FINALIZATION_FAILED',
+            'recorder_finalization',
+          ),
+        );
+      }
     };
-
     const onAbort = () => {
       stopImmediately();
       finish(abortReason(input.signal));
@@ -74,26 +95,49 @@ export async function recordAudioCanvas(input: {
         input.collector.add(event.data);
       } catch (error) {
         stopImmediately();
-        finish(asError(error, 'Recorder chunk admission failed.'));
+        finish(typedError(error, 'VIDEO_RECORDING_FAILED', 'recording'));
       }
     };
     input.recorder.onerror = () => {
       stopImmediately();
-      finish(new Error('MediaRecorder failed.'));
+      finish(new BrandedVideoExportError('VIDEO_RECORDING_FAILED', 'recording'));
     };
     input.recorder.onstop = () => finish();
     input.source.onended = beginFinalization;
     input.signal.addEventListener('abort', onAbort, { once: true });
-    input.recorder.start(MEDIA_RECORDER_LIMITS.requestedChunkCadenceMs);
-    input.source.start(0);
-    input.source.stop(input.durationSeconds);
+    try {
+      input.recorder.start(MEDIA_RECORDER_LIMITS.requestedChunkCadenceMs);
+    } catch (error) {
+      stopImmediately();
+      finish(
+        typedError(
+          error,
+          'VIDEO_RECORDER_INITIALIZATION_FAILED',
+          'recorder_initialization',
+        ),
+      );
+      return;
+    }
+    try {
+      input.source.start(0);
+      input.source.stop(input.durationSeconds);
+    } catch (error) {
+      stopImmediately();
+      finish(typedError(error, 'VIDEO_RECORDING_FAILED', 'recording'));
+    }
   });
+}
+
+function typedError(
+  error: unknown,
+  code: BrandedVideoExportErrorCode,
+  phase: BrandedVideoExportPhase,
+): BrandedVideoExportError {
+  return error instanceof BrandedVideoExportError
+    ? error
+    : new BrandedVideoExportError(code, phase, error);
 }
 
 function abortReason(signal: AbortSignal): Error {
   return signal.reason instanceof Error ? signal.reason : new DOMException('Aborted', 'AbortError');
-}
-
-function asError(value: unknown, fallback: string): Error {
-  return value instanceof Error ? value : new Error(fallback);
 }

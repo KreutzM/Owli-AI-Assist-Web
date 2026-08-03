@@ -5,7 +5,6 @@ import { MEDIA_RECORDER_LIMITS } from '@/platform/media/mediaRecorderLimits';
 const imageBlob = new Blob(['image'], { type: 'image/jpeg' });
 const logoBlob = new Blob(['logo'], { type: 'image/png' });
 const audioBlob = new Blob(['audio'], { type: 'audio/mpeg' });
-
 type RenderInput = Parameters<typeof renderBrandedVideo>[0];
 
 function input(overrides: Partial<RenderInput> = {}): RenderInput {
@@ -26,30 +25,34 @@ afterEach(() => {
 
 describe('renderBrandedVideo admission and lifecycle', () => {
   it('rejects a source duration above the Candidate A 30-second limit', async () => {
-    await expect(
+    await expectCode(
       renderBrandedVideo(input({ expectedDurationMs: MEDIA_RECORDER_LIMITS.maxDurationMs + 1 })),
-    ).rejects.toThrow(/duration.*Candidate A limit/u);
+      'VIDEO_SOURCE_ADMISSION_FAILED',
+    );
   });
 
   it('rejects empty or oversized compressed audio before browser media allocation', async () => {
-    await expect(
+    await expectCode(
       renderBrandedVideo(input({ audioBlob: new Blob([], { type: 'audio/mpeg' }) })),
-    ).rejects.toThrow(/Compressed audio/u);
-
+      'VIDEO_SOURCE_ADMISSION_FAILED',
+    );
     const oversized = new Blob([
       new Uint8Array(MEDIA_RECORDER_LIMITS.hardCompressedInputBytes + 1),
     ]);
-    await expect(renderBrandedVideo(input({ audioBlob: oversized }))).rejects.toThrow(
-      /Compressed audio/u,
+    await expectCode(
+      renderBrandedVideo(input({ audioBlob: oversized })),
+      'VIDEO_SOURCE_ADMISSION_FAILED',
     );
   });
 
   it('requires both the scene image and canonical logo', async () => {
-    await expect(renderBrandedVideo(input({ imageBlob: new Blob([]) }))).rejects.toThrow(
-      /canonical logo are required/u,
+    await expectCode(
+      renderBrandedVideo(input({ imageBlob: new Blob([]) })),
+      'VIDEO_SOURCE_ADMISSION_FAILED',
     );
-    await expect(renderBrandedVideo(input({ logoBlob: new Blob([]) }))).rejects.toThrow(
-      /canonical logo are required/u,
+    await expectCode(
+      renderBrandedVideo(input({ logoBlob: new Blob([]) })),
+      'VIDEO_SOURCE_ADMISSION_FAILED',
     );
   });
 
@@ -68,13 +71,13 @@ describe('renderBrandedVideo admission and lifecycle', () => {
     );
 
     const first = renderBrandedVideo(input({ signal: controller.signal }));
-    await expect(renderBrandedVideo(input())).rejects.toThrow(/already active/u);
+    await expectCode(renderBrandedVideo(input()), 'VIDEO_SOURCE_ADMISSION_FAILED');
 
     controller.abort(new DOMException('cancelled', 'AbortError'));
     await expect(first).rejects.toMatchObject({ name: 'AbortError' });
 
     supported = false;
-    await expect(renderBrandedVideo(input())).rejects.toThrow(/No approved WebM/u);
+    await expectCode(renderBrandedVideo(input()), 'VIDEO_RECORDER_UNSUPPORTED');
   });
 
   it('closes scene and logo bitmaps that finish decoding after abort', async () => {
@@ -129,9 +132,13 @@ describe('renderBrandedVideo admission and lifecycle', () => {
       vi.fn(async () => Promise.reject(new Error('decode failed'))),
     );
 
-    await expect(renderBrandedVideo(input())).rejects.toThrow('decode failed');
+    await expectCode(renderBrandedVideo(input()), 'VIDEO_SOURCE_IMAGE_DECODE_FAILED');
 
     supported = false;
-    await expect(renderBrandedVideo(input())).rejects.toThrow(/No approved WebM/u);
+    await expectCode(renderBrandedVideo(input()), 'VIDEO_RECORDER_UNSUPPORTED');
   });
 });
+
+async function expectCode(promise: Promise<unknown>, code: string): Promise<void> {
+  await expect(promise).rejects.toMatchObject({ name: 'BrandedVideoExportError', code });
+}

@@ -8,6 +8,11 @@ import {
   assertExpectedWebmTracks,
   inspectWebmContainer,
 } from '@/platform/media/webmContainerInspection';
+import {
+  BrandedVideoExportError,
+  runWithBrandedVideoExportError,
+  withBrandedVideoExportError,
+} from '@/shared/media/brandedVideoExportError';
 
 interface BrandedVideoValidationInput {
   blob: Blob;
@@ -23,42 +28,86 @@ export async function validateBrandedVideoOutput(
 ): Promise<void> {
   input.signal.throwIfAborted();
   if (input.blob.size <= 0 || input.blob.size > MEDIA_RECORDER_LIMITS.targetOutputBytes) {
-    throw new Error('Recorded output size is outside the Candidate A target envelope.');
+    throw new BrandedVideoExportError('VIDEO_BYTE_LIMIT_EXCEEDED', 'byte_limit');
   }
   if (!input.blob.type.startsWith('video/webm') || !input.fileName.endsWith('.webm')) {
-    throw new Error('Recorded output MIME and extension must both be WebM.');
+    throw new BrandedVideoExportError(
+      'VIDEO_CONTAINER_VALIDATION_FAILED',
+      'container_validation',
+    );
   }
-  assertExpectedWebmTracks(await inspectWebmContainer(input.blob));
+  const inspection = await withBrandedVideoExportError(
+    'VIDEO_CONTAINER_VALIDATION_FAILED',
+    'container_validation',
+    () => inspectWebmContainer(input.blob),
+  );
+  runWithBrandedVideoExportError(
+    'VIDEO_TRACK_VALIDATION_FAILED',
+    'track_validation',
+    () => assertExpectedWebmTracks(inspection),
+  );
 
-  const url = URL.createObjectURL(input.blob);
-  const video = document.createElement('video');
-  video.preload = 'auto';
-  video.playsInline = true;
-  video.muted = true;
-  video.src = url;
+  const { url, video } = runWithBrandedVideoExportError(
+    'VIDEO_METADATA_VALIDATION_FAILED',
+    'metadata_validation',
+    () => {
+      const nextUrl = URL.createObjectURL(input.blob);
+      const nextVideo = document.createElement('video');
+      nextVideo.preload = 'auto';
+      nextVideo.playsInline = true;
+      nextVideo.muted = true;
+      nextVideo.src = nextUrl;
+      return { url: nextUrl, video: nextVideo };
+    },
+  );
   try {
-    await waitForMediaEvent(
-      video,
-      'loadedmetadata',
-      MEDIA_RECORDER_LIMITS.metadataDeadlineMs,
-      input.signal,
+    await withBrandedVideoExportError(
+      'VIDEO_METADATA_VALIDATION_FAILED',
+      'metadata_validation',
+      () =>
+        waitForMediaEvent(
+          video,
+          'loadedmetadata',
+          MEDIA_RECORDER_LIMITS.metadataDeadlineMs,
+          input.signal,
+        ),
     );
     if (
       video.videoWidth !== BRANDED_VIDEO_CANVAS.width ||
       video.videoHeight !== BRANDED_VIDEO_CANVAS.height
     ) {
-      throw new Error('Recorded output is not the approved 9:16 frame size.');
+      throw new BrandedVideoExportError(
+        'VIDEO_METADATA_VALIDATION_FAILED',
+        'metadata_validation',
+      );
     }
-    const measuredDurationMs = await resolveDurationMs(video, input.signal);
+    const measuredDurationMs = await withBrandedVideoExportError(
+      'VIDEO_DURATION_VALIDATION_FAILED',
+      'duration_validation',
+      () => resolveDurationMs(video, input.signal),
+    );
     if (Math.abs(measuredDurationMs - input.expectedDurationMs) > BRANDED_VIDEO_DURATION_DRIFT_MS) {
-      throw new Error('Recorded output duration differs from the Audio-Postcard contract.');
+      throw new BrandedVideoExportError(
+        'VIDEO_DURATION_VALIDATION_FAILED',
+        'duration_validation',
+      );
     }
 
     const seekTime = Math.max(0.1, Math.min(measuredDurationMs / 2_000, video.duration - 0.05));
-    await seekForFrame(video, seekTime, input.signal);
-    assertDecodedBrandedFrame(video, input.referenceCanvas, input.layout);
-    await assertPlayback(video, input.signal);
-    await assertOutputAudio(input.blob, input.expectedDurationMs, input.signal);
+    await withBrandedVideoExportError('VIDEO_SEEK_VALIDATION_FAILED', 'seek_validation', () =>
+      seekForFrame(video, seekTime, input.signal),
+    );
+    runWithBrandedVideoExportError('VIDEO_FRAME_VALIDATION_FAILED', 'frame_validation', () =>
+      assertDecodedBrandedFrame(video, input.referenceCanvas, input.layout),
+    );
+    await withBrandedVideoExportError('VIDEO_PLAYBACK_PROBE_FAILED', 'playback_probe', () =>
+      assertPlayback(video, input.signal),
+    );
+    await withBrandedVideoExportError(
+      'VIDEO_OUTPUT_AUDIO_VALIDATION_FAILED',
+      'output_audio_validation',
+      () => assertOutputAudio(input.blob, input.expectedDurationMs, input.signal),
+    );
   } finally {
     video.pause();
     video.removeAttribute('src');
@@ -83,8 +132,6 @@ async function assertPlayback(video: HTMLVideoElement, signal: AbortSignal): Pro
   try {
     await video.play();
     await wait(MEDIA_RECORDER_LIMITS.playbackProbeMs, signal);
-  } catch {
-    throw new Error('Recorded output cannot be played locally.');
   } finally {
     video.pause();
   }
