@@ -352,7 +352,7 @@ jobs:
 
       - name: Upload Playwright report on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: apple-webkit-report-${{ github.run_id }}
           path: playwright-report/
@@ -521,7 +521,7 @@ jobs:
 
       - name: Upload local Safari JPEG diagnostic
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: apple-safari-local-jpeg-${{ github.run_id }}
           path: ${{ runner.temp }}/apple-safari/local-jpeg/
@@ -530,7 +530,7 @@ jobs:
 
       - name: Upload live readiness/privacy Safari smoke
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: apple-safari-live-readiness-${{ github.run_id }}
           path: ${{ runner.temp }}/apple-safari/live-readiness/
@@ -539,7 +539,7 @@ jobs:
 
       - name: Upload live Safari JPEG diagnostic
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: apple-safari-live-jpeg-${{ github.run_id }}
           path: ${{ runner.temp }}/apple-safari/live-jpeg/
