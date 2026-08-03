@@ -190,7 +190,6 @@ export function StagingBrandedVideoExport({
             imageBlob: image.blob,
             logoBlob,
             audioBlob,
-            expectedDurationMs: result.audio.durationMs,
             signal: localWorkController.signal,
           }),
       );
