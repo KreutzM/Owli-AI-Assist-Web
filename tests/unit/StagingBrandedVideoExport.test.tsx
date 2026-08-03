@@ -124,7 +124,11 @@ describe('StagingBrandedVideoExport', () => {
     const download = await screen.findByRole('link', { name: 'Video herunterladen' });
     expect(download).toHaveAttribute('download', 'owli-audio-postcard.webm');
     expect(downloadAudioPostcard).toHaveBeenCalledWith(
-      expect.objectContaining({ result: metadataMismatchResult, options, apiBaseUrl: API_BASE_URL }),
+      expect.objectContaining({
+        result: metadataMismatchResult,
+        options,
+        apiBaseUrl: API_BASE_URL,
+      }),
     );
     expect(loadOwliBrandingLogo).toHaveBeenCalledTimes(1);
     const rendererInput = vi.mocked(renderBrandedVideo).mock.calls[0]?.[0];
