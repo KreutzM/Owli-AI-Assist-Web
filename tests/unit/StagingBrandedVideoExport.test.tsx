@@ -54,7 +54,7 @@ afterEach(() => {
 });
 
 describe('staging branded video availability', () => {
-  it('mounts only for the exact structural staging inputs, including an expired ready result', () => {
+  it('mounts for structural staging inputs even after capability expiry', () => {
     const structurallyValid = {
       buildFlag: 'enabled',
       apiBaseUrl: API_BASE_URL,
@@ -116,7 +116,7 @@ describe('StagingBrandedVideoExport', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('aborts an unfinished capability download at expiry without starting the renderer', async () => {
+  it('aborts an unfinished capability download at expiry', async () => {
     useFixedClock();
     const expiringResult = resultExpiringIn(1_000);
     let downloadSignal: AbortSignal | undefined;
@@ -191,7 +191,7 @@ describe('StagingBrandedVideoExport', () => {
     expect(downloadAudioPostcard).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps an already-local renderer alive across capability expiry and publishes ready output', async () => {
+  it('keeps a local renderer alive after capability expiry', async () => {
     useFixedClock();
     const expiringResult = resultExpiringIn(1_000);
     const rendered = deferred<File>();
