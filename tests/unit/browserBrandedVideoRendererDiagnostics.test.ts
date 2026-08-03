@@ -275,7 +275,7 @@ function decodedAudio({
   length?: number;
   numberOfChannels?: number;
   sampleRate?: number;
-  channelData?: Float32Array;
+  channelData?: Float32Array<ArrayBuffer>;
   channelDataFailure?: Error;
 } = {}): AudioBuffer {
   return {
