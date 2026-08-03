@@ -58,7 +58,11 @@ describe('staging branded video capability expiry', () => {
     vi.mocked(downloadAudioPostcard).mockImplementation(({ signal }) => {
       downloadSignal = signal;
       return new Promise<Blob>((_resolve, reject) => {
-        signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+        signal.addEventListener(
+          'abort',
+          () => reject(new DOMException('Audio capability expired.', 'TimeoutError')),
+          { once: true },
+        );
       });
     });
     renderExport(result);
