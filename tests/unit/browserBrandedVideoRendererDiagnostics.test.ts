@@ -4,7 +4,6 @@ import { renderBrandedVideo } from '@/platform/media/browserBrandedVideoRenderer
 import { recordAudioCanvas } from '@/platform/media/browserRecorderSession';
 import { validateBrandedVideoOutput } from '@/platform/media/browserBrandedVideoValidation';
 import {
-  BRANDED_VIDEO_DURATION_DRIFT_MS,
   BRANDED_VIDEO_TOTAL_SLACK_MS,
   MEDIA_RECORDER_LIMITS,
 } from '@/platform/media/mediaRecorderLimits';
@@ -88,7 +87,25 @@ describe('branded video renderer diagnostic categories', () => {
     await expectCode(renderBrandedVideo(input()), 'VIDEO_RECORDING_FAILED');
   });
 
-  it('categorizes the total render deadline without weakening its limit', async () => {
+  it('uses decoded audio duration for recording and output validation', async () => {
+    nextAudioBuffer = decodedAudio({ duration: 1.234, length: 59_232 });
+
+    await expect(renderBrandedVideo(input())).resolves.toMatchObject({
+      name: 'owli-audio-postcard.webm',
+    });
+
+    expect(recordAudioCanvas).toHaveBeenCalledWith(
+      expect.objectContaining({ durationSeconds: 1.234 }),
+    );
+    expect(validateBrandedVideoOutput).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceAudioDurationMs: 1_234 }),
+    );
+    expect(vi.mocked(validateBrandedVideoOutput).mock.calls[0]?.[0]).not.toHaveProperty(
+      'expectedDurationMs',
+    );
+  });
+
+  it('categorizes the total render deadline using decoded audio duration', async () => {
     vi.useFakeTimers();
     vi.mocked(recordAudioCanvas).mockImplementation(
       ({ signal }) =>
@@ -159,6 +176,15 @@ describe('specific source admission categories and render-token release', () => 
       },
     },
     {
+      label: 'decoded duration limit',
+      code: 'VIDEO_SOURCE_DURATION_LIMIT_EXCEEDED',
+      configure: () => {
+        nextAudioBuffer = decodedAudio({
+          duration: (MEDIA_RECORDER_LIMITS.maxDurationMs + 1) / 1_000,
+        });
+      },
+    },
+    {
       label: 'unsupported decoded channels',
       code: 'VIDEO_SOURCE_AUDIO_CHANNELS_UNSUPPORTED',
       configure: () => {
@@ -179,16 +205,6 @@ describe('specific source admission categories and render-token release', () => 
         nextAudioBuffer = decodedAudio({
           length: MEDIA_RECORDER_LIMITS.maxDecodedPcmBytes / Float32Array.BYTES_PER_ELEMENT + 1,
           numberOfChannels: 1,
-        });
-      },
-    },
-    {
-      label: 'decoded duration mismatch',
-      code: 'VIDEO_SOURCE_AUDIO_DURATION_MISMATCH',
-      configure: () => {
-        nextAudioBuffer = decodedAudio({
-          duration: (1_000 + BRANDED_VIDEO_DURATION_DRIFT_MS + 1) / 1_000,
-          length: 48_000,
         });
       },
     },
@@ -223,7 +239,6 @@ function input(overrides: Partial<Parameters<typeof renderBrandedVideo>[0]> = {}
     imageBlob,
     logoBlob,
     audioBlob,
-    expectedDurationMs: 1_000,
     signal: new AbortController().signal,
     ...overrides,
   };
