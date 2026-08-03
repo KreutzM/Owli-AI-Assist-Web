@@ -6,16 +6,17 @@ import type { BrandedVideoExportError } from '@/shared/media/brandedVideoExportE
 
 const FIXTURES = [
   { name: 'exact-30-seconds', durationMs: 30_000, expectedCode: undefined },
-  { name: 'inside-250-ms-drift', durationMs: 29_751, expectedCode: undefined },
+  { name: 'shorter-by-249-ms', durationMs: 29_751, expectedCode: undefined },
+  { name: 'shorter-by-251-ms', durationMs: 29_749, expectedCode: undefined },
   {
-    name: 'outside-250-ms-drift',
-    durationMs: 29_749,
-    expectedCode: 'VIDEO_SOURCE_AUDIO_DURATION_MISMATCH',
+    name: 'decoded-duration-over-limit',
+    durationMs: 30_001,
+    expectedCode: 'VIDEO_SOURCE_DURATION_LIMIT_EXCEEDED',
   },
 ] as const;
 
 describe('real Chrome decoded-audio admission harness', () => {
-  it('decodes generated 48-kHz stereo WAV fixtures and runs their real properties through admission', async () => {
+  it('uses real decoded duration without comparing backend duration metadata', async () => {
     const executablePath = await resolveChromeExecutable();
     const browser = await chromium.launch(
       executablePath ? { executablePath, headless: true } : { channel: 'chrome', headless: true },
@@ -92,7 +93,7 @@ describe('real Chrome decoded-audio admission harness', () => {
       const outcomes = decoded.map((item) => {
         let code: string | undefined;
         try {
-          assertBrandedVideoDecodedAudio(toAudioBuffer(item), 30_000);
+          assertBrandedVideoDecodedAudio(toAudioBuffer(item));
         } catch (error) {
           code = (error as BrandedVideoExportError).code;
         }
@@ -119,6 +120,7 @@ describe('real Chrome decoded-audio admission harness', () => {
           browserVersion: browser.version(),
           fixtureSource:
             'locally generated PCM16 WAV; no user, capability, backend, or network data',
+          durationSource: 'AudioBuffer.duration',
           outcomes,
         })}`,
       );
