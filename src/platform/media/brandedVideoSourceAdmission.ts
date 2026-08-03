@@ -54,24 +54,17 @@ export function assertBrandedVideoDecodedAudio(
   ) {
     throw admissionError('VIDEO_SOURCE_INPUT_INVALID');
   }
-  if (
-    buffer.numberOfChannels <= 0 ||
-    buffer.numberOfChannels > MEDIA_RECORDER_LIMITS.maxChannels
-  ) {
+  if (buffer.numberOfChannels <= 0 || buffer.numberOfChannels > MEDIA_RECORDER_LIMITS.maxChannels) {
     throw admissionError('VIDEO_SOURCE_AUDIO_CHANNELS_UNSUPPORTED');
   }
   if (buffer.sampleRate > MEDIA_RECORDER_LIMITS.maxSampleRateHz) {
     throw admissionError('VIDEO_SOURCE_AUDIO_SAMPLE_RATE_UNSUPPORTED');
   }
-  const decodedPcmBytes =
-    buffer.length * buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
+  const decodedPcmBytes = buffer.length * buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
   if (decodedPcmBytes > MEDIA_RECORDER_LIMITS.maxDecodedPcmBytes) {
     throw admissionError('VIDEO_SOURCE_AUDIO_PCM_LIMIT_EXCEEDED');
   }
-  if (
-    Math.abs(buffer.duration * 1_000 - expectedDurationMs) >
-    BRANDED_VIDEO_DURATION_DRIFT_MS
-  ) {
+  if (Math.abs(buffer.duration * 1_000 - expectedDurationMs) > BRANDED_VIDEO_DURATION_DRIFT_MS) {
     throw admissionError('VIDEO_SOURCE_AUDIO_DURATION_MISMATCH');
   }
 

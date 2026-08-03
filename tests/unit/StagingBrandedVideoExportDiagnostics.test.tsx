@@ -105,17 +105,20 @@ describe('safe staging video export diagnostics', () => {
     ['frame validation', 'VIDEO_FRAME_VALIDATION_FAILED', 'frame_validation'],
     ['playback probing', 'VIDEO_PLAYBACK_PROBE_FAILED', 'playback_probe'],
     ['output audio validation', 'VIDEO_OUTPUT_AUDIO_VALIDATION_FAILED', 'output_audio_validation'],
-  ])('shows the precise allowlist code for %s without publishing output', async (_label, code, phase) => {
-    vi.mocked(renderBrandedVideo).mockRejectedValue(
-      new BrandedVideoExportError(code, phase, new Error(SENSITIVE_ERROR)),
-    );
-    renderExport();
+  ])(
+    'shows the precise allowlist code for %s without publishing output',
+    async (_label, code, phase) => {
+      vi.mocked(renderBrandedVideo).mockRejectedValue(
+        new BrandedVideoExportError(code, phase, new Error(SENSITIVE_ERROR)),
+      );
+      renderExport();
 
-    startExport();
+      startExport();
 
-    await expectDiagnostic(code);
-    expectNoPublishedOutput();
-  });
+      await expectDiagnostic(code);
+      expectNoPublishedOutput();
+    },
+  );
 
   it('falls back to VIDEO_UNKNOWN_EXPORT_FAILURE for an untyped renderer failure', async () => {
     vi.mocked(renderBrandedVideo).mockRejectedValue(new Error(SENSITIVE_ERROR));
@@ -205,10 +208,7 @@ describe('safe staging video export diagnostics', () => {
   it('starts a clean retry and removes the old admission diagnostic state', async () => {
     vi.mocked(renderBrandedVideo)
       .mockRejectedValueOnce(
-        new BrandedVideoExportError(
-          'VIDEO_SOURCE_AUDIO_DURATION_MISMATCH',
-          'source_admission',
-        ),
+        new BrandedVideoExportError('VIDEO_SOURCE_AUDIO_DURATION_MISMATCH', 'source_admission'),
       )
       .mockResolvedValueOnce(outputFile);
     renderExport();

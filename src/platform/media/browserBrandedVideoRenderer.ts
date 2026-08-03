@@ -37,10 +37,7 @@ interface BrandedVideoRenderInput {
 export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promise<File> {
   assertBrandedVideoSourceInput(values);
   if (activeRenderToken) {
-    throw new BrandedVideoExportError(
-      'VIDEO_CONCURRENT_RENDER_REJECTED',
-      'source_admission',
-    );
+    throw new BrandedVideoExportError('VIDEO_CONCURRENT_RENDER_REJECTED', 'source_admission');
   }
   const token = Symbol('branded-video-render');
   activeRenderToken = token;
@@ -98,7 +95,9 @@ export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promi
       controller.signal,
       new BrandedVideoExportError('VIDEO_SOURCE_AUDIO_DECODE_FAILED', 'source_audio_decode'),
     );
-    runSourceAdmission(() => assertBrandedVideoDecodedAudio(audioBuffer, values.expectedDurationMs));
+    runSourceAdmission(() =>
+      assertBrandedVideoDecodedAudio(audioBuffer, values.expectedDurationMs),
+    );
     await withBrandedVideoExportError(
       'VIDEO_SOURCE_AUDIO_DECODE_FAILED',
       'source_audio_decode',
@@ -117,10 +116,7 @@ export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promi
       () => canvas.getContext('2d', { alpha: false }),
     );
     if (!context) {
-      throw new BrandedVideoExportError(
-        'VIDEO_SOURCE_CANVAS_UNAVAILABLE',
-        'source_admission',
-      );
+      throw new BrandedVideoExportError('VIDEO_SOURCE_CANVAS_UNAVAILABLE', 'source_admission');
     }
     const layout = runWithBrandedVideoExportError(
       'VIDEO_SOURCE_LAYOUT_FAILED',

@@ -100,8 +100,7 @@ describe('decoded audio admission', () => {
     'rejects unsupported channel count %s',
     (numberOfChannels) => {
       expectCode(
-        () =>
-          assertBrandedVideoDecodedAudio(decodedAudio({ numberOfChannels }), 30_000),
+        () => assertBrandedVideoDecodedAudio(decodedAudio({ numberOfChannels }), 30_000),
         'VIDEO_SOURCE_AUDIO_CHANNELS_UNSUPPORTED',
       );
     },
@@ -127,9 +126,7 @@ describe('decoded audio admission', () => {
   it('accepts exactly the decoded PCM limit and rejects the next frame', () => {
     const channels = 1;
     const exactLength =
-      MEDIA_RECORDER_LIMITS.maxDecodedPcmBytes /
-      channels /
-      Float32Array.BYTES_PER_ELEMENT;
+      MEDIA_RECORDER_LIMITS.maxDecodedPcmBytes / channels / Float32Array.BYTES_PER_ELEMENT;
     expect(() =>
       assertBrandedVideoDecodedAudio(
         decodedAudio({ length: exactLength, numberOfChannels: channels }),

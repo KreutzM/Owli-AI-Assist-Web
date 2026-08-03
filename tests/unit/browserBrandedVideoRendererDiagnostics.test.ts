@@ -177,8 +177,7 @@ describe('specific source admission categories and render-token release', () => 
       code: 'VIDEO_SOURCE_AUDIO_PCM_LIMIT_EXCEEDED',
       configure: () => {
         nextAudioBuffer = decodedAudio({
-          length:
-            MEDIA_RECORDER_LIMITS.maxDecodedPcmBytes / Float32Array.BYTES_PER_ELEMENT + 1,
+          length: MEDIA_RECORDER_LIMITS.maxDecodedPcmBytes / Float32Array.BYTES_PER_ELEMENT + 1,
           numberOfChannels: 1,
         });
       },
