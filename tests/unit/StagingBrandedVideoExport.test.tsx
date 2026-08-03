@@ -118,10 +118,8 @@ describe('StagingBrandedVideoExport', () => {
     renderExport();
     fireEvent.click(screen.getByRole('button', { name: 'Gebrandetes Video erstellen' }));
 
-    expect(await screen.findByRole('link', { name: 'Video herunterladen' })).toHaveAttribute(
-      'download',
-      'owli-audio-postcard.webm',
-    );
+    const download = await screen.findByRole('link', { name: 'Video herunterladen' });
+    expect(download).toHaveAttribute('download', 'owli-audio-postcard.webm');
     expect(downloadAudioPostcard).toHaveBeenCalledWith(
       expect.objectContaining({ result, options, apiBaseUrl: API_BASE_URL }),
     );
@@ -136,7 +134,7 @@ describe('StagingBrandedVideoExport', () => {
     );
     expect(screen.getByRole('status')).toHaveTextContent(/geprüft und bereit/u);
     expect(screen.getByLabelText(/Video abspielen/u)).toHaveAttribute('src', 'blob:video-1');
-    expect(screen.getByRole('link', { name: 'Video herunterladen' })).toHaveFocus();
+    await waitFor(() => expect(download).toHaveFocus());
   });
 
   it('announces user cancellation within the existing audio-only fallback', async () => {

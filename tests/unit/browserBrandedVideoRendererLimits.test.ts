@@ -1,3 +1,4 @@
+import { waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderBrandedVideo } from '@/platform/media/browserBrandedVideoRenderer';
 import { MEDIA_RECORDER_LIMITS } from '@/platform/media/mediaRecorderLimits';
@@ -112,11 +113,10 @@ describe('renderBrandedVideo admission and lifecycle', () => {
 
     resolveScene(scene);
     resolveLogo(logo);
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(sceneClose).toHaveBeenCalledTimes(1);
-    expect(logoClose).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(sceneClose).toHaveBeenCalledTimes(1);
+      expect(logoClose).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('releases the active render lock after an initialization failure so retry is possible', async () => {
