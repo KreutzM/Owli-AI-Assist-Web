@@ -16,8 +16,7 @@ vi.mock('@/platform/share/browserShare', () => ({
 }));
 
 const API_BASE_URL = 'https://api-staging.owli-ai.com/';
-const CANCELLED_MESSAGE =
-  'Videoerstellung wurde abgebrochen. Die Audio-Postcard bleibt verfügbar.';
+const CANCELLED_MESSAGE = 'Videoerstellung wurde abgebrochen. Die Audio-Postcard bleibt verfügbar.';
 const audioBlob = new Blob(['audio'], { type: 'audio/mpeg' });
 const logoBlob = new Blob(['logo'], { type: 'image/png' });
 const outputFile = new File(['video'], 'owli-audio-postcard.webm', { type: 'video/webm' });
