@@ -304,7 +304,7 @@ function extractJob(workflow, jobName) {
     return '';
   }
   const jobsText = workflow.slice(jobsStart + 1);
-  const matches = [...jobsText.matchAll(/^  ([A-Za-z0-9_-]+):\n/gmu)];
+  const matches = [...jobsText.matchAll(/^ {2}([A-Za-z0-9_-]+):\n/gmu)];
   const currentIndex = matches.findIndex((match) => match[1] === jobName);
   if (currentIndex < 0) {
     failures.push(`Web CI is missing job ${jobName}.`);
