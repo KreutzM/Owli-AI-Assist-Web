@@ -10,11 +10,6 @@ import type { NormalizedSceneImage } from '@/platform/image/browserSceneImageNor
 import { renderBrandedVideo } from '@/platform/media/browserBrandedVideoRenderer';
 import { canShareFile, shareFile } from '@/platform/share/browserShare';
 
-export {
-  canStartStagingBrandedVideoExport,
-  isStagingBrandedVideoExportAvailable,
-} from '@/features/remote/stagingBrandedVideoAvailability';
-
 const CANCELLED_MESSAGE = 'Videoerstellung wurde abgebrochen. Die Audio-Postcard bleibt verfügbar.';
 const EXPIRED_MESSAGE =
   'Die Audio-Postcard ist abgelaufen. Für ein neues Video muss zuerst eine neue Audio-Postcard erstellt werden.';
