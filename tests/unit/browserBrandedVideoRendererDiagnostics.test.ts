@@ -100,10 +100,7 @@ describe('branded video renderer diagnostic categories', () => {
           );
         }),
     );
-    const rendering = expectCode(
-      renderBrandedVideo(input()),
-      'VIDEO_RENDER_DEADLINE_EXCEEDED',
-    );
+    const rendering = expectCode(renderBrandedVideo(input()), 'VIDEO_RENDER_DEADLINE_EXCEEDED');
     await flushWork();
 
     await vi.advanceTimersByTimeAsync(1_000 + BRANDED_VIDEO_TOTAL_SLACK_MS);
