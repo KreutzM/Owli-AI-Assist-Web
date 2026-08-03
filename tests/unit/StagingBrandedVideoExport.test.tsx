@@ -114,24 +114,29 @@ describe('StagingBrandedVideoExport', () => {
     expect(downloadAudioPostcard).not.toHaveBeenCalled();
   });
 
-  it('loads the existing audio and canonical logo before rendering a checked local video', async () => {
-    renderExport();
+  it('does not pass backend duration metadata into the local renderer', async () => {
+    const metadataMismatchResult = readyAudioPostcard({
+      audio: { ...result.audio, durationMs: 1 },
+    });
+    renderExport(true, metadataMismatchResult);
     fireEvent.click(screen.getByRole('button', { name: 'Gebrandetes Video erstellen' }));
 
     const download = await screen.findByRole('link', { name: 'Video herunterladen' });
     expect(download).toHaveAttribute('download', 'owli-audio-postcard.webm');
     expect(downloadAudioPostcard).toHaveBeenCalledWith(
-      expect.objectContaining({ result, options, apiBaseUrl: API_BASE_URL }),
+      expect.objectContaining({ result: metadataMismatchResult, options, apiBaseUrl: API_BASE_URL }),
     );
     expect(loadOwliBrandingLogo).toHaveBeenCalledTimes(1);
-    expect(renderBrandedVideo).toHaveBeenCalledWith(
+    const rendererInput = vi.mocked(renderBrandedVideo).mock.calls[0]?.[0];
+    expect(rendererInput).toEqual(
       expect.objectContaining({
         imageBlob: image.blob,
         logoBlob,
         audioBlob,
-        expectedDurationMs: result.audio.durationMs,
+        signal: expect.any(AbortSignal),
       }),
     );
+    expect(rendererInput).not.toHaveProperty('expectedDurationMs');
     expect(screen.getByRole('status')).toHaveTextContent(/geprüft und bereit/u);
     expect(screen.getByLabelText(/Video abspielen/u)).toHaveAttribute('src', 'blob:video-1');
     await waitFor(() => expect(download).toHaveFocus());
@@ -224,12 +229,15 @@ describe('StagingBrandedVideoExport', () => {
   });
 });
 
-function renderExport(enabled = true) {
+function renderExport(
+  enabled = true,
+  exportResult: ReturnType<typeof readyAudioPostcard> = result,
+) {
   return render(
     <StagingBrandedVideoExport
       enabled={enabled}
       image={image}
-      result={result}
+      result={exportResult}
       options={options}
       apiBaseUrl={API_BASE_URL}
     />,
