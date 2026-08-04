@@ -1,4 +1,7 @@
-import { MEDIA_RECORDER_LIMITS } from '@/platform/media/mediaRecorderLimits';
+import {
+  BRANDED_VIDEO_SOURCE_CODEC_PADDING_MS,
+  MEDIA_RECORDER_LIMITS,
+} from '@/platform/media/mediaRecorderLimits';
 import { BrandedVideoExportError } from '@/shared/media/brandedVideoExportError';
 
 const SILENCE_RMS_THRESHOLD = 0.0001;
@@ -41,7 +44,11 @@ export function assertBrandedVideoDecodedAudio(buffer: AudioBuffer): void {
   ) {
     throw admissionError('VIDEO_SOURCE_INPUT_INVALID');
   }
-  if (buffer.duration * 1_000 > MEDIA_RECORDER_LIMITS.maxDurationMs) {
+  const decodedDurationMs = Math.round(buffer.duration * 1_000);
+  if (
+    decodedDurationMs >
+    MEDIA_RECORDER_LIMITS.maxDurationMs + BRANDED_VIDEO_SOURCE_CODEC_PADDING_MS
+  ) {
     throw admissionError('VIDEO_SOURCE_DURATION_LIMIT_EXCEEDED');
   }
   if (buffer.numberOfChannels <= 0 || buffer.numberOfChannels > MEDIA_RECORDER_LIMITS.maxChannels) {
