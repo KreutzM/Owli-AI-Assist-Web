@@ -29,9 +29,9 @@ beforeEach(() => {
   nextAudioBuffer = decodedAudio();
   audioDecodeDelayMs = 0;
   installMediaGlobals();
-  vi.mocked(recordAudioCanvas).mockResolvedValue(outputBlob);
-  vi.mocked(validateBrandedVideoOutput).mockResolvedValue(undefined);
-  vi.mocked(drawBrandedVideoFrame).mockReturnValue({} as never);
+  vi.mocked(recordAudioCanvas).mockReset().mockResolvedValue(outputBlob);
+  vi.mocked(validateBrandedVideoOutput).mockReset().mockResolvedValue(undefined);
+  vi.mocked(drawBrandedVideoFrame).mockReset().mockReturnValue({} as never);
 });
 
 afterEach(() => {
@@ -150,7 +150,7 @@ describe('branded video renderer deadline phases', () => {
   it('clears the render watchdog after a recorder failure', async () => {
     const setTimeoutSpy = vi.spyOn(window, 'setTimeout');
     const clearTimeoutSpy = vi.spyOn(window, 'clearTimeout');
-    vi.mocked(recordAudioCanvas).mockRejectedValue(new Error('recording failed'));
+    vi.mocked(recordAudioCanvas).mockRejectedValueOnce(new Error('recording failed'));
 
     await expectCode(renderBrandedVideo(input()), 'VIDEO_RECORDING_FAILED');
 
@@ -165,7 +165,7 @@ describe('branded video renderer deadline phases', () => {
   it('clears the render watchdog after an output-validation failure', async () => {
     const setTimeoutSpy = vi.spyOn(window, 'setTimeout');
     const clearTimeoutSpy = vi.spyOn(window, 'clearTimeout');
-    vi.mocked(validateBrandedVideoOutput).mockRejectedValue(new Error('validation failed'));
+    vi.mocked(validateBrandedVideoOutput).mockRejectedValueOnce(new Error('validation failed'));
 
     await expectCode(renderBrandedVideo(input()), 'VIDEO_UNKNOWN_EXPORT_FAILURE');
 
@@ -187,7 +187,7 @@ describe('branded video renderer deadline phases', () => {
     await flushToRecording();
     controller.abort(new DOMException('cancelled', 'AbortError'));
 
-    await expect(rendering).rejects.toMatchObject({ name: 'AbortError' });
+    await expectCode(rendering, 'VIDEO_RECORDING_FAILED');
     expect(getSignal().aborted).toBe(true);
     const renderCallIndex = setTimeoutSpy.mock.calls.findIndex(
       ([, timeoutMs]) => timeoutMs === 1_000 + BRANDED_VIDEO_TOTAL_SLACK_MS,
@@ -215,12 +215,12 @@ describe('branded video renderer deadline phases', () => {
     const first = renderBrandedVideo(input({ signal: firstController.signal }));
     await flushToRecording();
     firstController.abort(new DOMException('cancelled', 'AbortError'));
-    await expect(first).rejects.toMatchObject({ name: 'AbortError' });
+    await expectCode(first, 'VIDEO_RECORDING_FAILED');
     expect(firstSignal.aborted).toBe(true);
 
     nextAudioBuffer = decodedAudio({ duration: 31, length: 1_488_000 });
     const retry = renderBrandedVideo(input());
-    await flushToRecording();
+    await flushToRecording(2);
     await vi.advanceTimersByTimeAsync(1_000 + BRANDED_VIDEO_TOTAL_SLACK_MS);
 
     expect(secondSignal.aborted).toBe(false);
@@ -238,7 +238,6 @@ describe('branded video renderer deadline phases', () => {
     await vi.advanceTimersByTimeAsync(1_000 + BRANDED_VIDEO_TOTAL_SLACK_MS);
     await first;
 
-    vi.mocked(recordAudioCanvas).mockResolvedValue(outputBlob);
     await expect(renderBrandedVideo(input())).resolves.toMatchObject({
       name: 'owli-audio-postcard.webm',
     });
@@ -294,7 +293,7 @@ async function expectCode(promise: Promise<unknown>, code: string): Promise<void
 
 function installPendingRecording(): () => AbortSignal {
   let capturedSignal!: AbortSignal;
-  vi.mocked(recordAudioCanvas).mockImplementation(({ signal }) => {
+  vi.mocked(recordAudioCanvas).mockImplementationOnce(({ signal }) => {
     capturedSignal = signal;
     return pendingUntilAbort(signal);
   });
@@ -321,7 +320,7 @@ async function cancelPending(
   rendering: Promise<unknown>,
 ): Promise<void> {
   controller.abort(new DOMException('cancelled', 'AbortError'));
-  await expect(rendering).rejects.toMatchObject({ name: 'AbortError' });
+  await expectCode(rendering, 'VIDEO_RECORDING_FAILED');
 }
 
 async function flushWork(): Promise<void> {
@@ -330,9 +329,9 @@ async function flushWork(): Promise<void> {
   }
 }
 
-async function flushToRecording(): Promise<void> {
+async function flushToRecording(expectedCalls = 1): Promise<void> {
   for (let step = 0; step < 50; step += 1) {
-    if (vi.mocked(recordAudioCanvas).mock.calls.length > 0) return;
+    if (vi.mocked(recordAudioCanvas).mock.calls.length >= expectedCalls) return;
     await Promise.resolve();
   }
   throw new Error('Recorder phase was not reached');
