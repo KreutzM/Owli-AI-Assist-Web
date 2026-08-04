@@ -4,7 +4,10 @@ import {
   assertBrandedVideoSourceImageDimensions,
   assertBrandedVideoSourceInput,
 } from '@/platform/media/brandedVideoSourceAdmission';
-import { MEDIA_RECORDER_LIMITS } from '@/platform/media/mediaRecorderLimits';
+import {
+  BRANDED_VIDEO_SOURCE_CODEC_PADDING_MS,
+  MEDIA_RECORDER_LIMITS,
+} from '@/platform/media/mediaRecorderLimits';
 import type { BrandedVideoExportErrorCode } from '@/shared/media/brandedVideoExportError';
 
 const imageBlob = new Blob(['image'], { type: 'image/jpeg' });
@@ -72,12 +75,14 @@ describe('decoded audio admission', () => {
     );
   });
 
-  it('uses decoded duration for the existing 30-second limit', () => {
+  it('admits only the fixed decoder-padding envelope above the 30-second source limit', () => {
+    const paddedBoundaryMs =
+      MEDIA_RECORDER_LIMITS.maxDurationMs + BRANDED_VIDEO_SOURCE_CODEC_PADDING_MS;
     expect(() =>
       assertBrandedVideoDecodedAudio(
         decodedAudio({
-          duration: MEDIA_RECORDER_LIMITS.maxDurationMs / 1_000,
-          length: 30 * 48_000,
+          duration: paddedBoundaryMs / 1_000,
+          length: Math.round((paddedBoundaryMs / 1_000) * 48_000),
         }),
       ),
     ).not.toThrow();
@@ -85,8 +90,8 @@ describe('decoded audio admission', () => {
       () =>
         assertBrandedVideoDecodedAudio(
           decodedAudio({
-            duration: (MEDIA_RECORDER_LIMITS.maxDurationMs + 1) / 1_000,
-            length: 30 * 48_000 + 48,
+            duration: (paddedBoundaryMs + 1) / 1_000,
+            length: Math.round(((paddedBoundaryMs + 1) / 1_000) * 48_000),
           }),
         ),
       'VIDEO_SOURCE_DURATION_LIMIT_EXCEEDED',
