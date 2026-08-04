@@ -160,9 +160,7 @@ describe('real Chrome decoded-audio admission harness', () => {
         expect(outcome).toMatchObject({ numberOfChannels: 2, sampleRate: 48_000 });
         expect(Math.round((outcome?.duration ?? 0) * 1_000)).toBe(fixture.durationMs);
       }
-      const thirtySecondMp3 = outcomes.find(
-        (candidate) => candidate.name === MP3_FIXTURES[0].name,
-      );
+      const thirtySecondMp3 = outcomes.find((candidate) => candidate.name === MP3_FIXTURES[0].name);
       const thirtyOneSecondMp3 = outcomes.find(
         (candidate) => candidate.name === MP3_FIXTURES[1].name,
       );
