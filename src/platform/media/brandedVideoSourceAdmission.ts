@@ -1,7 +1,4 @@
-import {
-  BRANDED_VIDEO_SOURCE_CODEC_PADDING_MS,
-  MEDIA_RECORDER_LIMITS,
-} from '@/platform/media/mediaRecorderLimits';
+import { MEDIA_RECORDER_LIMITS } from '@/platform/media/mediaRecorderLimits';
 import { BrandedVideoExportError } from '@/shared/media/brandedVideoExportError';
 
 const SILENCE_RMS_THRESHOLD = 0.0001;
@@ -44,13 +41,6 @@ export function assertBrandedVideoDecodedAudio(buffer: AudioBuffer): void {
   ) {
     throw admissionError('VIDEO_SOURCE_INPUT_INVALID');
   }
-  const decodedDurationMs = Math.round(buffer.duration * 1_000);
-  if (
-    decodedDurationMs >
-    MEDIA_RECORDER_LIMITS.maxDurationMs + BRANDED_VIDEO_SOURCE_CODEC_PADDING_MS
-  ) {
-    throw admissionError('VIDEO_SOURCE_DURATION_LIMIT_EXCEEDED');
-  }
   if (buffer.numberOfChannels <= 0 || buffer.numberOfChannels > MEDIA_RECORDER_LIMITS.maxChannels) {
     throw admissionError('VIDEO_SOURCE_AUDIO_CHANNELS_UNSUPPORTED');
   }
@@ -81,7 +71,6 @@ export function assertBrandedVideoDecodedAudio(buffer: AudioBuffer): void {
 function admissionError(
   code:
     | 'VIDEO_SOURCE_INPUT_INVALID'
-    | 'VIDEO_SOURCE_DURATION_LIMIT_EXCEEDED'
     | 'VIDEO_SOURCE_AUDIO_INPUT_INVALID'
     | 'VIDEO_SOURCE_IMAGE_INPUT_INVALID'
     | 'VIDEO_BRANDING_INPUT_INVALID'
