@@ -1,5 +1,6 @@
 import { BoundedRecorderChunks } from '@/platform/media/boundedRecorderChunks';
 import { BRANDED_VIDEO_CANVAS, drawBrandedVideoFrame } from '@/platform/media/brandedVideoFrame';
+import { resolveBrandedVideoRenderDeadlineMs } from '@/platform/media/brandedVideoRenderDeadline';
 import {
   assertBrandedVideoDecodedAudio,
   assertBrandedVideoSourceImageDimensions,
@@ -7,10 +8,7 @@ import {
 } from '@/platform/media/brandedVideoSourceAdmission';
 import { recordAudioCanvas } from '@/platform/media/browserRecorderSession';
 import { validateBrandedVideoOutput } from '@/platform/media/browserBrandedVideoValidation';
-import {
-  BRANDED_VIDEO_TOTAL_SLACK_MS,
-  MEDIA_RECORDER_LIMITS,
-} from '@/platform/media/mediaRecorderLimits';
+import { MEDIA_RECORDER_LIMITS } from '@/platform/media/mediaRecorderLimits';
 import {
   BrandedVideoExportError,
   asUnknownBrandedVideoExportError,
@@ -44,10 +42,9 @@ export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promi
   const forwardAbort = () => controller.abort(values.signal.reason);
   if (values.signal.aborted) forwardAbort();
   else values.signal.addEventListener('abort', forwardAbort, { once: true });
-  const renderStartedAt = Date.now();
   let totalDeadline = scheduleRenderDeadline(
     controller,
-    MEDIA_RECORDER_LIMITS.maxDurationMs + BRANDED_VIDEO_TOTAL_SLACK_MS,
+    MEDIA_RECORDER_LIMITS.initializationDeadlineMs,
   );
   let scene: ImageBitmap | undefined;
   let logo: ImageBitmap | undefined;
@@ -95,13 +92,10 @@ export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promi
     runSourceAdmission(() => assertBrandedVideoDecodedAudio(audioBuffer));
     const sourceAudioDurationMs = audioBuffer.duration * 1_000;
     window.clearTimeout(totalDeadline);
-    const remainingRenderMs =
-      sourceAudioDurationMs + BRANDED_VIDEO_TOTAL_SLACK_MS - (Date.now() - renderStartedAt);
-    if (remainingRenderMs <= 0) {
-      controller.abort(renderDeadlineError());
-    } else {
-      totalDeadline = scheduleRenderDeadline(controller, remainingRenderMs);
-    }
+    totalDeadline = scheduleRenderDeadline(
+      controller,
+      resolveBrandedVideoRenderDeadlineMs(sourceAudioDurationMs),
+    );
     controller.signal.throwIfAborted();
     await withBrandedVideoExportError(
       'VIDEO_SOURCE_AUDIO_DECODE_FAILED',

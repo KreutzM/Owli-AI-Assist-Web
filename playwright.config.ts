@@ -8,6 +8,7 @@ export default defineConfig({
     /remote-staging\.spec\.ts/u,
     /remote-media-layout-staging\.spec\.ts/u,
     /mediarecorder-prototype\.spec\.ts/u,
+    /branded-video-full-path\.spec\.ts/u,
   ],
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),

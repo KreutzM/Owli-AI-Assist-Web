@@ -1,7 +1,8 @@
 import { BRANDED_VIDEO_CANVAS, type BrandedVideoLayout } from '@/platform/media/brandedVideoFrame';
 import { assertDecodedBrandedFrame } from '@/platform/media/brandedVideoFrameValidation';
 import {
-  BRANDED_VIDEO_DURATION_DRIFT_MS,
+  BRANDED_VIDEO_MAX_OUTPUT_PADDING_MS,
+  BRANDED_VIDEO_MAX_OUTPUT_SHORTFALL_MS,
   MEDIA_RECORDER_LIMITS,
 } from '@/platform/media/mediaRecorderLimits';
 import {
@@ -78,9 +79,7 @@ export async function validateBrandedVideoOutput(
       'duration_validation',
       () => resolveDurationMs(video, input.signal),
     );
-    if (
-      Math.abs(measuredDurationMs - input.sourceAudioDurationMs) > BRANDED_VIDEO_DURATION_DRIFT_MS
-    ) {
+    if (!isAcceptableOutputDuration(measuredDurationMs, input.sourceAudioDurationMs)) {
       throw new BrandedVideoExportError('VIDEO_DURATION_VALIDATION_FAILED', 'duration_validation');
     }
 
@@ -139,7 +138,7 @@ async function assertOutputAudio(
     const buffer = await context.decodeAudioData(await blob.arrayBuffer());
     signal.throwIfAborted();
     const durationMs = Math.round(buffer.duration * 1_000);
-    if (Math.abs(durationMs - sourceAudioDurationMs) > BRANDED_VIDEO_DURATION_DRIFT_MS) {
+    if (!isAcceptableOutputDuration(durationMs, sourceAudioDurationMs)) {
       throw new Error('Recorded audio track duration differs from the decoded source audio.');
     }
     let sumSquares = 0;
@@ -159,6 +158,17 @@ async function assertOutputAudio(
   } finally {
     await context.close();
   }
+}
+
+function isAcceptableOutputDuration(
+  measuredDurationMs: number,
+  sourceAudioDurationMs: number,
+): boolean {
+  const differenceMs = measuredDurationMs - sourceAudioDurationMs;
+  return (
+    differenceMs >= -BRANDED_VIDEO_MAX_OUTPUT_SHORTFALL_MS &&
+    differenceMs <= BRANDED_VIDEO_MAX_OUTPUT_PADDING_MS
+  );
 }
 
 async function seekForFrame(

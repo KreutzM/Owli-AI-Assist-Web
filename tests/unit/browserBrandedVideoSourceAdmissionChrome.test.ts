@@ -2,38 +2,29 @@ import { access } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 import { describe, expect, it } from 'vitest';
 import { assertBrandedVideoDecodedAudio } from '@/platform/media/brandedVideoSourceAdmission';
-import {
-  BRANDED_VIDEO_SOURCE_CODEC_PADDING_MS,
-  MEDIA_RECORDER_LIMITS,
-} from '@/platform/media/mediaRecorderLimits';
 import type { BrandedVideoExportError } from '@/shared/media/brandedVideoExportError';
 
 const WAV_FIXTURES = [
-  { name: 'exact-30-seconds', durationMs: 30_000, expectedCode: undefined },
-  { name: 'shorter-by-249-ms', durationMs: 29_751, expectedCode: undefined },
-  { name: 'shorter-by-251-ms', durationMs: 29_749, expectedCode: undefined },
-  {
-    name: 'decoded-duration-at-codec-padding-boundary',
-    durationMs: MEDIA_RECORDER_LIMITS.maxDurationMs + BRANDED_VIDEO_SOURCE_CODEC_PADDING_MS,
-    expectedCode: undefined,
-  },
-  {
-    name: 'decoded-duration-over-codec-padding-boundary',
-    durationMs: MEDIA_RECORDER_LIMITS.maxDurationMs + BRANDED_VIDEO_SOURCE_CODEC_PADDING_MS + 1,
-    expectedCode: 'VIDEO_SOURCE_DURATION_LIMIT_EXCEEDED',
-  },
+  { name: '29-8-seconds', durationMs: 29_800 },
+  { name: 'exact-30-seconds', durationMs: 30_000 },
+  { name: 'past-previous-padding-boundary', durationMs: 30_051 },
+  { name: '30-7-seconds', durationMs: 30_700 },
+  { name: '31-seconds', durationMs: 31_000 },
+  { name: '32-seconds', durationMs: 32_000 },
 ] as const;
 
 // Independent MPEG-1 Layer III mono frame generated from a synthetic 440-Hz tone with
-// the bit reservoir disabled. Repeating 1,150 frames yields 30.040816 s without
-// ID3/Xing/LAME gapless metadata and keeps the fixture local, deterministic, and tiny.
+// the bit reservoir disabled. Repeating the frame keeps both compressed fixtures local,
+// deterministic, tiny, and free of ID3/Xing/LAME gapless metadata.
 const MP3_FRAME_BASE64 =
   '//sQxAADxQQfGA37IkCiA+LBr2hIMNDjDh0x04M+gzCvG+NQzhw06xtDCeBtNcwCBm6odX5rBsmloc/X9CghjRpqlx5e5iDDOG5TnUbfgzxiFhEnwqGwdGpZmozGQIMvpAcP/V9CYgg=';
-const MP3_FRAME_COUNT = 1_150;
-const MP3_FIXTURE_NAME = '30-second-mp3-without-gapless-metadata';
+const MP3_FIXTURES = [
+  { name: 'nominal-30-second-mp3-without-gapless-metadata', frameCount: 1_150 },
+  { name: 'nominal-31-second-mp3-without-gapless-metadata', frameCount: 1_187 },
+] as const;
 
 describe('real Chrome decoded-audio admission harness', () => {
-  it('admits bounded compressed-audio padding without comparing backend duration metadata', async () => {
+  it('admits actual decoded WAV and MP3 lengths beyond 30 seconds', async () => {
     const executablePath = await resolveChromeExecutable();
     const browser = await chromium.launch(
       executablePath ? { executablePath, headless: true } : { channel: 'chrome', headless: true },
@@ -41,44 +32,48 @@ describe('real Chrome decoded-audio admission harness', () => {
     try {
       const page = await browser.newPage();
       const decoded = await page.evaluate(
-        async ({ fixtures, mp3FrameBase64, mp3FrameCount, mp3FixtureName }) => {
+        async ({ wavFixtures, mp3Fixtures, mp3FrameBase64 }) => {
           const context = new AudioContext({ sampleRate: 48_000 });
           try {
             const sources = [
-              ...fixtures.map((fixture) => ({
+              ...wavFixtures.map((fixture) => ({
                 name: fixture.name,
-                expectedCode: fixture.expectedCode,
                 bytes: createWav(fixture.durationMs, 48_000, 2),
               })),
-              {
-                name: mp3FixtureName,
-                expectedCode: undefined,
-                bytes: repeatMp3Frame(mp3FrameBase64, mp3FrameCount),
-              },
+              ...mp3Fixtures.map((fixture) => ({
+                name: fixture.name,
+                bytes: repeatMp3Frame(mp3FrameBase64, fixture.frameCount),
+              })),
             ];
-            return await Promise.all(
-              sources.map(async (source) => {
-                const buffer = await context.decodeAudioData(source.bytes);
-                const channels = Array.from({ length: buffer.numberOfChannels }, (_, channel) => {
-                  const data = buffer.getChannelData(channel);
-                  const stride = Math.max(1, Math.floor(data.length / 20_000));
-                  const values: number[] = [];
-                  for (let index = 0; index < data.length; index += stride) {
-                    values.push(data[index] ?? 0);
-                  }
-                  return { length: data.length, stride, values };
-                });
-                return {
-                  name: source.name,
-                  expectedCode: source.expectedCode,
-                  duration: buffer.duration,
-                  length: buffer.length,
-                  numberOfChannels: buffer.numberOfChannels,
-                  sampleRate: buffer.sampleRate,
-                  channels,
-                };
-              }),
-            );
+            const outcomes: {
+              name: string;
+              duration: number;
+              length: number;
+              numberOfChannels: number;
+              sampleRate: number;
+              channels: { length: number; stride: number; values: number[] }[];
+            }[] = [];
+            for (const source of sources) {
+              const buffer = await context.decodeAudioData(source.bytes);
+              const channels = Array.from({ length: buffer.numberOfChannels }, (_, channel) => {
+                const data = buffer.getChannelData(channel);
+                const stride = Math.max(1, Math.floor(data.length / 20_000));
+                const values: number[] = [];
+                for (let index = 0; index < data.length; index += stride) {
+                  values.push(data[index] ?? 0);
+                }
+                return { length: data.length, stride, values };
+              });
+              outcomes.push({
+                name: source.name,
+                duration: buffer.duration,
+                length: buffer.length,
+                numberOfChannels: buffer.numberOfChannels,
+                sampleRate: buffer.sampleRate,
+                channels,
+              });
+            }
+            return outcomes;
           } finally {
             await context.close();
           }
@@ -133,10 +128,9 @@ describe('real Chrome decoded-audio admission harness', () => {
           }
         },
         {
-          fixtures: WAV_FIXTURES,
+          wavFixtures: WAV_FIXTURES,
+          mp3Fixtures: MP3_FIXTURES,
           mp3FrameBase64: MP3_FRAME_BASE64,
-          mp3FrameCount: MP3_FRAME_COUNT,
-          mp3FixtureName: MP3_FIXTURE_NAME,
         },
       );
 
@@ -149,7 +143,6 @@ describe('real Chrome decoded-audio admission harness', () => {
         }
         return {
           name: item.name,
-          expectedCode: item.expectedCode,
           duration: item.duration,
           length: item.length,
           numberOfChannels: item.numberOfChannels,
@@ -159,24 +152,22 @@ describe('real Chrome decoded-audio admission harness', () => {
       });
 
       for (const outcome of outcomes) {
-        expect(outcome.code).toBe(outcome.expectedCode);
+        expect(outcome.code).toBeUndefined();
+        expect(outcome.sampleRate).toBe(48_000);
       }
       for (const fixture of WAV_FIXTURES) {
         const outcome = outcomes.find((candidate) => candidate.name === fixture.name);
         expect(outcome).toMatchObject({ numberOfChannels: 2, sampleRate: 48_000 });
+        expect(Math.round((outcome?.duration ?? 0) * 1_000)).toBe(fixture.durationMs);
       }
-      const mp3Outcome = outcomes.find((candidate) => candidate.name === MP3_FIXTURE_NAME);
-      expect(mp3Outcome).toMatchObject({
-        numberOfChannels: 1,
-        sampleRate: 48_000,
-        code: undefined,
-      });
-      expect((mp3Outcome?.duration ?? 0) * 1_000).toBeGreaterThan(
-        MEDIA_RECORDER_LIMITS.maxDurationMs,
+      const thirtySecondMp3 = outcomes.find((candidate) => candidate.name === MP3_FIXTURES[0].name);
+      const thirtyOneSecondMp3 = outcomes.find(
+        (candidate) => candidate.name === MP3_FIXTURES[1].name,
       );
-      expect(Math.round((mp3Outcome?.duration ?? 0) * 1_000)).toBeLessThanOrEqual(
-        MEDIA_RECORDER_LIMITS.maxDurationMs + BRANDED_VIDEO_SOURCE_CODEC_PADDING_MS,
-      );
+      expect(thirtySecondMp3).toMatchObject({ numberOfChannels: 1, code: undefined });
+      expect((thirtySecondMp3?.duration ?? 0) * 1_000).toBeGreaterThan(30_000);
+      expect(thirtyOneSecondMp3).toMatchObject({ numberOfChannels: 1, code: undefined });
+      expect((thirtyOneSecondMp3?.duration ?? 0) * 1_000).toBeGreaterThan(31_000);
 
       console.warn(
         `BRANDED_VIDEO_ADMISSION_CHROME_REPORT ${JSON.stringify({
@@ -184,7 +175,7 @@ describe('real Chrome decoded-audio admission harness', () => {
           fixtureSource:
             'locally generated PCM16 WAV plus repeated independent synthetic MP3 frame; no user, capability, backend, or network data',
           durationSource: 'AudioBuffer.duration',
-          maxDecodedSourcePaddingMs: BRANDED_VIDEO_SOURCE_CODEC_PADDING_MS,
+          sourceDurationPolicy: 'no 30-second source-admission limit',
           outcomes,
         })}`,
       );
