@@ -1,4 +1,5 @@
 import { MEDIA_RECORDER_LIMITS } from '@/platform/media/mediaRecorderLimits';
+import { BrandedVideoExportError } from '@/shared/media/brandedVideoExportError';
 
 export class BoundedRecorderChunks {
   readonly chunkSizes: number[] = [];
@@ -11,7 +12,7 @@ export class BoundedRecorderChunks {
       reservedAppBytes < 0 ||
       reservedAppBytes > MEDIA_RECORDER_LIMITS.maxAppOwnedMediaBytes
     ) {
-      throw new Error('App-owned media bytes exceed the Candidate A limit.');
+      throw byteLimitError();
     }
   }
 
@@ -21,15 +22,13 @@ export class BoundedRecorderChunks {
 
   add(chunk: Blob): void {
     if (chunk.size === 0) return;
-    if (chunk.size > MEDIA_RECORDER_LIMITS.maxChunkBytes) {
-      throw new Error(`Recorder chunk ${chunk.size} exceeds the Candidate A per-chunk limit.`);
-    }
+    if (chunk.size > MEDIA_RECORDER_LIMITS.maxChunkBytes) throw byteLimitError();
     const projected = this.#totalBytes + chunk.size;
-    if (projected > MEDIA_RECORDER_LIMITS.hardOutputBytes) {
-      throw new Error('Delivered recorder chunks exceed the Candidate A hard output limit.');
-    }
-    if (this.reservedAppBytes + projected > MEDIA_RECORDER_LIMITS.maxAppOwnedMediaBytes) {
-      throw new Error('App-owned media bytes exceed the Candidate A aggregate limit.');
+    if (
+      projected > MEDIA_RECORDER_LIMITS.hardOutputBytes ||
+      this.reservedAppBytes + projected > MEDIA_RECORDER_LIMITS.maxAppOwnedMediaBytes
+    ) {
+      throw byteLimitError();
     }
     this.#chunks.push(chunk);
     this.chunkSizes.push(chunk.size);
@@ -37,14 +36,10 @@ export class BoundedRecorderChunks {
   }
 
   finalize(mimeType: string): Blob {
-    if (this.#totalBytes <= 0) throw new Error('Recorder produced no output bytes.');
+    if (this.#totalBytes <= 0) throw finalizationError();
     const blob = new Blob(this.#chunks, { type: mimeType });
-    if (blob.size !== this.#totalBytes) {
-      throw new Error('Final recorder size changed unexpectedly.');
-    }
-    if (blob.size > MEDIA_RECORDER_LIMITS.targetOutputBytes) {
-      throw new Error('Final recorder output exceeds the Candidate A target output limit.');
-    }
+    if (blob.size !== this.#totalBytes) throw finalizationError();
+    if (blob.size > MEDIA_RECORDER_LIMITS.targetOutputBytes) throw byteLimitError();
     return blob;
   }
 
@@ -53,4 +48,12 @@ export class BoundedRecorderChunks {
     this.chunkSizes.length = 0;
     this.#totalBytes = 0;
   }
+}
+
+function byteLimitError(): BrandedVideoExportError {
+  return new BrandedVideoExportError('VIDEO_BYTE_LIMIT_EXCEEDED', 'byte_limit');
+}
+
+function finalizationError(): BrandedVideoExportError {
+  return new BrandedVideoExportError('VIDEO_RECORDER_FINALIZATION_FAILED', 'recorder_finalization');
 }

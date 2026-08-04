@@ -5,26 +5,32 @@ import type {
   AudioPostcardOptions,
   AudioPostcardReadyResult,
 } from '@/core/api/remoteAudioPostcardContracts';
+import { StagingBrandedVideoDiagnostic } from '@/features/remote/StagingBrandedVideoDiagnostic';
 import { canStartStagingBrandedVideoExport } from '@/features/remote/stagingBrandedVideoAvailability';
 import type { NormalizedSceneImage } from '@/platform/image/browserSceneImageNormalizer';
 import { renderBrandedVideo } from '@/platform/media/browserBrandedVideoRenderer';
 import { canShareFile, shareFile } from '@/platform/share/browserShare';
-
+import {
+  asUnknownBrandedVideoExportError,
+  isExpectedBrandedVideoAbort,
+  type BrandedVideoExportErrorCode,
+  withBrandedVideoExportError,
+} from '@/shared/media/brandedVideoExportError';
 const CANCELLED_MESSAGE = 'Videoerstellung wurde abgebrochen. Die Audio-Postcard bleibt verfügbar.';
 const EXPIRED_MESSAGE =
   'Die Audio-Postcard ist abgelaufen. Für ein neues Video muss zuerst eine neue Audio-Postcard erstellt werden.';
+const EXPORT_ERROR_MESSAGE =
+  'Das Video konnte nicht sicher erstellt oder geprüft werden. Die Audio-Postcard bleibt verfügbar.';
 const SHARE_TITLE = 'Owli-AI Audio-Postcard';
 const SHARE_TEXT = 'Mit Owli-AI Assist erstellt';
-
 type ExportState =
   | { status: 'idle'; message: string }
   | { status: 'downloading'; message: string }
   | { status: 'local_rendering'; message: string }
   | { status: 'cancelled'; message: string }
   | { status: 'ready'; message: string; file: File; url: string }
-  | { status: 'error'; message: string }
+  | { status: 'error'; message: string; code: BrandedVideoExportErrorCode }
   | { status: 'expired'; message: string };
-
 interface StagingBrandedVideoExportProps {
   enabled: boolean;
   image: NormalizedSceneImage;
@@ -32,7 +38,6 @@ interface StagingBrandedVideoExportProps {
   options: AudioPostcardOptions;
   apiBaseUrl: string;
 }
-
 export function StagingBrandedVideoExport({
   enabled,
   image,
@@ -60,7 +65,6 @@ export function StagingBrandedVideoExport({
   const cancelRef = useRef<HTMLButtonElement>(null);
   const downloadRef = useRef<HTMLAnchorElement>(null);
   const shareRef = useRef<HTMLButtonElement>(null);
-
   const releaseResources = useCallback((publishIdle: boolean) => {
     attemptRef.current += 1;
     const reason = new DOMException('Video export invalidated.', 'AbortError');
@@ -80,7 +84,6 @@ export function StagingBrandedVideoExport({
       );
     }
   }, []);
-
   const expireCapability = useCallback(() => {
     capabilityUsableRef.current = false;
     setCapabilityUsable(false);
@@ -98,7 +101,6 @@ export function StagingBrandedVideoExport({
       return { status: 'expired', message: EXPIRED_MESSAGE };
     });
   }, []);
-
   useEffect(() => {
     if (!capabilityUsableRef.current) return;
     const remainingMs = Date.parse(result.expiresAt) - Date.now();
@@ -106,7 +108,6 @@ export function StagingBrandedVideoExport({
     const timer = window.setTimeout(expireCapability, timeoutMs);
     return () => window.clearTimeout(timer);
   }, [expireCapability, result.expiresAt]);
-
   useEffect(() => {
     const onHidden = () => {
       if (document.visibilityState === 'hidden') releaseResources(true);
@@ -120,15 +121,12 @@ export function StagingBrandedVideoExport({
       releaseResources(false);
     };
   }, [releaseResources]);
-
   useEffect(() => {
     if (isExportActive(state.status)) cancelRef.current?.focus();
     if (state.status === 'ready') downloadRef.current?.focus();
     if (state.status === 'error' && capabilityUsable) primaryActionRef.current?.focus();
   }, [capabilityUsable, state.status]);
-
   if (!enabled) return null;
-
   const createVideo = async () => {
     if (
       isExportActive(state.status) ||
@@ -137,17 +135,10 @@ export function StagingBrandedVideoExport({
     ) {
       return;
     }
-    if (
-      !canStartStagingBrandedVideoExport({
-        result,
-        options,
-        apiBaseUrl,
-      })
-    ) {
+    if (!canStartStagingBrandedVideoExport({ result, options, apiBaseUrl })) {
       expireCapability();
       return;
     }
-
     releaseResources(false);
     const attempt = attemptRef.current;
     const localWorkController = new AbortController();
@@ -155,18 +146,19 @@ export function StagingBrandedVideoExport({
     const attemptProgress: { audioDownloaded: boolean } = { audioDownloaded: false };
     localWorkControllerRef.current = localWorkController;
     downloadControllerRef.current = downloadController;
-    setState({
-      status: 'downloading',
-      message: 'Audio-Postcard wird sicher geladen …',
-    });
-
+    setState({ status: 'downloading', message: 'Audio-Postcard wird sicher geladen …' });
     try {
-      const audioPromise = downloadAudioPostcard({
-        result,
-        options,
-        apiBaseUrl,
-        signal: downloadController.signal,
-      }).then((audioBlob) => {
+      const audioPromise = withBrandedVideoExportError(
+        'VIDEO_CAPABILITY_DOWNLOAD_FAILED',
+        'capability_download',
+        () =>
+          downloadAudioPostcard({
+            result,
+            options,
+            apiBaseUrl,
+            signal: downloadController.signal,
+          }),
+      ).then((audioBlob) => {
         attemptProgress.audioDownloaded = true;
         if (downloadControllerRef.current === downloadController) {
           downloadControllerRef.current = undefined;
@@ -179,23 +171,29 @@ export function StagingBrandedVideoExport({
         }
         return audioBlob;
       });
-      const logoPromise = loadOwliBrandingLogo(localWorkController.signal);
+      const logoPromise = withBrandedVideoExportError(
+        'VIDEO_BRANDING_ASSET_LOAD_FAILED',
+        'branding_asset_load',
+        () => loadOwliBrandingLogo(localWorkController.signal),
+      );
       const [audioBlob, logoBlob] = await Promise.all([audioPromise, logoPromise]);
       if (attempt !== attemptRef.current || localWorkController.signal.aborted) return;
-
       setState({
         status: 'local_rendering',
         message: 'Gebrandetes Staging-Video wird lokal erstellt und geprüft …',
       });
-      const file = await renderBrandedVideo({
-        imageBlob: image.blob,
-        logoBlob,
-        audioBlob,
-        expectedDurationMs: result.audio.durationMs,
-        signal: localWorkController.signal,
-      });
+      const file = await withBrandedVideoExportError(
+        'VIDEO_UNKNOWN_EXPORT_FAILURE',
+        'unknown',
+        () =>
+          renderBrandedVideo({
+            imageBlob: image.blob,
+            logoBlob,
+            audioBlob,
+            signal: localWorkController.signal,
+          }),
+      );
       if (attempt !== attemptRef.current) return;
-
       const url = URL.createObjectURL(file);
       outputUrlRef.current = url;
       setState({
@@ -218,13 +216,12 @@ export function StagingBrandedVideoExport({
         expireCapability();
         return;
       }
-      setState({
-        status: 'error',
-        message:
-          error instanceof DOMException && error.name === 'AbortError'
-            ? CANCELLED_MESSAGE
-            : 'Das Video konnte nicht sicher erstellt oder geprüft werden. Die Audio-Postcard bleibt verfügbar.',
-      });
+      if (isExpectedBrandedVideoAbort(error)) {
+        setState({ status: 'cancelled', message: CANCELLED_MESSAGE });
+        return;
+      }
+      const diagnostic = asUnknownBrandedVideoExportError(error);
+      setState({ status: 'error', message: EXPORT_ERROR_MESSAGE, code: diagnostic.code });
     } finally {
       if (downloadControllerRef.current === downloadController) {
         downloadControllerRef.current = undefined;
@@ -234,13 +231,11 @@ export function StagingBrandedVideoExport({
       }
     }
   };
-
   const cancelVideo = () => {
     releaseResources(false);
     setState({ status: 'cancelled', message: CANCELLED_MESSAGE });
     window.setTimeout(() => primaryActionRef.current?.focus(), 0);
   };
-
   const shareVideo = async () => {
     if (state.status !== 'ready') return;
     try {
@@ -258,14 +253,12 @@ export function StagingBrandedVideoExport({
       shareRef.current?.focus();
     }
   };
-
   const active = isExportActive(state.status);
   const canShare = state.status === 'ready' && canShareFile(state.file, SHARE_TITLE, SHARE_TEXT);
   const primaryLabel =
     state.status === 'error' || state.status === 'cancelled'
       ? 'Video erneut erstellen'
       : 'Gebrandetes Video erstellen';
-
   return (
     <section
       className="audio-postcard-video-export"
@@ -309,6 +302,7 @@ export function StagingBrandedVideoExport({
       >
         {state.message}
       </p>
+      {state.status === 'error' && <StagingBrandedVideoDiagnostic code={state.code} />}
       {state.status === 'ready' && (
         <div className="audio-postcard-result">
           {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
@@ -327,12 +321,7 @@ export function StagingBrandedVideoExport({
               className="button button--secondary"
               href={state.url}
               download={state.file.name}
-              onClick={() =>
-                setState({
-                  ...state,
-                  message: 'Video-Download wurde gestartet.',
-                })
-              }
+              onClick={() => setState({ ...state, message: 'Video-Download wurde gestartet.' })}
             >
               Video herunterladen
             </a>
@@ -352,7 +341,6 @@ export function StagingBrandedVideoExport({
     </section>
   );
 }
-
 function isExportActive(status: ExportState['status']): boolean {
   return status === 'downloading' || status === 'local_rendering';
 }
