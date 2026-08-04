@@ -4,6 +4,7 @@ import { renderBrandedVideo } from '@/platform/media/browserBrandedVideoRenderer
 import { recordAudioCanvas } from '@/platform/media/browserRecorderSession';
 import { validateBrandedVideoOutput } from '@/platform/media/browserBrandedVideoValidation';
 import {
+  BRANDED_VIDEO_SOURCE_CODEC_PADDING_MS,
   BRANDED_VIDEO_TOTAL_SLACK_MS,
   MEDIA_RECORDER_LIMITS,
 } from '@/platform/media/mediaRecorderLimits';
@@ -180,7 +181,11 @@ describe('specific source admission categories and render-token release', () => 
       code: 'VIDEO_SOURCE_DURATION_LIMIT_EXCEEDED',
       configure: () => {
         nextAudioBuffer = decodedAudio({
-          duration: (MEDIA_RECORDER_LIMITS.maxDurationMs + 1) / 1_000,
+          duration:
+            (MEDIA_RECORDER_LIMITS.maxDurationMs +
+              BRANDED_VIDEO_SOURCE_CODEC_PADDING_MS +
+              1) /
+            1_000,
         });
       },
     },
