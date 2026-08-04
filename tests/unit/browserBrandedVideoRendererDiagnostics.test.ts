@@ -182,9 +182,7 @@ describe('specific source admission categories and render-token release', () => 
       configure: () => {
         nextAudioBuffer = decodedAudio({
           duration:
-            (MEDIA_RECORDER_LIMITS.maxDurationMs +
-              BRANDED_VIDEO_SOURCE_CODEC_PADDING_MS +
-              1) /
+            (MEDIA_RECORDER_LIMITS.maxDurationMs + BRANDED_VIDEO_SOURCE_CODEC_PADDING_MS + 1) /
             1_000,
         });
       },
