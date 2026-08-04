@@ -83,8 +83,12 @@ async function openPrototypeLab(page: Page): Promise<void> {
     }),
   ).toBeVisible();
   await expect
-    .poll(async () =>
-      await page.evaluate((key) => typeof Reflect.get(window, key)?.run === 'function', HARNESS_KEY),
+    .poll(
+      async () =>
+        await page.evaluate(
+          (key) => typeof Reflect.get(window, key)?.run === 'function',
+          HARNESS_KEY,
+        ),
     )
     .toBe(true);
 }

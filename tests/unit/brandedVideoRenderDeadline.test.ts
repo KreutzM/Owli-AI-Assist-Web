@@ -15,10 +15,7 @@ describe('branded video render deadline', () => {
 
   it('reports an expired budget only after source duration and slack are consumed', () => {
     expect(
-      resolveRemainingBrandedVideoRenderMs(
-        60_000,
-        60_000 + BRANDED_VIDEO_TOTAL_SLACK_MS + 1,
-      ),
+      resolveRemainingBrandedVideoRenderMs(60_000, 60_000 + BRANDED_VIDEO_TOTAL_SLACK_MS + 1),
     ).toBe(-1);
   });
 });

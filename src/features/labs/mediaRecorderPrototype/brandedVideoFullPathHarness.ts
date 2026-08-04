@@ -32,7 +32,9 @@ export interface BrandedVideoFullPathEvidence {
 }
 
 interface BrandedVideoFullPathHarnessApi {
-  run(scenarioId: BrandedVideoFullPathScenarioId): Promise<BrandedVideoFullPathEvidence | FailureEvidence>;
+  run(
+    scenarioId: BrandedVideoFullPathScenarioId,
+  ): Promise<BrandedVideoFullPathEvidence | FailureEvidence>;
   dispose(): void;
 }
 
@@ -217,9 +219,7 @@ function createPcm16Wav(durationMs: number): Blob {
   view.setUint32(40, dataBytes, true);
 
   for (let frame = 0; frame < frameCount; frame += 1) {
-    const sample = Math.round(
-      Math.sin((frame / SAMPLE_RATE_HZ) * Math.PI * 2 * 440) * 8_192,
-    );
+    const sample = Math.round(Math.sin((frame / SAMPLE_RATE_HZ) * Math.PI * 2 * 440) * 8_192);
     view.setInt16(44 + frame * bytesPerSample, sample, true);
   }
   return new Blob([output], { type: 'audio/wav' });
