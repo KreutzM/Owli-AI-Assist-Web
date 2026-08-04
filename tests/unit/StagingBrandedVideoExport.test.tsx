@@ -34,17 +34,19 @@ const image = {
 const result = readyAudioPostcard();
 const options = audioPostcardOptions();
 const API_BASE_URL = 'https://api-staging.owli-ai.com/';
+const createObjectUrlCall = vi.fn<(object: Blob | MediaSource) => string>();
 const revokeObjectUrlCall = vi.fn<(url: string) => void>();
 
 beforeEach(() => {
   setDocumentVisibility('visible', false);
+  createObjectUrlCall.mockReset().mockReturnValue('blob:video-1');
   revokeObjectUrlCall.mockClear();
   vi.mocked(downloadAudioPostcard).mockReset().mockResolvedValue(audioBlob);
   vi.mocked(loadOwliBrandingLogo).mockReset().mockResolvedValue(logoBlob);
   vi.mocked(renderBrandedVideo).mockReset().mockResolvedValue(outputFile);
   vi.mocked(canShareFile).mockReset().mockReturnValue(false);
   vi.mocked(shareFile).mockReset().mockResolvedValue(undefined);
-  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:video-1');
+  vi.spyOn(URL, 'createObjectURL').mockImplementation((object) => createObjectUrlCall(object));
   vi.spyOn(URL, 'revokeObjectURL').mockImplementation((url) => revokeObjectUrlCall(url));
   vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
   vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
@@ -243,7 +245,7 @@ describe('StagingBrandedVideoExport', () => {
 
     expect(renderBrandedVideo).not.toHaveBeenCalled();
     expect(screen.queryByRole('link', { name: 'Video herunterladen' })).toBeNull();
-    expect(URL.createObjectURL).not.toHaveBeenCalled();
+    expect(createObjectUrlCall).not.toHaveBeenCalled();
   });
 
   it('allows a successful same-tab retry after hidden aborts an active attempt', async () => {
@@ -328,9 +330,7 @@ describe('StagingBrandedVideoExport', () => {
   });
 
   it('revokes a superseded URL exactly once and retains the replacement output', async () => {
-    vi.mocked(URL.createObjectURL)
-      .mockReturnValueOnce('blob:video-1')
-      .mockReturnValueOnce('blob:video-2');
+    createObjectUrlCall.mockReturnValueOnce('blob:video-1').mockReturnValueOnce('blob:video-2');
     vi.mocked(renderBrandedVideo)
       .mockResolvedValueOnce(outputFile)
       .mockResolvedValueOnce(replacementFile);
@@ -368,7 +368,7 @@ describe('StagingBrandedVideoExport', () => {
 
     expect(download).toHaveAttribute('href', 'blob:video-1');
     expect(screen.getByLabelText(/Video abspielen/u)).toHaveAttribute('src', 'blob:video-1');
-    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    expect(createObjectUrlCall).toHaveBeenCalledTimes(1);
     expect(revokeObjectUrlCall).not.toHaveBeenCalled();
   });
 
@@ -460,9 +460,7 @@ describe('StagingBrandedVideoExport', () => {
     vi.mocked(shareFile)
       .mockImplementationOnce(() => firstShare.promise)
       .mockResolvedValueOnce(undefined);
-    vi.mocked(URL.createObjectURL)
-      .mockReturnValueOnce('blob:video-1')
-      .mockReturnValueOnce('blob:video-2');
+    createObjectUrlCall.mockReturnValueOnce('blob:video-1').mockReturnValueOnce('blob:video-2');
     vi.mocked(renderBrandedVideo)
       .mockResolvedValueOnce(outputFile)
       .mockResolvedValueOnce(replacementFile);
