@@ -23,7 +23,6 @@ export const MEDIA_RECORDER_LIMITS = {
   maxContainerInspectionBytes: 2 * 1024 * 1024,
 } as const;
 
-export const BRANDED_VIDEO_MAX_RENDER_WALL_TIME_MS = 60_000;
 export const BRANDED_VIDEO_TOTAL_SLACK_MS = 15_000;
 export const BRANDED_VIDEO_MAX_OUTPUT_SHORTFALL_MS = 250;
 export const BRANDED_VIDEO_MAX_OUTPUT_PADDING_MS = 2_000;
