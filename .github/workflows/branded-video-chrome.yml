@@ -12,9 +12,12 @@ on:
       - 'playwright.mediarecorder.config.mjs'
       - 'src/core/api/loadOwliBrandingLogo.ts'
       - 'src/features/labs/mediaRecorderPrototype/**'
+      - 'src/features/remote/StagingBrandedVideoExport.tsx'
+      - 'src/features/remote/StagingBrandedVideoReadyOutput.tsx'
       - 'src/platform/media/**'
       - 'src/shared/media/brandedVideoExportError.ts'
       - 'tests/e2e/branded-video-full-path.spec.ts'
+      - 'tests/unit/StagingBrandedVideoExport.test.tsx'
       - 'tools/run-mediarecorder-e2e.mjs'
   push:
     branches:
@@ -24,9 +27,12 @@ on:
       - 'playwright.mediarecorder.config.mjs'
       - 'src/core/api/loadOwliBrandingLogo.ts'
       - 'src/features/labs/mediaRecorderPrototype/**'
+      - 'src/features/remote/StagingBrandedVideoExport.tsx'
+      - 'src/features/remote/StagingBrandedVideoReadyOutput.tsx'
       - 'src/platform/media/**'
       - 'src/shared/media/brandedVideoExportError.ts'
       - 'tests/e2e/branded-video-full-path.spec.ts'
+      - 'tests/unit/StagingBrandedVideoExport.test.tsx'
       - 'tools/run-mediarecorder-e2e.mjs'
   workflow_dispatch:
 
