@@ -8,6 +8,7 @@ import {
 import { recordAudioCanvas } from '@/platform/media/browserRecorderSession';
 import { validateBrandedVideoOutput } from '@/platform/media/browserBrandedVideoValidation';
 import {
+  BRANDED_VIDEO_MAX_RENDER_WALL_TIME_MS,
   BRANDED_VIDEO_TOTAL_SLACK_MS,
   MEDIA_RECORDER_LIMITS,
 } from '@/platform/media/mediaRecorderLimits';
@@ -45,10 +46,7 @@ export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promi
   if (values.signal.aborted) forwardAbort();
   else values.signal.addEventListener('abort', forwardAbort, { once: true });
   const renderStartedAt = Date.now();
-  let totalDeadline = scheduleRenderDeadline(
-    controller,
-    MEDIA_RECORDER_LIMITS.maxDurationMs + BRANDED_VIDEO_TOTAL_SLACK_MS,
-  );
+  let totalDeadline = scheduleRenderDeadline(controller, BRANDED_VIDEO_MAX_RENDER_WALL_TIME_MS);
   let scene: ImageBitmap | undefined;
   let logo: ImageBitmap | undefined;
   let audioContext: AudioContext | undefined;
@@ -95,8 +93,11 @@ export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promi
     runSourceAdmission(() => assertBrandedVideoDecodedAudio(audioBuffer));
     const sourceAudioDurationMs = audioBuffer.duration * 1_000;
     window.clearTimeout(totalDeadline);
-    const remainingRenderMs =
-      sourceAudioDurationMs + BRANDED_VIDEO_TOTAL_SLACK_MS - (Date.now() - renderStartedAt);
+    const totalRenderBudgetMs = Math.min(
+      sourceAudioDurationMs + BRANDED_VIDEO_TOTAL_SLACK_MS,
+      BRANDED_VIDEO_MAX_RENDER_WALL_TIME_MS,
+    );
+    const remainingRenderMs = totalRenderBudgetMs - (Date.now() - renderStartedAt);
     if (remainingRenderMs <= 0) {
       controller.abort(renderDeadlineError());
     } else {
