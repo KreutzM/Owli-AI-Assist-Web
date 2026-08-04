@@ -138,9 +138,7 @@ describe('branded video output diagnostic categories', () => {
     installAudioContext(audioBuffer((1_000 - BRANDED_VIDEO_MAX_OUTPUT_SHORTFALL_MS) / 1_000));
     await expect(validate()).resolves.toBeUndefined();
 
-    installAudioContext(
-      audioBuffer((1_000 - BRANDED_VIDEO_MAX_OUTPUT_SHORTFALL_MS - 1) / 1_000),
-    );
+    installAudioContext(audioBuffer((1_000 - BRANDED_VIDEO_MAX_OUTPUT_SHORTFALL_MS - 1) / 1_000));
     await expectCode(validate(), 'VIDEO_OUTPUT_AUDIO_VALIDATION_FAILED');
   });
 
