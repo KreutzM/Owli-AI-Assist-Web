@@ -6,10 +6,10 @@ import type {
   AudioPostcardReadyResult,
 } from '@/core/api/remoteAudioPostcardContracts';
 import { StagingBrandedVideoDiagnostic } from '@/features/remote/StagingBrandedVideoDiagnostic';
+import { StagingBrandedVideoReadyOutput } from '@/features/remote/StagingBrandedVideoReadyOutput';
 import { canStartStagingBrandedVideoExport } from '@/features/remote/stagingBrandedVideoAvailability';
 import type { NormalizedSceneImage } from '@/platform/image/browserSceneImageNormalizer';
 import { renderBrandedVideo } from '@/platform/media/browserBrandedVideoRenderer';
-import { canShareFile, shareFile } from '@/platform/share/browserShare';
 import {
   asUnknownBrandedVideoExportError,
   isExpectedBrandedVideoAbort,
@@ -22,14 +22,6 @@ const EXPIRED_MESSAGE =
   'Die Audio-Postcard ist abgelaufen. Für ein neues Video muss zuerst eine neue Audio-Postcard erstellt werden.';
 const EXPORT_ERROR_MESSAGE =
   'Das Video konnte nicht sicher erstellt oder geprüft werden. Die Audio-Postcard bleibt verfügbar.';
-const SHARE_PENDING_MESSAGE = 'Teilen wird geöffnet …';
-const SHARE_SUCCESS_MESSAGE = 'Video wurde zum Teilen übergeben.';
-const SHARE_CANCELLED_MESSAGE =
-  'Teilen wurde abgebrochen. Video, Wiedergabe und Download bleiben verfügbar.';
-const SHARE_ERROR_MESSAGE =
-  'Video konnte nicht geteilt werden. Wiedergabe und Download bleiben verfügbar.';
-const SHARE_TITLE = 'Owli-AI Audio-Postcard';
-const SHARE_TEXT = 'Mit Owli-AI Assist erstellt';
 
 type ExportState =
   | { status: 'idle'; message: string }
@@ -66,20 +58,15 @@ export function StagingBrandedVideoExport({
       : { status: 'expired', message: EXPIRED_MESSAGE },
   );
   const [capabilityUsable, setCapabilityUsable] = useState(initialCapabilityUsable);
-  const [sharePending, setSharePending] = useState(false);
   const localWorkControllerRef = useRef<AbortController | undefined>(undefined);
   const downloadControllerRef = useRef<AbortController | undefined>(undefined);
   const capabilityUsableRef = useRef(initialCapabilityUsable);
   const outputUrlRef = useRef<string | undefined>(undefined);
   const attemptRef = useRef(0);
-  const shareAttemptRef = useRef(0);
-  const shareInFlightRef = useRef(false);
   const mountedRef = useRef(true);
   const activeAttemptRef = useRef(false);
   const primaryActionRef = useRef<HTMLButtonElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
-  const downloadRef = useRef<HTMLAnchorElement>(null);
-  const shareRef = useRef<HTMLButtonElement>(null);
 
   const abortActiveAttempt = useCallback((publishCancellation: boolean) => {
     attemptRef.current += 1;
@@ -107,8 +94,6 @@ export function StagingBrandedVideoExport({
 
   const releaseAllResources = useCallback(() => {
     abortActiveAttempt(false);
-    shareAttemptRef.current += 1;
-    shareInFlightRef.current = false;
     releaseReadyOutput();
   }, [abortActiveAttempt, releaseReadyOutput]);
 
@@ -128,6 +113,15 @@ export function StagingBrandedVideoExport({
       }
       return { status: 'expired', message: EXPIRED_MESSAGE };
     });
+  }, []);
+
+  const publishReadyMessage = useCallback((file: File, url: string, message: string) => {
+    if (!mountedRef.current || outputUrlRef.current !== url) return;
+    setState((current) =>
+      current.status === 'ready' && current.file === file && current.url === url
+        ? { ...current, message }
+        : current,
+    );
   }, []);
 
   useEffect(() => {
@@ -158,7 +152,6 @@ export function StagingBrandedVideoExport({
 
   useEffect(() => {
     if (isExportActive(state.status)) cancelRef.current?.focus();
-    if (state.status === 'ready') downloadRef.current?.focus();
     if (state.status === 'error' && capabilityUsable) primaryActionRef.current?.focus();
   }, [capabilityUsable, state.status]);
 
@@ -281,62 +274,7 @@ export function StagingBrandedVideoExport({
     window.setTimeout(() => primaryActionRef.current?.focus(), 0);
   };
 
-  const publishShareResult = (file: File, url: string, message: string) => {
-    if (!mountedRef.current || outputUrlRef.current !== url) return;
-    setState((current) =>
-      current.status === 'ready' && current.file === file && current.url === url
-        ? { ...current, message }
-        : current,
-    );
-  };
-
-  const shareVideo = async () => {
-    if (state.status !== 'ready' || shareInFlightRef.current) return;
-    const sharedFile = state.file;
-    const sharedUrl = state.url;
-    const shareAttempt = shareAttemptRef.current + 1;
-    shareAttemptRef.current = shareAttempt;
-    shareInFlightRef.current = true;
-    setSharePending(true);
-    setState((current) =>
-      current.status === 'ready' && current.file === sharedFile && current.url === sharedUrl
-        ? { ...current, message: SHARE_PENDING_MESSAGE }
-        : current,
-    );
-    try {
-      await shareFile(sharedFile, SHARE_TITLE, SHARE_TEXT);
-      publishShareResult(sharedFile, sharedUrl, SHARE_SUCCESS_MESSAGE);
-    } catch (error) {
-      publishShareResult(
-        sharedFile,
-        sharedUrl,
-        error instanceof DOMException && error.name === 'AbortError'
-          ? SHARE_CANCELLED_MESSAGE
-          : SHARE_ERROR_MESSAGE,
-      );
-    } finally {
-      if (shareAttempt === shareAttemptRef.current) {
-        shareInFlightRef.current = false;
-        if (mountedRef.current) {
-          setSharePending(false);
-          if (outputUrlRef.current === sharedUrl) {
-            window.setTimeout(() => {
-              if (
-                mountedRef.current &&
-                !shareInFlightRef.current &&
-                outputUrlRef.current === sharedUrl
-              ) {
-                shareRef.current?.focus();
-              }
-            }, 0);
-          }
-        }
-      }
-    }
-  };
-
   const active = isExportActive(state.status);
-  const canShare = state.status === 'ready' && canShareFile(state.file, SHARE_TITLE, SHARE_TEXT);
   const primaryLabel =
     state.status === 'error' || state.status === 'cancelled'
       ? 'Video erneut erstellen'
@@ -387,46 +325,12 @@ export function StagingBrandedVideoExport({
       </p>
       {state.status === 'error' && <StagingBrandedVideoDiagnostic code={state.code} />}
       {state.status === 'ready' && (
-        <div className="audio-postcard-result">
-          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-          <video
-            aria-label="Gebrandetes Owli Audio-Postcard-Video abspielen"
-            controls
-            playsInline
-            preload="metadata"
-            src={state.url}
-          >
-            Dein Browser unterstützt die Video-Wiedergabe nicht.
-          </video>
-          <div className="scene-actions audio-postcard-actions">
-            <a
-              ref={downloadRef}
-              className="button button--secondary"
-              href={state.url}
-              download={state.file.name}
-              onClick={() =>
-                setState((current) =>
-                  current.status === 'ready'
-                    ? { ...current, message: 'Video-Download wurde gestartet.' }
-                    : current,
-                )
-              }
-            >
-              Video herunterladen
-            </a>
-            {canShare && (
-              <button
-                ref={shareRef}
-                className="button button--secondary"
-                type="button"
-                disabled={sharePending}
-                onClick={() => void shareVideo()}
-              >
-                Video teilen
-              </button>
-            )}
-          </div>
-        </div>
+        <StagingBrandedVideoReadyOutput
+          key={state.url}
+          file={state.file}
+          url={state.url}
+          onMessage={publishReadyMessage}
+        />
       )}
     </section>
   );
