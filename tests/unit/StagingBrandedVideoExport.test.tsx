@@ -341,12 +341,16 @@ describe('StagingBrandedVideoExport', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Gebrandetes Video erstellen' }));
     const replacementDownload = await screen.findByRole('link', { name: 'Video herunterladen' });
 
-    expect(revokeObjectUrlCall.mock.calls.filter(([url]) => url === 'blob:video-1')).toHaveLength(1);
+    expect(revokeObjectUrlCall.mock.calls.filter(([url]) => url === 'blob:video-1')).toHaveLength(
+      1,
+    );
     expect(replacementDownload).toHaveAttribute('href', 'blob:video-2');
     expect(revokeObjectUrlCall).not.toHaveBeenCalledWith('blob:video-2');
 
     view.unmount();
-    expect(revokeObjectUrlCall.mock.calls.filter(([url]) => url === 'blob:video-2')).toHaveLength(1);
+    expect(revokeObjectUrlCall.mock.calls.filter(([url]) => url === 'blob:video-2')).toHaveLength(
+      1,
+    );
   });
 
   it('keeps a retry output after cleanup of an older aborted renderer settles', async () => {
@@ -478,7 +482,9 @@ describe('StagingBrandedVideoExport', () => {
     firstShare.resolve(undefined);
     await flushWork();
 
-    expect(screen.getByRole('status')).toHaveTextContent('Gebrandetes Video ist geprüft und bereit.');
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Gebrandetes Video ist geprüft und bereit.',
+    );
     assertReadyOutput('blob:video-2');
     const replacementShare = screen.getByRole('button', { name: 'Video teilen' });
     await waitFor(() => expect(replacementShare).toBeEnabled());
