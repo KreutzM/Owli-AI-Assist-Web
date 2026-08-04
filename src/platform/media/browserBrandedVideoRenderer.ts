@@ -1,6 +1,6 @@
 import { BoundedRecorderChunks } from '@/platform/media/boundedRecorderChunks';
 import { BRANDED_VIDEO_CANVAS, drawBrandedVideoFrame } from '@/platform/media/brandedVideoFrame';
-import { resolveRemainingBrandedVideoRenderMs } from '@/platform/media/brandedVideoRenderDeadline';
+import { resolveBrandedVideoRenderDeadlineMs } from '@/platform/media/brandedVideoRenderDeadline';
 import {
   assertBrandedVideoDecodedAudio,
   assertBrandedVideoSourceImageDimensions,
@@ -42,7 +42,6 @@ export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promi
   const forwardAbort = () => controller.abort(values.signal.reason);
   if (values.signal.aborted) forwardAbort();
   else values.signal.addEventListener('abort', forwardAbort, { once: true });
-  const renderStartedAt = Date.now();
   let totalDeadline = scheduleRenderDeadline(
     controller,
     MEDIA_RECORDER_LIMITS.initializationDeadlineMs,
@@ -93,15 +92,10 @@ export async function renderBrandedVideo(values: BrandedVideoRenderInput): Promi
     runSourceAdmission(() => assertBrandedVideoDecodedAudio(audioBuffer));
     const sourceAudioDurationMs = audioBuffer.duration * 1_000;
     window.clearTimeout(totalDeadline);
-    const remainingRenderMs = resolveRemainingBrandedVideoRenderMs(
-      sourceAudioDurationMs,
-      Date.now() - renderStartedAt,
+    totalDeadline = scheduleRenderDeadline(
+      controller,
+      resolveBrandedVideoRenderDeadlineMs(sourceAudioDurationMs),
     );
-    if (remainingRenderMs <= 0) {
-      controller.abort(renderDeadlineError());
-    } else {
-      totalDeadline = scheduleRenderDeadline(controller, remainingRenderMs);
-    }
     controller.signal.throwIfAborted();
     await withBrandedVideoExportError(
       'VIDEO_SOURCE_AUDIO_DECODE_FAILED',
