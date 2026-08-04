@@ -4,7 +4,6 @@ import { renderBrandedVideo } from '@/platform/media/browserBrandedVideoRenderer
 import { recordAudioCanvas } from '@/platform/media/browserRecorderSession';
 import { validateBrandedVideoOutput } from '@/platform/media/browserBrandedVideoValidation';
 import {
-  BRANDED_VIDEO_SOURCE_CODEC_PADDING_MS,
   BRANDED_VIDEO_TOTAL_SLACK_MS,
   MEDIA_RECORDER_LIMITS,
 } from '@/platform/media/mediaRecorderLimits';
@@ -88,18 +87,18 @@ describe('branded video renderer diagnostic categories', () => {
     await expectCode(renderBrandedVideo(input()), 'VIDEO_RECORDING_FAILED');
   });
 
-  it('uses decoded audio duration for recording and output validation', async () => {
-    nextAudioBuffer = decodedAudio({ duration: 1.234, length: 59_232 });
+  it('uses decoded audio duration above 30 seconds for recording and output validation', async () => {
+    nextAudioBuffer = decodedAudio({ duration: 31.234, length: 1_499_232 });
 
     await expect(renderBrandedVideo(input())).resolves.toMatchObject({
       name: 'owli-audio-postcard.webm',
     });
 
     expect(recordAudioCanvas).toHaveBeenCalledWith(
-      expect.objectContaining({ durationSeconds: 1.234 }),
+      expect.objectContaining({ durationSeconds: 31.234 }),
     );
     expect(validateBrandedVideoOutput).toHaveBeenCalledWith(
-      expect.objectContaining({ sourceAudioDurationMs: 1_234 }),
+      expect.objectContaining({ sourceAudioDurationMs: 31_234 }),
     );
     expect(vi.mocked(validateBrandedVideoOutput).mock.calls[0]?.[0]).not.toHaveProperty(
       'expectedDurationMs',
@@ -174,17 +173,6 @@ describe('specific source admission categories and render-token release', () => 
       code: 'VIDEO_SOURCE_INPUT_INVALID',
       configure: () => {
         nextAudioBuffer = decodedAudio({ duration: 0 });
-      },
-    },
-    {
-      label: 'decoded duration limit',
-      code: 'VIDEO_SOURCE_DURATION_LIMIT_EXCEEDED',
-      configure: () => {
-        nextAudioBuffer = decodedAudio({
-          duration:
-            (MEDIA_RECORDER_LIMITS.maxDurationMs + BRANDED_VIDEO_SOURCE_CODEC_PADDING_MS + 1) /
-            1_000,
-        });
       },
     },
     {
