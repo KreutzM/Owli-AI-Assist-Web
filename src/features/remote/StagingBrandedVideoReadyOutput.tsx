@@ -13,7 +13,7 @@ const SHARE_TEXT = 'Mit Owli-AI Assist erstellt';
 interface StagingBrandedVideoReadyOutputProps {
   file: File;
   url: string;
-  onMessage(file: File, url: string, message: string): void;
+  onMessage: (file: File, url: string, message: string) => void;
 }
 
 export function StagingBrandedVideoReadyOutput({
