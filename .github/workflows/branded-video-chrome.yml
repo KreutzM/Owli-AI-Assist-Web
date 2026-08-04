@@ -1,0 +1,77 @@
+name: Branded video Chrome full path
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths:
+      - '.github/workflows/branded-video-chrome.yml'
+      - 'playwright.mediarecorder.config.mjs'
+      - 'src/core/api/loadOwliBrandingLogo.ts'
+      - 'src/features/labs/mediaRecorderPrototype/**'
+      - 'src/platform/media/**'
+      - 'src/shared/media/brandedVideoExportError.ts'
+      - 'tests/e2e/branded-video-full-path.spec.ts'
+      - 'tools/run-mediarecorder-e2e.mjs'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/branded-video-chrome.yml'
+      - 'playwright.mediarecorder.config.mjs'
+      - 'src/core/api/loadOwliBrandingLogo.ts'
+      - 'src/features/labs/mediaRecorderPrototype/**'
+      - 'src/platform/media/**'
+      - 'src/shared/media/brandedVideoExportError.ts'
+      - 'tests/e2e/branded-video-full-path.spec.ts'
+      - 'tools/run-mediarecorder-e2e.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: branded-video-chrome-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CHECKOUT_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  full-path:
+    name: Real Chrome branded MediaRecorder full path
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CHECKOUT_REF }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run short and 31-second branded full paths
+        env:
+          OWLI_MEDIARECORDER_LONG_E2E: '1'
+        run: >-
+          pnpm test:e2e:mediarecorder
+          --grep "branded video real Chrome full path"

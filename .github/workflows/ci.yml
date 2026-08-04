@@ -143,47 +143,12 @@ jobs:
       - name: Build mock PWA
         run: pnpm build
 
-  quick-branded-video:
-    name: Quick branded video Chrome full path
-    if: >-
-      (github.event_name == 'pull_request' && github.event.pull_request.draft == true) ||
-      (github.event_name == 'workflow_dispatch' && inputs.tier == 'quick')
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Check out exact revision
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ env.CHECKOUT_REF }}
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.12.1
-          run_install: false
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Playwright Chromium
-        run: pnpm exec playwright install --with-deps chromium
-
-      - name: Run short branded MediaRecorder full path
-        run: pnpm test:e2e:mediarecorder --grep "branded video short full path"
-
   quick:
     name: Quick format, type, unit, and build checks
     needs:
       - format
       - core
       - quick-build
-      - quick-branded-video
     if: >-
       always() && (
         (github.event_name == 'pull_request' && github.event.pull_request.draft == true) ||
@@ -197,13 +162,11 @@ jobs:
           FORMAT_RESULT: ${{ needs.format.result }}
           CORE_RESULT: ${{ needs.core.result }}
           QUICK_BUILD_RESULT: ${{ needs['quick-build'].result }}
-          QUICK_BRANDED_VIDEO_RESULT: ${{ needs['quick-branded-video'].result }}
         shell: bash
         run: |
           test "$FORMAT_RESULT" = success
           test "$CORE_RESULT" = success
           test "$QUICK_BUILD_RESULT" = success
-          test "$QUICK_BRANDED_VIDEO_RESULT" = success
 
   prettier-fix:
     name: Generate exact-head Prettier fix artifact
@@ -213,7 +176,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      EXPECTED_BASE_SHA: ${{ github.event.pul_request.base.sha }}
+      EXPECTED_BASE_SHA: ${{ github.event.pull_request.base.sha }}
       EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       OUTPUT_DIRECTORY: artifacts/prettier-fix
     steps:
@@ -303,24 +266,19 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: pnmp exec playwright install --with-deps chromium webkit
+        run: pnpm exec playwright install --with-deps chromium webkit
 
       - name: Build mock PWA
         run: pnpm build
 
       - name: Check Vite port policy
-        run: pnmp test:ports
+        run: pnpm test:ports
 
       - name: Run browser validation
         run: pnpm test:e2e
 
       - name: Run staging browser validation
         run: pnpm test:e2e:staging
-
-      - name: Run branded MediaRecorder browser validation
-        env:
-          OWLI_MEDIARECORDER_LONG_E2E: '1'
-        run: pnmp test:e2e:mediarecorder
 
       - name: Check Safari diagnostics syntax
         run: |
@@ -330,7 +288,7 @@ jobs:
 
       - name: Build deterministic Safari JPEG harness
         run: |
-          pnmp build:safari-jpeg-harness
+          pnpm build:safari-jpeg-harness
           test -f tests/harness/safari-jpeg/dist/_headers
           if grep -qE 'api-staging\.owli-ai\.com|https://api\.owli-ai\.com' tests/harness/safari-jpeg/dist/_headers; then
             echo 'Safari JPEG harness headers contain a remote API origin.' >&2
@@ -338,7 +296,7 @@ jobs:
           fi
 
       - name: Generate optional agent index artifact
-        run: pnmp ai:index
+        run: pnpm ai:index
 
       - name: Upload optional agent index artifact
         uses: actions/upload-artifact@v4
@@ -367,7 +325,7 @@ jobs:
           ref: ${{ env.CHECKOUT_REF }}
 
       - name: Set up pnpm
-        uses: pnmp/action-setup@v4
+        uses: pnpm/action-setup@v4
         with:
           version: 10.12.1
           run_install: false
@@ -376,7 +334,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnmp
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -391,7 +349,7 @@ jobs:
       - name: Build staging PWA and verify headers
         shell: pwsh
         run: |
-          pnmp build:staging
+          pnpm build:staging
           $headers = Get-Content dist/_headers -Raw
           if (-not $headers.Contains('connect-src ''self'' https://api-staging.owli-ai.com')) { throw 'Staging connect-src is missing.' }
           if ($headers.Contains('https://api.owli-ai.com')) { throw 'Staging headers contain the production API origin.' }
@@ -399,7 +357,7 @@ jobs:
       - name: Build production PWA and verify headers
         shell: pwsh
         run: |
-          pnmp build:production
+          pnpm build:production
           $headers = Get-Content dist/_headers -Raw
           if (-not $headers.Contains('connect-src ''self'' https://api.owli-ai.com')) { throw 'Production connect-src is missing.' }
           if ($headers.Contains('api-staging.owli-ai.com')) { throw 'Production headers contain the staging API origin.' }
