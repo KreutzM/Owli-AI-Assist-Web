@@ -75,16 +75,15 @@ export function StagingBrandedVideoExport({
   const shareAttemptRef = useRef(0);
   const shareInFlightRef = useRef(false);
   const mountedRef = useRef(true);
-  const stateStatusRef = useRef<ExportState['status']>(state.status);
+  const activeAttemptRef = useRef(false);
   const primaryActionRef = useRef<HTMLButtonElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const downloadRef = useRef<HTMLAnchorElement>(null);
   const shareRef = useRef<HTMLButtonElement>(null);
 
-  stateStatusRef.current = state.status;
-
   const abortActiveAttempt = useCallback((publishCancellation: boolean) => {
     attemptRef.current += 1;
+    activeAttemptRef.current = false;
     const reason = new DOMException('Video export invalidated.', 'AbortError');
     downloadControllerRef.current?.abort(reason);
     downloadControllerRef.current = undefined;
@@ -142,7 +141,7 @@ export function StagingBrandedVideoExport({
   useEffect(() => {
     mountedRef.current = true;
     const abortActiveLifecycleAttempt = () => {
-      if (isExportActive(stateStatusRef.current)) abortActiveAttempt(true);
+      if (activeAttemptRef.current) abortActiveAttempt(true);
     };
     const onHidden = () => {
       if (document.visibilityState === 'hidden') abortActiveLifecycleAttempt();
@@ -185,6 +184,7 @@ export function StagingBrandedVideoExport({
     const attemptProgress: { audioDownloaded: boolean } = { audioDownloaded: false };
     localWorkControllerRef.current = localWorkController;
     downloadControllerRef.current = downloadController;
+    activeAttemptRef.current = true;
     setState({ status: 'downloading', message: 'Audio-Postcard wird sicher geladen …' });
     try {
       const audioPromise = withBrandedVideoExportError(
@@ -271,6 +271,7 @@ export function StagingBrandedVideoExport({
       if (localWorkControllerRef.current === localWorkController) {
         localWorkControllerRef.current = undefined;
       }
+      if (attempt === attemptRef.current) activeAttemptRef.current = false;
     }
   };
 
@@ -314,20 +315,22 @@ export function StagingBrandedVideoExport({
           : SHARE_ERROR_MESSAGE,
       );
     } finally {
-      if (shareAttempt !== shareAttemptRef.current) return;
-      shareInFlightRef.current = false;
-      if (!mountedRef.current) return;
-      setSharePending(false);
-      if (outputUrlRef.current === sharedUrl) {
-        window.setTimeout(() => {
-          if (
-            mountedRef.current &&
-            !shareInFlightRef.current &&
-            outputUrlRef.current === sharedUrl
-          ) {
-            shareRef.current?.focus();
+      if (shareAttempt === shareAttemptRef.current) {
+        shareInFlightRef.current = false;
+        if (mountedRef.current) {
+          setSharePending(false);
+          if (outputUrlRef.current === sharedUrl) {
+            window.setTimeout(() => {
+              if (
+                mountedRef.current &&
+                !shareInFlightRef.current &&
+                outputUrlRef.current === sharedUrl
+              ) {
+                shareRef.current?.focus();
+              }
+            }, 0);
           }
-        }, 0);
+        }
       }
     }
   };
