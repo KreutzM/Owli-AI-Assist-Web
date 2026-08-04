@@ -23,5 +23,8 @@ export const MEDIA_RECORDER_LIMITS = {
   maxContainerInspectionBytes: 2 * 1024 * 1024,
 } as const;
 
+// Compressed sources without gapless metadata can decode with one or two padded codec frames.
+// This fixed allowance is never compared with backend duration metadata.
+export const BRANDED_VIDEO_SOURCE_CODEC_PADDING_MS = 50;
 export const BRANDED_VIDEO_TOTAL_SLACK_MS = 15_000;
 export const BRANDED_VIDEO_DURATION_DRIFT_MS = 250;
