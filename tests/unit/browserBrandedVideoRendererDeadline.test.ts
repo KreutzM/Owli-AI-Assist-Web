@@ -370,7 +370,7 @@ function installMediaGlobals(): void {
 }
 
 function bitmap(width: number, height: number): ImageBitmap {
-  return { width, height, close: vi.fn() } as unknown as ImageBitmap;
+  return { width, height, close: vi.fn() };
 }
 
 function decodedAudio({
@@ -388,7 +388,7 @@ function decodedAudio({
     getChannelData: () => new Float32Array([0.25, -0.25, 0.125]),
     copyFromChannel: vi.fn(),
     copyToChannel: vi.fn(),
-  } as unknown as AudioBuffer;
+  };
 }
 
 function fakeCanvas(): HTMLCanvasElement {
