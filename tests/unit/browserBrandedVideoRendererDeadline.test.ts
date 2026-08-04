@@ -31,7 +31,9 @@ beforeEach(() => {
   installMediaGlobals();
   vi.mocked(recordAudioCanvas).mockReset().mockResolvedValue(outputBlob);
   vi.mocked(validateBrandedVideoOutput).mockReset().mockResolvedValue(undefined);
-  vi.mocked(drawBrandedVideoFrame).mockReset().mockReturnValue({} as never);
+  vi.mocked(drawBrandedVideoFrame)
+    .mockReset()
+    .mockReturnValue({} as never);
 });
 
 afterEach(() => {
@@ -49,9 +51,7 @@ describe('branded video renderer deadline phases', () => {
     const rendering = renderBrandedVideo(input({ signal: controller.signal }));
     await flushToRecording();
 
-    expect(setTimeoutSpy.mock.calls[0]?.[1]).toBe(
-      MEDIA_RECORDER_LIMITS.initializationDeadlineMs,
-    );
+    expect(setTimeoutSpy.mock.calls[0]?.[1]).toBe(MEDIA_RECORDER_LIMITS.initializationDeadlineMs);
     expect(getSignal().aborted).toBe(false);
 
     await cancelPending(controller, rendering);
@@ -120,10 +120,7 @@ describe('branded video renderer deadline phases', () => {
 
   it('reports VIDEO_RENDER_DEADLINE_EXCEEDED at the dynamic render deadline', async () => {
     installPendingRecording();
-    const rendering = expectCode(
-      renderBrandedVideo(input()),
-      'VIDEO_RENDER_DEADLINE_EXCEEDED',
-    );
+    const rendering = expectCode(renderBrandedVideo(input()), 'VIDEO_RENDER_DEADLINE_EXCEEDED');
     await flushToRecording();
 
     await vi.advanceTimersByTimeAsync(1_000 + BRANDED_VIDEO_TOTAL_SLACK_MS);
@@ -230,10 +227,7 @@ describe('branded video renderer deadline phases', () => {
 
   it('releases the render token after a deadline so retry succeeds', async () => {
     installPendingRecording();
-    const first = expectCode(
-      renderBrandedVideo(input()),
-      'VIDEO_RENDER_DEADLINE_EXCEEDED',
-    );
+    const first = expectCode(renderBrandedVideo(input()), 'VIDEO_RENDER_DEADLINE_EXCEEDED');
     await flushToRecording();
     await vi.advanceTimersByTimeAsync(1_000 + BRANDED_VIDEO_TOTAL_SLACK_MS);
     await first;
