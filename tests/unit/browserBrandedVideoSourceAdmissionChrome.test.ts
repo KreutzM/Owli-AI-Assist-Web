@@ -83,7 +83,11 @@ describe('real Chrome decoded-audio admission harness', () => {
             await context.close();
           }
 
-          function createWav(durationMs: number, sampleRate: number, channels: number): ArrayBuffer {
+          function createWav(
+            durationMs: number,
+            sampleRate: number,
+            channels: number,
+          ): ArrayBuffer {
             const frames = Math.round((durationMs / 1_000) * sampleRate);
             const bytesPerSample = 2;
             const dataBytes = frames * channels * bytesPerSample;
@@ -162,7 +166,11 @@ describe('real Chrome decoded-audio admission harness', () => {
         expect(outcome).toMatchObject({ numberOfChannels: 2, sampleRate: 48_000 });
       }
       const mp3Outcome = outcomes.find((candidate) => candidate.name === MP3_FIXTURE_NAME);
-      expect(mp3Outcome).toMatchObject({ numberOfChannels: 1, sampleRate: 48_000, code: undefined });
+      expect(mp3Outcome).toMatchObject({
+        numberOfChannels: 1,
+        sampleRate: 48_000,
+        code: undefined,
+      });
       expect((mp3Outcome?.duration ?? 0) * 1_000).toBeGreaterThan(
         MEDIA_RECORDER_LIMITS.maxDurationMs,
       );
