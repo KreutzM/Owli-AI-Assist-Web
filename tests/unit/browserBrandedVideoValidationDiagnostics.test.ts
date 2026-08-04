@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { assertDecodedBrandedFrame } from '@/platform/media/brandedVideoFrameValidation';
 import { validateBrandedVideoOutput } from '@/platform/media/browserBrandedVideoValidation';
-import { BRANDED_VIDEO_DURATION_DRIFT_MS } from '@/platform/media/mediaRecorderLimits';
+import {
+  BRANDED_VIDEO_MAX_OUTPUT_PADDING_MS,
+  BRANDED_VIDEO_MAX_OUTPUT_SHORTFALL_MS,
+} from '@/platform/media/mediaRecorderLimits';
 import {
   assertExpectedWebmTracks,
   inspectWebmContainer,
@@ -22,15 +25,6 @@ const validInspection = {
   videoCodecs: ['V_VP8'],
   audioCodecs: ['A_OPUS'],
 };
-const validAudioBuffer: AudioBuffer = {
-  duration: 1,
-  length: 1_000,
-  numberOfChannels: 1,
-  sampleRate: 48_000,
-  getChannelData: () => new Float32Array([0.1, -0.1, 0.2]),
-  copyFromChannel: vi.fn(),
-  copyToChannel: vi.fn(),
-};
 let video: FakeVideo;
 
 beforeEach(() => {
@@ -47,7 +41,7 @@ beforeEach(() => {
         ? (video as unknown as HTMLVideoElement)
         : createElement(tagName, options),
   );
-  installAudioContext(validAudioBuffer);
+  installAudioContext(audioBuffer(1));
 });
 
 afterEach(() => {
@@ -90,17 +84,26 @@ describe('branded video output diagnostic categories', () => {
     await expectCode(validate(), 'VIDEO_METADATA_VALIDATION_FAILED');
   });
 
-  it('keeps the 250-ms tolerance between decoded source audio and measured output', async () => {
-    video.duration = (1_000 + BRANDED_VIDEO_DURATION_DRIFT_MS) / 1_000;
+  it('accepts bounded output padding and rejects the next millisecond', async () => {
+    video.duration = (1_000 + BRANDED_VIDEO_MAX_OUTPUT_PADDING_MS) / 1_000;
     await expect(validate()).resolves.toBeUndefined();
 
     video = new FakeVideo();
-    video.duration = (1_000 + BRANDED_VIDEO_DURATION_DRIFT_MS + 1) / 1_000;
+    video.duration = (1_000 + BRANDED_VIDEO_MAX_OUTPUT_PADDING_MS + 1) / 1_000;
+    await expectCode(validate(), 'VIDEO_DURATION_VALIDATION_FAILED');
+  });
+
+  it('accepts the shortfall tolerance and rejects the next millisecond', async () => {
+    video.duration = (1_000 - BRANDED_VIDEO_MAX_OUTPUT_SHORTFALL_MS) / 1_000;
+    await expect(validate()).resolves.toBeUndefined();
+
+    video = new FakeVideo();
+    video.duration = (1_000 - BRANDED_VIDEO_MAX_OUTPUT_SHORTFALL_MS - 1) / 1_000;
     await expectCode(validate(), 'VIDEO_DURATION_VALIDATION_FAILED');
   });
 
   it('categorizes output duration resolution and larger drift', async () => {
-    video.duration = 2;
+    video.duration = 4;
 
     await expectCode(validate(), 'VIDEO_DURATION_VALIDATION_FAILED');
   });
@@ -125,7 +128,23 @@ describe('branded video output diagnostic categories', () => {
     await expectCode(validate(), 'VIDEO_PLAYBACK_PROBE_FAILED');
   });
 
-  it('categorizes output audio decode, duration, and energy validation', async () => {
+  it('applies the same asymmetric duration envelope to the output audio track', async () => {
+    installAudioContext(audioBuffer((1_000 + BRANDED_VIDEO_MAX_OUTPUT_PADDING_MS) / 1_000));
+    await expect(validate()).resolves.toBeUndefined();
+
+    installAudioContext(audioBuffer((1_000 + BRANDED_VIDEO_MAX_OUTPUT_PADDING_MS + 1) / 1_000));
+    await expectCode(validate(), 'VIDEO_OUTPUT_AUDIO_VALIDATION_FAILED');
+
+    installAudioContext(audioBuffer((1_000 - BRANDED_VIDEO_MAX_OUTPUT_SHORTFALL_MS) / 1_000));
+    await expect(validate()).resolves.toBeUndefined();
+
+    installAudioContext(
+      audioBuffer((1_000 - BRANDED_VIDEO_MAX_OUTPUT_SHORTFALL_MS - 1) / 1_000),
+    );
+    await expectCode(validate(), 'VIDEO_OUTPUT_AUDIO_VALIDATION_FAILED');
+  });
+
+  it('categorizes output audio decode and energy validation', async () => {
     installAudioContext(undefined, new Error('A/V WebM decode failed'));
 
     await expectCode(validate(), 'VIDEO_OUTPUT_AUDIO_VALIDATION_FAILED');
@@ -153,6 +172,18 @@ function validate({
 
 async function expectCode(promise: Promise<void>, code: string): Promise<void> {
   await expect(promise).rejects.toMatchObject({ name: 'BrandedVideoExportError', code });
+}
+
+function audioBuffer(duration: number): AudioBuffer {
+  return {
+    duration,
+    length: Math.max(1, Math.round(duration * 48_000)),
+    numberOfChannels: 1,
+    sampleRate: 48_000,
+    getChannelData: () => new Float32Array([0.1, -0.1, 0.2]),
+    copyFromChannel: vi.fn(),
+    copyToChannel: vi.fn(),
+  };
 }
 
 function installAudioContext(buffer?: AudioBuffer, failure?: Error): void {
